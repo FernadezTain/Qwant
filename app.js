@@ -13,6 +13,7 @@ const settingsOverlay = document.getElementById('settingsOverlay');
 const pageLoader = document.getElementById('pageLoader');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 let session = readSession();
+let pinnedChatIds = new Set(readPinnedChatIds());
 let accountSettings = null;
 let telegramId = null;
 let deviceCheckTimer;
@@ -30,6 +31,9 @@ let replyToMessageId = null;
 let longPressTimer;
 let longPressStart = null;
 let suppressMessageClick = false;
+let chatLongPressTimer;
+let chatLongPressStart = null;
+let suppressChatClick = false;
 let managedBots = [];
 let selectedManagedBot = null;
 let selectedBotChat = null;
@@ -47,6 +51,16 @@ function readSession() {
   }
 }
 
+function readPinnedChatIds() {
+  if (!session?.userId) return [];
+  try {
+    const pinned = JSON.parse(localStorage.getItem(`ferniex_messenger_pins_${session.userId}`) || '[]');
+    return Array.isArray(pinned) ? pinned.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 function saveSession(data) {
   session = {
     sessionToken: data.sessionToken,
@@ -55,6 +69,7 @@ function saveSession(data) {
     role: data.role || 'user',
     deviceId: session?.deviceId || crypto.randomUUID()
   };
+  pinnedChatIds = new Set(readPinnedChatIds());
   localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
 }
 
@@ -643,6 +658,7 @@ function mapChat(row) {
     time: formatTime(row.lastMessageAt),
     preview: row.lastMessage || 'Начните переписку',
     unread: Number(row.unreadCount) || 0,
+    pinned: pinnedChatIds.has(String(row.id)),
     online: false,
     personal: true,
     messages: [],
@@ -651,18 +667,26 @@ function mapChat(row) {
 }
 
 function renderChats() {
+  closeChatContextMenu();
   const query = searchInput.value.trim().toLocaleLowerCase('ru');
   const filtered = chats.filter(chat => {
     const matchesQuery = `${chat.name} ${chat.preview} ${chat.handle}`.toLocaleLowerCase('ru').includes(query);
     const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' ? chat.unread > 0 : chat.personal);
     return matchesQuery && matchesFilter;
-  });
+  }).sort((left, right) => Number(right.pinned) - Number(left.pinned));
   chatList.innerHTML = filtered.length ? filtered.map(chat => `
     <button class="chat-item ${chat.id === activeId ? 'active' : ''}" data-chat="${escapeHtml(chat.id)}">
       <span class="avatar-wrap">${avatarMarkup(chat.partner)}${chat.online ? '<span class="online-dot"></span>' : ''}</span>
-      <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(chat.name)}</span><span class="chat-time">${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
+      <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(chat.name)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
     </button>`).join('') : `<div class="empty-state">${query ? 'Ничего не найдено' : 'Здесь появятся ваши чаты'}</div>`;
-  chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', () => selectChat(button.dataset.chat)));
+  chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', () => {
+    if (suppressChatClick) {
+      suppressChatClick = false;
+      return;
+    }
+    closeChatContextMenu();
+    selectChat(button.dataset.chat);
+  }));
 }
 
 function messageMarkup(chat, message, previousDate = '', animate = false) {
@@ -924,7 +948,11 @@ async function loadChats() {
     }
     const firstLoad = !chatsLoadedOnce;
     chatsLoadedOnce = true;
-    if (firstLoad && !activeId && chats.length) await selectChat(chats[0].id);
+    if (firstLoad && !activeId && chats.length) {
+      const requestedChatId = new URLSearchParams(window.location.search).get('chatId');
+      const requestedChat = requestedChatId && chats.find(chat => String(chat.id) === requestedChatId);
+      await selectChat(requestedChat?.id || chats[0].id);
+    }
     if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
   } catch (error) {
     if (error.status === 401) {
@@ -1084,6 +1112,95 @@ function closeMessageMenu() {
   document.getElementById('messageContextMenu').replaceChildren();
 }
 
+function closeChatContextMenu() {
+  const menu = document.getElementById('chatContextMenu');
+  menu.classList.remove('open');
+  menu.replaceChildren();
+}
+
+function openChatContextMenu(chatId, x, y) {
+  const chat = chats.find(item => String(item.id) === String(chatId));
+  if (!chat) return;
+  closeMessageMenu();
+  const menu = document.getElementById('chatContextMenu');
+  menu.innerHTML = `
+    <div class="context-menu-date">${escapeHtml(chat.name)}</div>
+    <div class="context-menu-divider"></div>
+    <button class="context-menu-action" type="button" data-chat-action="new-window"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="13" height="13" rx="2"/><path d="M9 20h9a2 2 0 0 0 2-2V9"/></svg>Открыть в отдельном окне</button>
+    <button class="context-menu-action" type="button" data-chat-action="pin"><svg viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4 2 2-2 2-4-4-5 5M8 8l2-2 2 2 4-4 1-4"/></svg>${chat.pinned ? 'Открепить' : 'Закрепить'}</button>
+    <button class="context-menu-action" type="button" data-chat-action="unread"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></svg>Пометить как непрочитанное</button>
+    <button class="context-menu-action danger" type="button" data-chat-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить чат</button>`;
+  menu.dataset.chatId = String(chat.id);
+  menu.classList.add('open');
+  const bounds = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`;
+}
+
+function togglePinnedChat(chatId) {
+  const chat = chats.find(item => String(item.id) === String(chatId));
+  if (!chat || !session?.userId) return;
+  chat.pinned = !chat.pinned;
+  if (chat.pinned) pinnedChatIds.add(String(chat.id));
+  else pinnedChatIds.delete(String(chat.id));
+  localStorage.setItem(`ferniex_messenger_pins_${session.userId}`, JSON.stringify([...pinnedChatIds]));
+  renderChats();
+  showMessageToast(chat.pinned ? 'Чат закреплён' : 'Чат откреплён');
+}
+
+function openChatInNewWindow(chatId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('chatId', chatId);
+  window.open(url.toString(), `qwant-chat-${chatId}`, 'popup,width=1100,height=800,noopener,noreferrer');
+}
+
+async function markChatUnread(chatId) {
+  const chat = chats.find(item => String(item.id) === String(chatId));
+  if (!chat) return;
+  try {
+    const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/unread`, { method:'POST' });
+    if (activeId === chat.id) {
+      api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method:'DELETE' }).catch(() => {});
+      activeId = null;
+      app.classList.remove('show-conversation');
+    }
+    await loadChats();
+    showMessageToast(result.unread ? 'Чат помечен как непрочитанный' : 'В этом чате нет входящих сообщений');
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось пометить чат');
+  }
+}
+
+async function hideChatFromList(chatId) {
+  const chat = chats.find(item => String(item.id) === String(chatId));
+  if (!chat || !window.confirm(`Удалить чат «${chat.name}» из вашего списка?`)) return;
+  try {
+    await api(`/api/social/chats/${encodeURIComponent(chat.id)}/hide`, { method:'POST' });
+    chats = chats.filter(item => String(item.id) !== String(chat.id));
+    pinnedChatIds.delete(String(chat.id));
+    if (session?.userId) localStorage.setItem(`ferniex_messenger_pins_${session.userId}`, JSON.stringify([...pinnedChatIds]));
+    if (activeId === chat.id) {
+      activeId = null;
+      app.classList.remove('show-conversation');
+      document.getElementById('messageForm').hidden = false;
+      document.getElementById('deletedChatActions').hidden = true;
+      messages.innerHTML = '<div class="empty-state">Чат удален из вашего списка.</div>';
+    }
+    renderChats();
+    showMessageToast('Чат удалён из списка');
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось удалить чат');
+  }
+}
+
+async function handleChatMenuAction(action, chatId) {
+  closeChatContextMenu();
+  if (action === 'new-window') openChatInNewWindow(chatId);
+  if (action === 'pin') togglePinnedChat(chatId);
+  if (action === 'unread') await markChatUnread(chatId);
+  if (action === 'delete') await hideChatFromList(chatId);
+}
+
 function showMessageToast(text) {
   const toast = document.getElementById('messageToast');
   toast.textContent = text;
@@ -1137,6 +1254,7 @@ function openMessageMenu(messageId, x, y) {
   const chat = chats.find(item => item.id === activeId);
   const message = chat?.messages.find(item => String(item.id) === String(messageId));
   if (!message) return;
+  closeChatContextMenu();
   const menu = document.getElementById('messageContextMenu');
   const timestamp = formatDateTime(message.createdAt).replace(',', ' в');
   const imageAction = messageImageUrl(message)
@@ -1467,6 +1585,39 @@ messages.addEventListener('contextmenu', event => {
   event.preventDefault();
   openMessageMenu(row.dataset.messageId, event.clientX, event.clientY);
 });
+chatList.addEventListener('contextmenu', event => {
+  const row = event.target.closest('[data-chat]');
+  if (!row) return;
+  event.preventDefault();
+  openChatContextMenu(row.dataset.chat, event.clientX, event.clientY);
+});
+chatList.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'touch') return;
+  const row = event.target.closest('[data-chat]');
+  if (!row) return;
+  clearTimeout(chatLongPressTimer);
+  chatLongPressStart = { x:event.clientX, y:event.clientY, id:row.dataset.chat };
+  chatLongPressTimer = setTimeout(() => {
+    if (!chatLongPressStart) return;
+    suppressChatClick = true;
+    openChatContextMenu(chatLongPressStart.id, chatLongPressStart.x, chatLongPressStart.y);
+    chatLongPressStart = null;
+    setTimeout(() => { suppressChatClick = false; }, 900);
+  }, 520);
+});
+chatList.addEventListener('pointermove', event => {
+  if (!chatLongPressStart) return;
+  if (Math.hypot(event.clientX - chatLongPressStart.x, event.clientY - chatLongPressStart.y) > 12) {
+    clearTimeout(chatLongPressTimer);
+    chatLongPressStart = null;
+  }
+});
+for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
+  chatList.addEventListener(eventName, () => {
+    clearTimeout(chatLongPressTimer);
+    chatLongPressStart = null;
+  });
+}
 messages.addEventListener('pointerdown', event => {
   if (event.pointerType !== 'touch') return;
   const row = event.target.closest('.message-row[data-message-id]');
@@ -1504,11 +1655,19 @@ document.getElementById('messageContextMenu').addEventListener('click', async ev
   if (action === 'copy') await copyMessage(messageId);
   if (action === 'delete') await deleteMessage(messageId);
 });
+document.getElementById('chatContextMenu').addEventListener('click', async event => {
+  const action = event.target.closest('[data-chat-action]')?.dataset.chatAction;
+  const chatId = document.getElementById('chatContextMenu').dataset.chatId;
+  if (action && chatId) await handleChatMenuAction(action, chatId);
+});
 document.addEventListener('pointerdown', event => {
   const menu = document.getElementById('messageContextMenu');
   if (menu.classList.contains('open') && !menu.contains(event.target)) closeMessageMenu();
+  const chatMenu = document.getElementById('chatContextMenu');
+  if (chatMenu.classList.contains('open') && !chatMenu.contains(event.target)) closeChatContextMenu();
 });
 messages.addEventListener('scroll', closeMessageMenu, { passive: true });
+chatList.addEventListener('scroll', closeChatContextMenu, { passive:true });
 document.getElementById('giftModalClose').addEventListener('click', closeGift);
 document.getElementById('giftModal').addEventListener('click', event => {
   if (event.target.id === 'giftModal') closeGift();
@@ -1658,6 +1817,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
   if (event.key === 'Escape') closeMessageMenu();
+  if (event.key === 'Escape') closeChatContextMenu();
 });
 
 async function bootstrap() {
