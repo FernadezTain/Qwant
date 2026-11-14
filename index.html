@@ -34,7 +34,7 @@
     * { box-sizing: border-box; cursor: default; user-select: none; -webkit-user-select: none; }
     input, textarea { cursor: text; user-select: text; -webkit-user-select: text; }
     select, select *, button, button *, a, a *, label[for] { cursor: pointer; }
-    body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); zoom: var(--page-zoom, 1); }
+    body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
     button, input { font: inherit; }
     button { color: inherit; }
     .app { display: grid; grid-template-columns: 330px minmax(360px, 1fr) 286px; width: 100%; height: 100%; padding: 14px; gap: 10px; }
@@ -53,7 +53,7 @@
     .icon-button:hover { border-color: #d7cfc2; color: var(--ink); }
     .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .search { display: flex; align-items: center; gap: 9px; padding: 0 12px; height: 42px; border: 1px solid transparent; border-radius: 13px; background: var(--surface-soft); color: var(--muted); }
-    .search:focus-within { border-color: #d8b8aa; background: white; }
+    .search:focus-within { border-color: color-mix(in srgb,var(--accent) 45%,var(--line)); background: var(--surface); }
     .search svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
     .search input::placeholder { color: #a4a198; }
@@ -63,7 +63,7 @@
     .chat-list { flex: 1; overflow-y: auto; padding: 2px 9px 10px; }
     .chat-item { display: flex; width: 100%; align-items: center; gap: 11px; padding: 11px 10px; border: 0; border-radius: 15px; background: transparent; text-align: left; cursor: pointer; transition: background .16s ease; }
     .chat-item:hover { background: var(--surface-soft); }
-    .chat-item.active { background: #f4eee8; }
+    .chat-item.active { background: var(--accent-soft); }
     .avatar-wrap { position: relative; flex: 0 0 auto; }
     .avatar { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 17px; background: #e8d5c8; color: #765548; font-size: 15px; font-weight: 700; line-height: 1; text-align: center; object-fit: cover; }
     .avatar.round { border-radius: 50%; }
@@ -77,14 +77,23 @@
     .pin { color: #a9a49a; font-size: 11px; }
 
     .conversation { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
-    .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: rgba(255, 254, 250, .94); }
+    .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
     .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
     .person-name { font-size: 14px; font-weight: 700; }
     .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
     .head-actions { display: flex; gap: 7px; }
     .head-actions .icon-button { width: 35px; height: 35px; border: 0; }
-    .messages { display: flex; flex: 1; flex-direction: column; gap: 7px; overflow-y: auto; padding: 18px clamp(16px, 5vw, 65px); background-color: #f7f6f2; background-image: radial-gradient(rgba(140, 125, 102, .095) .8px, transparent .8px); background-size: 19px 19px; }
+    .messages { display: flex; flex: 1; flex-direction: column; gap: 7px; overflow-y: auto; padding: 18px clamp(16px, 5vw, 65px); background-color: var(--surface-soft); background-image: radial-gradient(rgba(140, 125, 102, .095) .8px, transparent .8px); background-size: 19px 19px; }
+    .messages.has-chat-wallpaper { background-image: linear-gradient(rgba(248,247,243,.25),rgba(248,247,243,.25)),var(--chat-wallpaper); background-position: center; background-size: cover; background-repeat: no-repeat; }
+    .messages.has-chat-wallpaper .message-row:not(.own) .bubble { background: color-mix(in srgb,var(--bubble-incoming) 90%,transparent); backdrop-filter: blur(12px); }
+    .messages.has-chat-wallpaper .message-row.own .bubble { background: color-mix(in srgb,var(--bubble-outgoing) 88%,transparent); backdrop-filter: blur(12px); }
+    .dark-theme .messages.has-chat-wallpaper { background-image: linear-gradient(rgba(8,13,20,.48),rgba(8,13,20,.48)),var(--chat-wallpaper); }
+    .chat-wallpaper-preview { position: relative; display: grid; min-height: 74px; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--muted); font-size: 10px; }
+    .chat-wallpaper-preview.has-image { background-position: center; background-size: cover; color: white; text-shadow: 0 1px 5px rgba(0,0,0,.8); }
+    .chat-wallpaper-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+    .chat-wallpaper-actions .settings-button { min-height: 32px; }
+    .chat-appearance[hidden] { display: none; }
     .date-pill { align-self: center; margin: 1px 0 5px; padding: 6px 12px; border: 1px solid rgba(232, 230, 224, .9); border-radius: 99px; background: rgba(255, 254, 250, .92); color: var(--muted); font-size: 10px; font-weight: 600; }
     .message-row { display: flex; align-items: flex-end; gap: 6px; }
     .message-row.own { justify-content: flex-end; }
@@ -195,7 +204,7 @@
     .deleted-chat-button:hover { border-color: #b94a3f; background: #f9e9e5; }
     .deleted-chat-button:disabled { opacity: .6; cursor: wait; }
     .deleted-chat-status { width: 100%; color: var(--muted); font-size: 10px; text-align: center; }
-    .composer { display: flex; min-height: 48px; align-items: center; gap: 8px; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: 16px; background: #fbfaf7; }
+    .composer { display: flex; min-height: 48px; align-items: center; gap: 8px; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
     .composer .icon-button { width: 34px; height: 34px; border: 0; background: transparent; }
     .composer input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
     .composer input::placeholder { color: #a4a198; }
@@ -277,14 +286,18 @@
     .media-tile img { width: 100%; height: 100%; object-fit: cover; }
     .details-hidden { grid-template-columns: 330px minmax(360px, 1fr); }
     .details-hidden .details { display: none; }
+    body[data-theme="rose"] { color-scheme: light; --page: #f7edf1; --surface: #fffafd; --surface-soft: #f4e8ee; --ink: #392833; --muted: #987d8e; --line: #ead9e2; --accent-soft: #f6e1ec; --bubble-incoming: #fffafd; --bubble-incoming-border: #efdae5; --bubble-outgoing: #c85f8e; --bubble-outgoing-ink: #fff; }
+    body[data-theme="forest"] { color-scheme: light; --page: #edf2eb; --surface: #fbfdf9; --surface-soft: #e9f0e7; --ink: #26362d; --muted: #7d9183; --line: #d8e3d8; --accent-soft: #e2eee4; --bubble-incoming: #fbfdf9; --bubble-incoming-border: #dbe7db; --bubble-outgoing: #4c8b69; --bubble-outgoing-ink: #fff; }
+    body[data-theme="sand"] { color-scheme: light; --page: #f4eee3; --surface: #fffaf0; --surface-soft: #f3ead9; --ink: #382f22; --muted: #93836b; --line: #e6dac4; --accent-soft: #f4e5cf; --bubble-incoming: #fffaf0; --bubble-incoming-border: #e9dcc7; --bubble-outgoing: #b57a45; --bubble-outgoing-ink: #fff; }
+    body.dark-theme[data-theme="midnight"] { --page: #0b1220; --surface: #111c2c; --surface-soft: #19283b; --ink: #e9f0fb; --muted: #91a5bd; --line: #26364a; --accent-soft: #273951; --bubble-incoming: #17263a; --bubble-incoming-border: #263b55; --bubble-outgoing: #356ba8; --bubble-outgoing-ink: #f5f8ff; }
     .dark-theme { color-scheme: dark; --page: #101820; --surface: #17212b; --surface-soft: #202c38; --ink: #e7edf3; --muted: #91a0ad; --line: #293743; --accent-soft: #392b2c; --bubble-incoming: #1b2833; --bubble-incoming-border: #263744; --bubble-outgoing: #285d91; --bubble-outgoing-ink: #f4f8ff; --shadow: 0 24px 70px -38px rgba(0,0,0,.7); }
-    .dark-theme .messages { background-color: #111a22; background-image: radial-gradient(rgba(180,195,205,.08) .8px, transparent .8px); }
-    .dark-theme .conversation-head { background: rgba(23,33,43,.94); }
+    .dark-theme .messages { background-color: var(--page); background-image: radial-gradient(rgba(180,195,205,.08) .8px, transparent .8px); }
+    .dark-theme .conversation-head { background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .dark-theme .bubble { background: var(--bubble-incoming); border-color: var(--bubble-incoming-border); color: #e4eaf0; }
     .dark-theme .own .bubble { background: var(--bubble-outgoing); border-color: transparent; color: var(--bubble-outgoing-ink); }
     .dark-theme .gift-preview-card, .dark-theme .gift-modal-card { background: var(--surface); }
     .dark-theme .gift-preview-specs, .dark-theme .gift-detail-table { border-color: var(--line); }
-    .dark-theme .composer { background: #1b2833; }
+    .dark-theme .composer { background: var(--surface-soft); }
     .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
     .drawer-backdrop.open { opacity: 1; visibility: visible; }
@@ -434,7 +447,7 @@
     .bot-setting-field input:focus, .bot-setting-field textarea:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
     .bot-setting-field textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
     .bot-token-row { display: flex; gap: 8px; align-items: center; }
-    .bot-token-input { min-width: 0; flex: 1; height: 39px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); color: var(--ink); font: 11px ui-monospace, monospace; }
+    .bot-token-input { min-width: 0; flex: 1; height: 39px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); color: var(--ink); font-family: ui-monospace, monospace; font-size: calc(11px * var(--font-scale, 1)); }
     .bot-settings-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 15px; }
     .bot-settings-actions .settings-button { transition: transform .18s ease, border-color .18s ease, color .18s ease, background .18s ease; }
     .bot-settings-actions .settings-button:hover:not(:disabled) { transform: translateY(-1px); }
@@ -668,6 +681,7 @@
     <aside class="details" aria-label="Информация о контакте">
       <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
       <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
+      <div class="detail-section chat-appearance" id="chatAppearance" hidden><div class="section-label">Оформление чата</div><div class="chat-wallpaper-preview" id="chatWallpaperPreview"><span>Фон по умолчанию</span></div><input id="chatWallpaperInput" type="file" accept="image/*" hidden><div class="chat-wallpaper-actions"><button class="settings-button" id="chooseChatWallpaper" type="button">Своё фото</button><button class="settings-button" id="removeChatWallpaper" type="button" hidden>Сбросить</button></div><div class="settings-status" id="chatWallpaperStatus" role="status" aria-live="polite"></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
       <div class="detail-foot">Личные сообщения защищены</div>
@@ -721,9 +735,9 @@
             <div class="setting-row"><div><div class="setting-label">Новые чаты</div><div class="setting-description">Разрешить открывать новые переписки через поиск пользователей.</div></div><button class="setting-switch" data-setting="allow_new_chats" role="switch" aria-checked="true"></button></div>
           </section>
           <section class="settings-page" data-settings-content="personalization"><h2 class="settings-page-title">Персонализация</h2><p class="settings-page-copy">Настройте внешний вид Messenger. Изменения сохраняются в аккаунте.</p>
-            <div class="setting-row"><div><div class="setting-label">Тема</div><div class="setting-description">Светлая или тёмная.</div></div><select class="settings-button" id="themeSelect"><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div>
+            <div class="setting-row"><div><div class="setting-label">Тема</div><div class="setting-description">Выберите цветовую тему интерфейса.</div></div><select class="settings-button" id="themeSelect"><option value="light">Светлая</option><option value="dark">Тёмная</option><option value="midnight">Полночь</option><option value="rose">Розовая</option><option value="forest">Лесная</option><option value="sand">Песочная</option></select></div>
             <div class="setting-label" style="margin-top:18px">Цвет акцента</div><div class="color-options" id="accentOptions"><button class="color-option" data-color="#b64f3f" style="background:#b64f3f" aria-label="Терракотовый"></button><button class="color-option" data-color="#597a68" style="background:#597a68" aria-label="Зелёный"></button><button class="color-option" data-color="#6c73a8" style="background:#6c73a8" aria-label="Синий"></button><button class="color-option" data-color="#b57a45" style="background:#b57a45" aria-label="Золотой"></button></div>
-            <div class="setting-row"><div><div class="setting-label">Размер текста</div><div class="setting-description" id="fontScaleLabel">100%</div></div><input class="settings-range" id="fontScale" type="range" min="90" max="115" step="5" value="100"></div>
+            <div class="setting-row"><div><div class="setting-label">Размер текста</div><div class="setting-description" id="fontScaleLabel">100%</div><div class="setting-description">Меняется только текст, размер панелей не меняется.</div></div><input class="settings-range" id="fontScale" type="range" min="90" max="115" step="5" value="100"></div>
           </section>
           <section class="settings-page" data-settings-content="plus"><h2 class="settings-page-title">Fernie+</h2><p class="settings-page-copy">Статус подписки FernieID.</p><div class="product-card"><h3 class="product-title">✦ Fernie+</h3><div class="product-balance" id="plusStatus">Проверяем подписку…</div><p class="product-description">Подписка FernieID расширяет возможности экосистемы. Управление подпиской и условия доступны на сайте FernieID.</p><button class="settings-button" id="openFernieIdPlus" type="button">Открыть FernieID</button></div></section>
           <section class="settings-page" data-settings-content="coins"><h2 class="settings-page-title">FernieCoins</h2><p class="settings-page-copy">Баланс валюты аккаунта FernieID.</p><div class="product-card"><h3 class="product-title">◉ FernieCoins</h3><div class="product-balance" id="coinsBalance">Загружаем баланс…</div><p class="product-description">Баланс показывается из аккаунта FernieID. Пополнение и операции доступны в экосистеме FernieID.</p><button class="settings-button" id="openFernieIdCoins" type="button">Открыть FernieID</button></div></section>
