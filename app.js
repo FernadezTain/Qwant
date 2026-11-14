@@ -328,7 +328,44 @@ function openBotManager() {
 function closeBotManager() {
   document.getElementById('botManager').classList.remove('open');
   document.getElementById('botManager').setAttribute('aria-hidden', 'true');
+  closeBotSettings();
   clearInterval(botRefreshTimer);
+}
+
+function closeBotSettings() {
+  const overlay = document.getElementById('botSettingsOverlay');
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function openBotSettings() {
+  if (!selectedManagedBot) return;
+  document.getElementById('botSettingsCopy').textContent = `Удалить @${selectedManagedBot.username}? Бот исчезнет из поиска, а в существующих чатах будет отображаться как удаленный аккаунт. История переписки сохранится.`;
+  const overlay = document.getElementById('botSettingsOverlay');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+async function deleteManagedBot() {
+  if (!selectedManagedBot) return;
+  const button = document.getElementById('botDeleteButton');
+  button.disabled = true;
+  setBotStatus('Удаляем бота…');
+  try {
+    await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}`, { method:'DELETE' });
+    closeBotSettings();
+    selectedManagedBot = null;
+    selectedBotChat = null;
+    document.getElementById('botInboxPanel').classList.remove('active', 'hidden');
+    document.getElementById('botThreadPanel').classList.remove('active');
+    document.getElementById('botListPanel').classList.remove('hidden');
+    setBotStatus('Бот удален. В существующих переписках он отображается как удаленный аккаунт.');
+    await loadManagedBots();
+  } catch (error) {
+    setBotStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function openManagedBot(bot) {
@@ -423,11 +460,20 @@ function initials(name = '') {
 function avatarMarkup(person, className = 'avatar') {
   const name = person.display_name || person.username || person.name || 'Пользователь';
   const color = colors[Math.abs(Number(String(person.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length];
+  if (person.is_deleted) return `<span class="${className} deleted-account" aria-label="Удаленный аккаунт">⊘</span>`;
   const photo = safeImageUrl(person.avatar_url);
   return `<span class="${className}" style="background:${color}">${photo ? `<img src="${escapeHtml(photo)}" alt="">` : escapeHtml(initials(name))}</span>`;
 }
 
 function setAvatar(element, person) {
+  if (person.is_deleted) {
+    element.classList.add('deleted-account');
+    element.style.background = '';
+    element.replaceChildren();
+    element.textContent = '⊘';
+    return;
+  }
+  element.classList.remove('deleted-account');
   const photo = safeImageUrl(person.avatar_url);
   element.style.background = colors[Math.abs(Number(String(person.id || person.username || '').replace(/\D/g, '').slice(-6)) || String(person.username || '').length) % colors.length];
   element.replaceChildren();
@@ -481,7 +527,7 @@ function mapChat(row) {
     id: row.id,
     partner,
     name,
-    handle: `@${partner.username || name}`,
+    handle: partner.is_deleted ? 'Аккаунт удален' : partner.username ? `@${partner.username}` : name,
     initials: initials(name),
     color: colors[Math.abs(Number(String(partner.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length],
     lastMessageAt: row.lastMessageAt,
@@ -1159,6 +1205,12 @@ document.getElementById('botTokenCopy').addEventListener('click', async () => {
   }
 });
 document.getElementById('botInboxRefresh').addEventListener('click', loadManagedBotInbox);
+document.getElementById('botSettingsOpen').addEventListener('click', openBotSettings);
+document.getElementById('botSettingsCancel').addEventListener('click', closeBotSettings);
+document.getElementById('botDeleteButton').addEventListener('click', deleteManagedBot);
+document.getElementById('botSettingsOverlay').addEventListener('click', event => {
+  if (event.target.id === 'botSettingsOverlay') closeBotSettings();
+});
 document.getElementById('botBackToList').addEventListener('click', () => {
   selectedManagedBot = null;
   selectedBotChat = null;
@@ -1337,7 +1389,8 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     closeDrawer();
     closeProfile();
-    closeBotManager();
+    if (document.getElementById('botSettingsOverlay').classList.contains('open')) closeBotSettings();
+    else closeBotManager();
     app.classList.remove('show-details');
   }
 });
