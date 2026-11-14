@@ -258,6 +258,17 @@
     .bot-reply-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
     .bot-reply-input { flex: 1; }
     .bot-empty { padding: 14px 8px; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: center; }
+    .bot-icon-button { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); cursor: pointer; }
+    .bot-icon-button:hover { border-color: var(--accent); color: var(--accent); }
+    .bot-icon-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .deleted-account { display: grid !important; place-items: center; border: 1px solid rgba(135,130,120,.2); background: linear-gradient(145deg,#d9d7d0,#b9b8b2) !important; color: #77766f; font-size: 25px; font-weight: 400; }
+    .bot-settings-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 18px; background: rgba(20,22,24,.42); opacity: 0; visibility: hidden; transition: .18s ease; }
+    .bot-settings-overlay.open { opacity: 1; visibility: visible; }
+    .bot-settings-card { width: min(100%,360px); padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+    .bot-settings-title { margin: 0; font-size: 16px; }
+    .bot-settings-copy { margin: 8px 0 17px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .bot-settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .settings-button.danger { border-color: #e7c7c1; color: #b94a3f; }
     .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
     .settings-overlay.open .settings-dialog { transform: none; }
     .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 21px; border-bottom: 1px solid var(--line); }
@@ -509,9 +520,10 @@
       <div class="bot-status" id="botManagerStatus" role="status"></div>
       <div class="bot-workspace">
         <section class="bot-panel bot-list-panel" id="botListPanel"><header class="bot-panel-head">Профили ботов</header><div class="bot-list" id="botList"></div></section>
-        <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">← Боты</button><span id="botInboxTitle">Входящие</span><button class="settings-button" id="botInboxRefresh" type="button">Обновить</button></header><div class="bot-inbox" id="botInbox"></div></section>
+        <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">← Боты</button><span id="botInboxTitle">Входящие</span><div class="head-actions"><button class="bot-icon-button" id="botInboxRefresh" type="button" aria-label="Обновить входящие" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.8-2L20 12M4 12l2.7 5a7 7 0 0 0 11.8-2"/></svg></button><button class="settings-button" id="botSettingsOpen" type="button">Настроить</button></div></header><div class="bot-inbox" id="botInbox"></div></section>
         <section class="bot-panel bot-thread-panel" id="botThreadPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToInbox" type="button">← Входящие</button><span id="botThreadTitle">Переписка</span><span></span></header><div class="bot-thread-messages" id="botThreadMessages"></div><form class="bot-reply-form" id="botReplyForm"><input class="bot-reply-input" id="botReplyInput" maxlength="4000" required placeholder="Ответить пользователю…"><button class="bot-create-button" type="submit">Ответить</button></form></section>
       </div>
+      <div class="bot-settings-overlay" id="botSettingsOverlay" aria-hidden="true"><section class="bot-settings-card" role="dialog" aria-modal="true" aria-labelledby="botSettingsTitle"><h2 class="bot-settings-title" id="botSettingsTitle">Настройки бота</h2><p class="bot-settings-copy" id="botSettingsCopy"></p><div class="bot-settings-actions"><button class="settings-button" id="botSettingsCancel" type="button">Отмена</button><button class="settings-button danger" id="botDeleteButton" type="button">Удалить бота</button></div></section></div>
     </div>
   </section>
 
