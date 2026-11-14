@@ -6,6 +6,9 @@ const signupPasswordForm = document.getElementById('signupPasswordForm');
 const displayNameForm = document.getElementById('displayNameForm');
 const verifyForm = document.getElementById('verifyForm');
 const authError = document.getElementById('authError');
+const authCodeInput = document.getElementById('authCode');
+const authCodeBoxes = document.getElementById('authCodeBoxes');
+const authCodeSlots = [...authCodeBoxes.querySelectorAll('.auth-code-slot')];
 const chatList = document.getElementById('chatList');
 const messages = document.getElementById('messages');
 const searchInput = document.getElementById('searchInput');
@@ -99,6 +102,30 @@ function setAuthError(message = '') {
   authError.textContent = message;
 }
 
+function renderAuthCode() {
+  const value = authCodeInput.value;
+  authCodeSlots.forEach((slot, index) => {
+    slot.textContent = value[index] || '';
+    slot.classList.toggle('active', index === Math.min(value.length, authCodeSlots.length - 1));
+    slot.classList.remove('valid', 'invalid');
+  });
+  authCodeBoxes.classList.remove('shake');
+}
+
+async function animateAuthCode(valid) {
+  authCodeBoxes.classList.remove('shake');
+  authCodeSlots.forEach(slot => slot.classList.remove('valid', 'invalid'));
+  for (const slot of authCodeSlots) {
+    slot.classList.add(valid ? 'valid' : 'invalid');
+    await new Promise(resolve => setTimeout(resolve, 85));
+  }
+  if (!valid) {
+    authCodeBoxes.classList.add('shake');
+    await new Promise(resolve => setTimeout(resolve, 430));
+    authCodeBoxes.classList.remove('shake');
+  }
+}
+
 function showAuth(message = '') {
   document.body.classList.add('auth-locked');
   authScreen.classList.remove('is-hidden');
@@ -110,6 +137,7 @@ function showAuth(message = '') {
   signupPasswordForm.reset();
   displayNameForm.reset();
   verifyForm.reset();
+  renderAuthCode();
   showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
   setAuthError(message);
 }
@@ -127,7 +155,7 @@ function showAuthStep(form, kicker, title, copy, focusId) {
 function setBusy(form, busy, label) {
   const button = form.querySelector('button[type="submit"]');
   button.disabled = busy;
-  button.innerHTML = busy ? `${label}…` : `${label} <span>→</span>`;
+  button.textContent = busy ? `${label}…` : label;
 }
 
 function unlock(data) {
@@ -139,7 +167,8 @@ function unlock(data) {
   document.getElementById('signupPassword').value = '';
   document.getElementById('signupPasswordConfirm').value = '';
   pendingSignupPassword = '';
-  document.getElementById('authCode').value = '';
+  authCodeInput.value = '';
+  renderAuthCode();
   updateAccountMenu();
   registerDevice().catch(() => {}).finally(() => {
     pageLoader.classList.add('hidden');
@@ -1223,24 +1252,47 @@ displayNameForm.addEventListener('submit', async event => {
 verifyForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!pendingChallenge) return showAuth('Запрос входа устарел. Введите логин и пароль снова.');
+  const code = authCodeInput.value;
+  if (!/^\d{8}$/.test(code)) {
+    setAuthError('Введите все 8 цифр кода.');
+    await animateAuthCode(false);
+    authCodeInput.focus();
+    return;
+  }
   setAuthError();
   setBusy(verifyForm, true, 'Проверяем код');
+  authCodeInput.disabled = true;
   try {
     const result = await api('/api/auth/verify-2fa', {
       method: 'POST',
-      body: JSON.stringify({ challengeId: pendingChallenge, code: document.getElementById('authCode').value.trim() })
+      body: JSON.stringify({ challengeId: pendingChallenge, code })
     });
+    await animateAuthCode(true);
     unlock(result);
   } catch (error) {
     setAuthError(error.message);
+    if (error.status && error.status < 500) await animateAuthCode(false);
   } finally {
+    authCodeInput.disabled = false;
     setBusy(verifyForm, false, 'Подтвердить вход');
+    if (!authScreen.classList.contains('is-hidden')) authCodeInput.focus();
   }
+});
+
+authCodeInput.addEventListener('input', () => {
+  authCodeInput.value = authCodeInput.value.replace(/\D/g, '').slice(0, 8);
+  renderAuthCode();
+  setAuthError();
+});
+authCodeInput.addEventListener('focus', () => authCodeInput.setSelectionRange(authCodeInput.value.length, authCodeInput.value.length));
+authCodeInput.addEventListener('pointerdown', () => {
+  requestAnimationFrame(() => authCodeInput.setSelectionRange(authCodeInput.value.length, authCodeInput.value.length));
 });
 
 document.getElementById('backToNickname').addEventListener('click', () => {
   pendingChallenge = null;
-  document.getElementById('authCode').value = '';
+  authCodeInput.value = '';
+  renderAuthCode();
   document.getElementById('authPassword').value = '';
   showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
 });
