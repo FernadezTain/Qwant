@@ -169,6 +169,8 @@
     .profile .avatar { width: 80px; height: 80px; border-radius: 28px; font-size: 24px; }
     .profile-name { margin-top: 12px; font-size: 16px; font-weight: 700; }
     .profile-handle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .profile-description { max-width: 100%; margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .profile-description[hidden] { display: none !important; }
     .profile-status { margin-top: 11px; padding: 5px 9px; border-radius: 99px; background: #eaf3eb; color: var(--green); font-size: 10px; font-weight: 600; }
     .profile-actions { display: flex; gap: 12px; margin-top: 16px; }
     .profile-action { display: grid; justify-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
@@ -270,10 +272,32 @@
     .deleted-account { display: grid !important; place-items: center; border: 1px solid rgba(135,130,120,.2); background: linear-gradient(145deg,#d9d7d0,#b9b8b2) !important; color: #77766f; font-size: 25px; font-weight: 400; }
     .bot-settings-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 18px; background: rgba(20,22,24,.42); opacity: 0; visibility: hidden; transition: .18s ease; }
     .bot-settings-overlay.open { opacity: 1; visibility: visible; }
-    .bot-settings-card { width: min(100%,360px); padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+    .bot-settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%,760px); max-height: min(680px,88dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+    .bot-settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
     .bot-settings-title { margin: 0; font-size: 16px; }
-    .bot-settings-copy { margin: 8px 0 17px; color: var(--muted); font-size: 11px; line-height: 1.55; }
-    .bot-settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .bot-settings-layout { display: grid; min-height: 0; grid-template-columns: 190px minmax(0,1fr); }
+    .bot-settings-nav { display: flex; flex-direction: column; gap: 5px; padding: 12px; border-right: 1px solid var(--line); background: var(--surface-soft); }
+    .bot-settings-nav button { min-height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; text-align: left; cursor: pointer; }
+    .bot-settings-nav button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); }
+    .bot-settings-nav .danger-link { margin-top: auto; color: #b94a3f; }
+    .bot-settings-content { overflow: auto; padding: 22px; }
+    .bot-settings-page { display: none; max-width: 500px; }
+    .bot-settings-page.active { display: block; }
+    .bot-settings-page h3 { margin: 0; font-size: 17px; }
+    .bot-settings-copy { margin: 7px 0 17px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .bot-setting-field { display: grid; gap: 7px; margin-bottom: 14px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .bot-setting-field input, .bot-setting-field textarea { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+    .bot-setting-field textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+    .bot-token-row { display: flex; gap: 8px; align-items: center; }
+    .bot-token-input { min-width: 0; flex: 1; height: 39px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); color: var(--ink); font: 11px ui-monospace, monospace; }
+    .bot-settings-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 15px; }
+    .bot-settings-actions .settings-button:disabled { opacity: .5; cursor: not-allowed; }
+    .bot-avatar-editor { display: flex; align-items: center; gap: 13px; margin: 4px 0 16px; }
+    .bot-avatar-preview { display: grid; width: 66px; height: 66px; flex: 0 0 auto; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 21px; background: var(--surface-soft); color: var(--muted); font-size: 20px; font-weight: 700; }
+    .bot-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .bot-avatar-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .bot-settings-note { min-height: 17px; margin-top: 10px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .bot-settings-danger-card { padding: 14px; border: 1px solid #e8d1cc; border-radius: 12px; background: #fff8f6; color: #85453d; font-size: 11px; line-height: 1.6; }
     .settings-button.danger { border-color: #e7c7c1; color: #b94a3f; }
     .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
     .settings-overlay.open .settings-dialog { transform: none; }
@@ -417,6 +441,15 @@
       .bot-inbox-panel.active { grid-row: 1; }
       .bot-thread-panel.active { grid-row: 1; }
       .bot-panel-head { padding-right: 4px; padding-left: 4px; }
+      .bot-settings-overlay { padding: 8px; }
+      .bot-settings-dialog { width: 100%; max-height: 92dvh; }
+      .bot-settings-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
+      .bot-settings-nav { flex-direction: row; overflow-x: auto; padding: 7px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .bot-settings-nav button { flex: 0 0 auto; min-height: 36px; white-space: nowrap; }
+      .bot-settings-nav .danger-link { margin-top: 0; }
+      .bot-settings-content { padding: 16px; }
+      .bot-token-row { align-items: stretch; }
+      .bot-token-row .settings-button { flex: 0 0 auto; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>
@@ -451,7 +484,7 @@
 
     <aside class="details" aria-label="Информация о контакте">
       <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
-      <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
+      <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
       <div class="detail-foot">Личные сообщения защищены</div>
@@ -530,7 +563,42 @@
         <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">← Боты</button><span id="botInboxTitle">Входящие</span><div class="head-actions"><button class="bot-icon-button" id="botInboxRefresh" type="button" aria-label="Обновить входящие" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.8-2L20 12M4 12l2.7 5a7 7 0 0 0 11.8-2"/></svg></button><button class="settings-button" id="botSettingsOpen" type="button">Настроить</button></div></header><div class="bot-inbox" id="botInbox"></div></section>
         <section class="bot-panel bot-thread-panel" id="botThreadPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToInbox" type="button">← Входящие</button><span id="botThreadTitle">Переписка</span><span></span></header><div class="bot-thread-messages" id="botThreadMessages"></div><form class="bot-reply-form" id="botReplyForm"><input class="bot-reply-input" id="botReplyInput" maxlength="4000" required placeholder="Ответить пользователю…"><button class="bot-create-button" type="submit">Ответить</button></form></section>
       </div>
-      <div class="bot-settings-overlay" id="botSettingsOverlay" aria-hidden="true"><section class="bot-settings-card" role="dialog" aria-modal="true" aria-labelledby="botSettingsTitle"><h2 class="bot-settings-title" id="botSettingsTitle">Настройки бота</h2><p class="bot-settings-copy" id="botSettingsCopy"></p><div class="bot-settings-actions"><button class="settings-button" id="botSettingsCancel" type="button">Отмена</button><button class="settings-button danger" id="botDeleteButton" type="button">Удалить бота</button></div></section></div>
+      <div class="bot-settings-overlay" id="botSettingsOverlay" aria-hidden="true">
+        <section class="bot-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="botSettingsTitle">
+          <header class="bot-settings-header"><h2 class="bot-settings-title" id="botSettingsTitle">Настроить бота</h2><button class="icon-button" id="botSettingsClose" type="button" aria-label="Закрыть настройки">×</button></header>
+          <div class="bot-settings-layout">
+            <nav class="bot-settings-nav" aria-label="Функции бота">
+              <button class="active" type="button" data-bot-settings-page="data">Данные бота</button>
+              <button type="button" data-bot-settings-page="appearance">Оформление бота</button>
+              <button class="danger-link" type="button" data-bot-settings-page="delete">Удалить бота</button>
+            </nav>
+            <div class="bot-settings-content">
+              <section class="bot-settings-page active" data-bot-settings-content="data">
+                <h3>Данные бота</h3><p class="bot-settings-copy">Токен используется в API бота. Не публикуйте его и храните в секрете.</p>
+                <label class="bot-setting-field">Токен бота<span class="bot-token-row"><input class="bot-token-input" id="managedBotToken" type="password" readonly value="" placeholder="Загрузка токена…"><button class="settings-button" id="botTokenVisibility" type="button">Показать</button></span></label>
+                <div class="bot-settings-actions"><button class="settings-button" id="botManagedTokenCopy" type="button" disabled>Копировать</button><button class="settings-button" id="botRotateToken" type="button">Перевыпустить</button></div>
+                <div class="bot-settings-note" id="botDataStatus" role="status"></div>
+              </section>
+              <section class="bot-settings-page" data-bot-settings-content="appearance">
+                <h3>Оформление бота</h3><p class="bot-settings-copy">Имя, аватар и описание, которые видят пользователи.</p>
+                <form id="botAppearanceForm">
+                  <label class="bot-setting-field">Имя бота<input id="botAppearanceName" maxlength="60" required></label>
+                  <div class="bot-setting-field">Аватарка<div class="bot-avatar-editor"><div class="bot-avatar-preview" id="botAvatarPreview">Q</div><div class="bot-avatar-actions"><label class="settings-button" for="botAvatarInput">Выбрать фото</label><input id="botAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="settings-button" id="botAvatarRemove" type="button">Убрать аватар</button></div></div></div>
+                  <label class="bot-setting-field">Описание профиля<textarea id="botAppearanceDescription" maxlength="500" placeholder="Расскажите пользователям о боте"></textarea></label>
+                  <div class="bot-settings-actions"><button class="bot-create-button" type="submit">Сохранить оформление</button></div>
+                  <div class="bot-settings-note" id="botAppearanceStatus" role="status"></div>
+                </form>
+              </section>
+              <section class="bot-settings-page" data-bot-settings-content="delete">
+                <h3>Удалить бота</h3><p class="bot-settings-copy">Это действие отключит токен, освободит username и оставит в прежних переписках отметку «Удаленный аккаунт».</p>
+                <div class="bot-settings-danger-card">Удаление нельзя отменить. История чатов пользователей останется, но отправлять сообщения боту будет нельзя.</div>
+                <div class="bot-settings-actions"><button class="settings-button danger" id="botDeleteButton" type="button">Удалить бота</button></div>
+                <div class="bot-settings-note" id="botDeleteStatus" role="status"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   </section>
 
@@ -540,7 +608,7 @@
   <div class="profile-modal" id="profileModal" aria-hidden="true">
     <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="profile-card-head"><span id="profileTitle">Профиль FernieID</span><button class="icon-button" id="profileClose" type="button" aria-label="Закрыть профиль">×</button></div>
-      <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div></div></div>
+      <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div></div></div>
     </section>
   </div>
 
