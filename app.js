@@ -809,6 +809,8 @@ async function loadChats() {
     renderChats();
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       activeId = null;
+      document.getElementById('messageForm').hidden = false;
+      document.getElementById('deletedChatActions').hidden = true;
       app.classList.remove('show-conversation');
     }
     const firstLoad = !chatsLoadedOnce;
@@ -840,10 +842,13 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').textContent = chat.name;
   document.getElementById('headerStatus').textContent = chat.handle;
+  document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
+  document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
+  document.getElementById('deleteDeletedChatStatus').textContent = '';
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
   document.getElementById('detailHandle').textContent = chat.handle;
-  document.getElementById('detailStatus').textContent = chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
+  document.getElementById('detailStatus').textContent = chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
   document.getElementById('mediaCount').textContent = '0';
@@ -1101,6 +1106,38 @@ async function sendMessage(body, imageBase64 = '') {
   }
 }
 
+async function deleteDeletedAccountChat() {
+  const chat = chats.find(item => item.id === activeId);
+  if (!chat?.partner.is_deleted || !window.confirm(`Удалить чат с «${chat.name}»? Все сообщения в этой переписке будут удалены.`)) return;
+  const button = document.getElementById('deleteDeletedChat');
+  const status = document.getElementById('deleteDeletedChatStatus');
+  button.disabled = true;
+  status.textContent = 'Удаляем чат…';
+  try {
+    await api(`/api/social/chats/${encodeURIComponent(chat.id)}`, { method:'DELETE' });
+    chats = chats.filter(item => item.id !== chat.id);
+    activeId = null;
+    document.getElementById('messageForm').hidden = false;
+    document.getElementById('deletedChatActions').hidden = true;
+    document.getElementById('headerName').textContent = 'Выберите чат';
+    document.getElementById('headerStatus').textContent = 'Qwant Messenger';
+    document.getElementById('detailName').textContent = 'Qwant Messenger';
+    document.getElementById('detailHandle').textContent = 'Выберите чат';
+    document.getElementById('detailStatus').textContent = '● защищённый доступ';
+    setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
+    setAvatar(document.getElementById('detailAvatar'), { username:'Qwant' });
+    messages.innerHTML = chats.length
+      ? '<div class="empty-state">Чат удален.<br>Выберите другую переписку.</div>'
+      : '<div class="empty-state">Чат удален.<br>Здесь появятся ваши чаты.</div>';
+    renderChats();
+    app.classList.remove('show-conversation');
+  } catch (error) {
+    status.textContent = error.message || 'Не удалось удалить чат';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 document.getElementById('messageForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('.send-button');
@@ -1110,6 +1147,8 @@ document.getElementById('messageForm').addEventListener('submit', async event =>
   await sendMessage(text);
   button.disabled = false;
 });
+
+document.getElementById('deleteDeletedChat').addEventListener('click', deleteDeletedAccountChat);
 
 document.getElementById('cancelReply').addEventListener('click', clearReply);
 
