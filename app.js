@@ -33,6 +33,9 @@ let suppressMessageClick = false;
 let managedBots = [];
 let selectedManagedBot = null;
 let selectedBotChat = null;
+let managedBotSettings = null;
+let pendingBotAvatarBase64 = '';
+let removeBotAvatar = false;
 let botRefreshTimer;
 let botRefreshing = false;
 
@@ -336,21 +339,124 @@ function closeBotSettings() {
   const overlay = document.getElementById('botSettingsOverlay');
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
+  document.getElementById('managedBotToken').value = '';
+  document.getElementById('managedBotToken').type = 'password';
+  document.getElementById('botTokenVisibility').textContent = 'Показать';
+  managedBotSettings = null;
+  pendingBotAvatarBase64 = '';
+  removeBotAvatar = false;
 }
 
-function openBotSettings() {
+function showBotSettingsPage(page) {
+  document.querySelectorAll('[data-bot-settings-page]').forEach(button => button.classList.toggle('active', button.dataset.botSettingsPage === page));
+  document.querySelectorAll('[data-bot-settings-content]').forEach(section => section.classList.toggle('active', section.dataset.botSettingsContent === page));
+}
+
+function renderBotAvatar(url = '') {
+  const preview = document.getElementById('botAvatarPreview');
+  const imageUrl = String(url).startsWith('data:image/') ? url : safeImageUrl(url);
+  preview.replaceChildren();
+  if (imageUrl) {
+    const image = document.createElement('img');
+    image.src = imageUrl;
+    image.alt = '';
+    preview.append(image);
+  } else {
+    preview.textContent = initials(managedBotSettings?.display_name || selectedManagedBot?.display_name || 'Q');
+  }
+}
+
+async function openBotSettings() {
   if (!selectedManagedBot) return;
-  document.getElementById('botSettingsCopy').textContent = `Удалить @${selectedManagedBot.username}? Бот исчезнет из поиска, а в существующих чатах будет отображаться как удаленный аккаунт. История переписки сохранится.`;
+  const botId = selectedManagedBot.id;
+  managedBotSettings = {};
   const overlay = document.getElementById('botSettingsOverlay');
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
+  document.getElementById('botSettingsTitle').textContent = `Настройки @${selectedManagedBot.username}`;
+  document.getElementById('botDataStatus').textContent = 'Загружаем данные…';
+  document.getElementById('botAppearanceStatus').textContent = '';
+  document.getElementById('botDeleteStatus').textContent = '';
+  showBotSettingsPage('data');
+  try {
+    const result = await api(`/api/qwant/bots/${encodeURIComponent(botId)}/settings`);
+    if (!overlay.classList.contains('open') || selectedManagedBot?.id !== botId) return;
+    managedBotSettings = result.bot;
+    const tokenInput = document.getElementById('managedBotToken');
+    tokenInput.value = result.bot.token || '';
+    document.getElementById('botManagedTokenCopy').disabled = !result.bot.token;
+    document.getElementById('botDataStatus').textContent = result.bot.token
+      ? 'Токен хранится в зашифрованном виде.'
+      : 'Этот токен создан до обновления. Перевыпустите его, чтобы получить новый.';
+    document.getElementById('botAppearanceName').value = result.bot.display_name || '';
+    document.getElementById('botAppearanceDescription').value = result.bot.description || '';
+    document.getElementById('botAvatarInput').value = '';
+    renderBotAvatar(result.bot.avatar_url || '');
+  } catch (error) {
+    document.getElementById('botDataStatus').textContent = error.message;
+  }
+}
+
+async function rotateManagedBotToken() {
+  if (!selectedManagedBot) return;
+  const button = document.getElementById('botRotateToken');
+  button.disabled = true;
+  document.getElementById('botDataStatus').textContent = 'Перевыпускаем токен…';
+  try {
+    const result = await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/rotate-token`, { method:'POST' });
+    managedBotSettings.token = result.token;
+    managedBotSettings.token_prefix = result.token_prefix;
+    document.getElementById('managedBotToken').value = result.token;
+    document.getElementById('botManagedTokenCopy').disabled = false;
+    document.getElementById('botDataStatus').textContent = 'Токен перевыпущен. Предыдущий токен больше не работает.';
+    await loadManagedBots();
+  } catch (error) {
+    document.getElementById('botDataStatus').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveManagedBotAppearance(event) {
+  event.preventDefault();
+  if (!selectedManagedBot) return;
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  document.getElementById('botAppearanceStatus').textContent = 'Сохраняем оформление…';
+  try {
+    const result = await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/settings`, {
+      method:'PATCH',
+      body:JSON.stringify({
+        displayName:document.getElementById('botAppearanceName').value.trim(),
+        description:document.getElementById('botAppearanceDescription').value.trim(),
+        ...(pendingBotAvatarBase64 ? { avatarBase64:pendingBotAvatarBase64 } : {}),
+        ...(removeBotAvatar ? { removeAvatar:true } : {})
+      })
+    });
+    managedBotSettings.display_name = document.getElementById('botAppearanceName').value.trim();
+    managedBotSettings.description = document.getElementById('botAppearanceDescription').value.trim();
+    if (pendingBotAvatarBase64 || removeBotAvatar) managedBotSettings.avatar_url = result.bot.avatar_url || null;
+    selectedManagedBot.display_name = managedBotSettings.display_name;
+    document.getElementById('botInboxTitle').textContent = `@${selectedManagedBot.username} · Входящие`;
+    pendingBotAvatarBase64 = '';
+    removeBotAvatar = false;
+    document.getElementById('botAvatarInput').value = '';
+    renderBotAvatar(managedBotSettings.avatar_url || '');
+    document.getElementById('botAppearanceStatus').textContent = 'Оформление сохранено.';
+    await loadManagedBots();
+  } catch (error) {
+    document.getElementById('botAppearanceStatus').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function deleteManagedBot() {
   if (!selectedManagedBot) return;
+  if (!window.confirm(`Удалить @${selectedManagedBot.username}? Это действие нельзя отменить.`)) return;
   const button = document.getElementById('botDeleteButton');
   button.disabled = true;
-  setBotStatus('Удаляем бота…');
+  document.getElementById('botDeleteStatus').textContent = 'Удаляем бота…';
   try {
     await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}`, { method:'DELETE' });
     closeBotSettings();
@@ -362,7 +468,7 @@ async function deleteManagedBot() {
     setBotStatus('Бот удален. В существующих переписках он отображается как удаленный аккаунт.');
     await loadManagedBots();
   } catch (error) {
-    setBotStatus(error.message);
+    document.getElementById('botDeleteStatus').textContent = error.message;
   } finally {
     button.disabled = false;
   }
@@ -439,6 +545,9 @@ function openProfile(person = null) {
   document.getElementById('profileTitle').textContent = person ? 'Профиль контакта' : 'Мой профиль';
   document.getElementById('accountProfileName').textContent = username;
   document.getElementById('accountProfileId').textContent = userId ? `ID ${userId}` : 'FernieID';
+  const description = document.getElementById('accountProfileDescription');
+  description.textContent = person?.description || '';
+  description.hidden = !person?.description;
   setAvatar(document.getElementById('accountProfileAvatar'), { ...person, username, id: userId });
   profileModal.classList.add('open');
   profileModal.setAttribute('aria-hidden', 'false');
@@ -848,6 +957,9 @@ async function selectChat(id) {
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
   document.getElementById('detailHandle').textContent = chat.handle;
+  const description = document.getElementById('detailDescription');
+  description.textContent = chat.partner.description || '';
+  description.hidden = !chat.partner.description;
   document.getElementById('detailStatus').textContent = chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
@@ -1245,7 +1357,55 @@ document.getElementById('botTokenCopy').addEventListener('click', async () => {
 });
 document.getElementById('botInboxRefresh').addEventListener('click', loadManagedBotInbox);
 document.getElementById('botSettingsOpen').addEventListener('click', openBotSettings);
-document.getElementById('botSettingsCancel').addEventListener('click', closeBotSettings);
+document.getElementById('botSettingsClose').addEventListener('click', closeBotSettings);
+document.querySelectorAll('[data-bot-settings-page]').forEach(button => button.addEventListener('click', () => showBotSettingsPage(button.dataset.botSettingsPage)));
+document.getElementById('botTokenVisibility').addEventListener('click', event => {
+  const input = document.getElementById('managedBotToken');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  event.currentTarget.textContent = input.type === 'password' ? 'Показать' : 'Скрыть';
+});
+document.getElementById('botManagedTokenCopy').addEventListener('click', async () => {
+  const token = document.getElementById('managedBotToken').value;
+  if (!token) return;
+  try {
+    await navigator.clipboard.writeText(token);
+    document.getElementById('botDataStatus').textContent = 'Токен скопирован.';
+  } catch {
+    document.getElementById('botDataStatus').textContent = 'Не удалось скопировать токен.';
+  }
+});
+document.getElementById('botRotateToken').addEventListener('click', rotateManagedBotToken);
+document.getElementById('botAppearanceForm').addEventListener('submit', saveManagedBotAppearance);
+document.getElementById('botAvatarInput').addEventListener('change', event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    event.target.value = '';
+    document.getElementById('botAppearanceStatus').textContent = 'Поддерживаются JPG, PNG и WEBP.';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    event.target.value = '';
+    document.getElementById('botAppearanceStatus').textContent = 'Размер аватара не должен превышать 5 МБ.';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingBotAvatarBase64 = String(reader.result);
+    removeBotAvatar = false;
+    renderBotAvatar(pendingBotAvatarBase64);
+    document.getElementById('botAppearanceStatus').textContent = 'Новое фото выбрано. Сохраните оформление.';
+  };
+  reader.onerror = () => document.getElementById('botAppearanceStatus').textContent = 'Не удалось прочитать изображение.';
+  reader.readAsDataURL(file);
+});
+document.getElementById('botAvatarRemove').addEventListener('click', () => {
+  pendingBotAvatarBase64 = '';
+  removeBotAvatar = true;
+  document.getElementById('botAvatarInput').value = '';
+  renderBotAvatar('');
+  document.getElementById('botAppearanceStatus').textContent = 'Аватар будет удален после сохранения.';
+});
 document.getElementById('botDeleteButton').addEventListener('click', deleteManagedBot);
 document.getElementById('botSettingsOverlay').addEventListener('click', event => {
   if (event.target.id === 'botSettingsOverlay') closeBotSettings();
