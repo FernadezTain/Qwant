@@ -91,10 +91,16 @@ app.use('/api/social', async (req, res) => {
 
 app.use('/api/qwant', async (req, res) => {
   try {
+    const city = req.get('x-vercel-ip-city') || '';
+    const country = req.get('x-vercel-ip-country') || '';
     const response = await fetch(`${fernieIdUrl}${req.originalUrl}`, {
       method: req.method,
       headers: {
         ...(req.get('authorization') ? { authorization: req.get('authorization') } : {}),
+        ...(req.get('user-agent') ? { 'x-qwant-client-user-agent': req.get('user-agent').slice(0, 500) } : {}),
+        ...(typeof req.body?.deviceModel === 'string' ? { 'x-qwant-device-model': req.body.deviceModel.slice(0, 80) } : {}),
+        ...(city ? { 'x-qwant-location-city': city.slice(0, 120) } : {}),
+        ...(country ? { 'x-qwant-location-country': country.slice(0, 8) } : {}),
         ...(req.body && Object.keys(req.body).length ? { 'content-type': 'application/json' } : {})
       },
       ...(req.method === 'GET' || req.method === 'HEAD' ? {} : { body: JSON.stringify(req.body ?? {}) }),
