@@ -50,6 +50,36 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   }
 });
 
+app.post('/api/auth/check-username', authRateLimit, async (req, res) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  if (!/^[A-Za-zА-Яа-яЁё0-9_]{3,20}$/.test(username)) return res.status(400).json({ success:false, error:'Введите NickName из 3–20 букв, цифр или подчёркиваний' });
+  if (!fernieIdApiKey) return res.status(503).json({ success:false, error:'Вход пока не настроен: добавьте FERNIEID_API_KEY в окружение сервера' });
+  try {
+    const result = await requestFernieId('/api/auth/check-username', { apiKey:fernieIdApiKey, username });
+    res.status(result.status).type(result.contentType).send(result.text);
+  } catch (error) {
+    console.error('FernieID username check failed:', error.message);
+    res.status(502).json({ success:false, error:'Не удалось проверить NickName. Попробуйте ещё раз.' });
+  }
+});
+
+app.post('/api/auth/register', authRateLimit, async (req, res) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!/^[A-Za-zА-Яа-яЁё0-9_]{3,20}$/.test(username) || !displayName || displayName.length > 40 || password.length < 8 || password.length > 256) {
+    return res.status(400).json({ success:false, error:'Проверьте NickName, пароль (от 8 символов) и отображаемое имя (до 40 символов)' });
+  }
+  if (!fernieIdApiKey) return res.status(503).json({ success:false, error:'Регистрация пока не настроена: добавьте FERNIEID_API_KEY в окружение сервера' });
+  try {
+    const result = await requestFernieId('/api/auth/register', { apiKey:fernieIdApiKey, username, displayName, password });
+    res.status(result.status).type(result.contentType).send(result.text);
+  } catch (error) {
+    console.error('FernieID registration request failed:', error.message);
+    res.status(502).json({ success:false, error:'Не удалось создать аккаунт. Попробуйте ещё раз.' });
+  }
+});
+
 app.post('/api/auth/verify-2fa', authRateLimit, async (req, res) => {
   const challengeId = typeof req.body?.challengeId === 'string' ? req.body.challengeId : '';
   const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
