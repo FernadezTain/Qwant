@@ -16,6 +16,7 @@ let activeFilter = 'all';
 let searchUsers = false;
 let searchTimer;
 let pendingChallenge = null;
+let refreshing = false;
 
 function readSession() {
   try {
@@ -233,6 +234,7 @@ async function selectChat(id) {
   app.classList.add('show-conversation');
   try {
     const result = await api(`/api/social/chats/${encodeURIComponent(id)}/messages`);
+    if (activeId !== id) return;
     chat.messages = result.messages.map(row => ({
       text: row.deleted_at ? 'Сообщение удалено' : row.body,
       imageUrl: row.deleted_at ? '' : row.image_url,
@@ -241,9 +243,23 @@ async function selectChat(id) {
       own: String(row.sender_id) === String(session.userId)
     }));
     renderMessages(chat);
-    await api(`/api/social/chats/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+    try {
+      await api(`/api/social/chats/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+    } catch {}
   } catch (error) {
-    messages.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    if (activeId === id) messages.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function refreshChats() {
+  if (refreshing) return;
+  refreshing = true;
+  const selectedId = activeId;
+  try {
+    await loadChats();
+    if (selectedId && activeId === selectedId) await selectChat(selectedId);
+  } finally {
+    refreshing = false;
   }
 }
 
@@ -394,7 +410,7 @@ accountButton.addEventListener('click', () => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && session?.sessionToken) loadChats();
+  if (!document.hidden && session?.sessionToken) refreshChats();
 });
 
 if (session?.sessionToken) {
@@ -410,5 +426,5 @@ if (session?.sessionToken) {
 }
 
 setInterval(() => {
-  if (!document.hidden && session?.sessionToken) loadChats();
+  if (!document.hidden && session?.sessionToken) refreshChats();
 }, 20000);
