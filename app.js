@@ -16,6 +16,7 @@ let session = readSession();
 let accountSettings = null;
 let telegramId = null;
 let deviceCheckTimer;
+let activeGift = null;
 let chats = [];
 let activeId = null;
 let activeFilter = 'all';
@@ -395,6 +396,28 @@ function renderChats() {
 function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
+  if (message.type === 'udg_gift') {
+    const gift = message.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' };
+    const image = safeImageUrl(gift.image_url);
+    const background = safeImageUrl(gift.background_url);
+    const backgroundStyle = background ? ` style="background-image:url('${escapeHtml(background)}')"` : '';
+    return `${datePill}<div class="message-row ${message.own ? 'own' : ''} gift-message-row ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
+      ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
+      <article class="bubble gift-message-bubble">
+        <div class="gift-message-label">${message.own ? 'Вы передали подарок' : 'Вам передали подарок'}</div>
+        <div class="gift-preview-card">
+          <div class="gift-preview-art"${backgroundStyle}>${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(gift.model_name || 'Подарок UDG')}" loading="lazy">` : '<span class="gift-fallback">✧</span>'}<span class="gift-ribbon">ПОДАРОК</span></div>
+          <div class="gift-preview-copy">
+            <div class="gift-preview-name">${escapeHtml(gift.model_name || gift.gift_id || 'Подарок UDG')}</div>
+            <div class="gift-preview-collection">${escapeHtml(gift.collection_name || 'Коллекция UDG')}</div>
+            <div class="gift-preview-specs"><div class="gift-preview-spec"><span>Модель</span><b>${escapeHtml(gift.model_name || gift.gift_id || '—')}</b></div><div class="gift-preview-spec"><span>Фон</span><b>${escapeHtml(gift.background_name || '—')}</b></div></div>
+            <button class="gift-open-button" type="button" data-gift-open="${escapeHtml(message.id)}">Посмотреть подарок</button>
+          </div>
+        </div>
+        <div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>` : ''}</div>
+      </article>
+    </div>`;
+  }
   const image = safeImageUrl(message.imageUrl);
   const text = message.text || (image ? ' ' : 'Сообщение без текста');
   return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
@@ -417,11 +440,84 @@ function renderMessages(chat) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function giftDetailRow(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<div class="gift-detail-row"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`;
+}
+
+function renderGiftDetails(gift) {
+  const image = safeImageUrl(gift.image_url);
+  const background = safeImageUrl(gift.background_url);
+  const backgroundStyle = background ? ` style="background-image:url('${escapeHtml(background)}')"` : '';
+  const listed = gift.listed === true;
+  const marketPrice = Number(gift.market_price ?? gift.price);
+  const listingPrice = Number(gift.listing_price ?? gift.price);
+  const rows = [
+    giftDetailRow('Коллекция', gift.collection_name || 'UDG'),
+    giftDetailRow('Модель', gift.model_name || gift.gift_id || '—'),
+    giftDetailRow('Фон', gift.background_name || '—'),
+    giftDetailRow('Символ', gift.symbol_name),
+    giftDetailRow('UID подарка', gift.uid),
+    Number.isFinite(marketPrice) && marketPrice > 0 ? giftDetailRow('Рыночная оценка', `${new Intl.NumberFormat('ru-RU').format(marketPrice)} FC`) : '',
+    giftDetailRow('Цена объявления', listed && Number.isFinite(listingPrice) ? `${new Intl.NumberFormat('ru-RU').format(listingPrice)} FC` : 'Не выставлен')
+  ].filter(Boolean).join('');
+  const imageMarkup = image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(gift.model_name || 'Подарок UDG')}">` : '<span class="gift-fallback">✧</span>';
+  document.getElementById('giftModalBody').innerHTML = `
+    <div class="gift-modal-art"${backgroundStyle}>${imageMarkup}</div>
+    <h2 class="gift-modal-title" id="giftModalTitle">${escapeHtml(gift.model_name || gift.gift_id || 'Подарок UDG')}</h2>
+    <p class="gift-modal-subtitle">${escapeHtml(gift.collection_name || 'Коллекция UDG')}</p>
+    <div class="gift-detail-table">${rows || '<div class="gift-detail-row"><span>Информация</span><b>Данные подарка сохранены не полностью</b></div>'}</div>
+    <p class="gift-market-note">Рыночная оценка может изменяться. Данные показаны на момент передачи подарка.</p>
+    <div class="gift-modal-actions"><button class="settings-button" id="giftShareButton" type="button">Поделиться</button><button class="settings-button" id="giftPageButton" type="button" ${gift.uid ? '' : 'disabled'}>Открыть страницу</button></div>`;
+  document.getElementById('giftShareButton').addEventListener('click', shareGift);
+  document.getElementById('giftPageButton').addEventListener('click', openGiftPage);
+}
+
+function openGift(gift) {
+  if (!gift) return;
+  activeGift = gift;
+  renderGiftDetails(gift);
+  const modal = document.getElementById('giftModal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeGift() {
+  const modal = document.getElementById('giftModal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  activeGift = null;
+}
+
+function giftPageUrl(gift) {
+  return `https://ferniex-id.vercel.app/udggift/${encodeURIComponent(gift.uid)}`;
+}
+
+async function shareGift() {
+  if (!activeGift?.uid) return;
+  const url = giftPageUrl(activeGift);
+  try {
+    if (navigator.share) await navigator.share({ title: activeGift.model_name || 'Подарок UDG', url });
+    else {
+      await navigator.clipboard.writeText(url);
+      document.getElementById('giftShareButton').textContent = 'Ссылка скопирована';
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') document.getElementById('giftShareButton').textContent = 'Не удалось поделиться';
+  }
+}
+
+function openGiftPage() {
+  if (activeGift?.uid) window.open(giftPageUrl(activeGift), '_blank', 'noopener,noreferrer');
+}
+
 function mapMessages(rows) {
   return rows.map(row => ({
     id: row.id,
     text: row.deleted_at ? 'Сообщение удалено' : row.body,
     imageUrl: row.deleted_at ? '' : row.image_url,
+    type: row.deleted_at ? 'text' : row.message_type,
+    gift: row.deleted_at ? null : row.gift_payload,
     createdAt: row.created_at,
     time: formatTime(row.created_at),
     readAt: row.read_at,
@@ -439,7 +535,7 @@ function updateMessages(chat, latest) {
   }
   const canAppend = oldMessages.length > 0 && oldMessages.every((message, index) => {
     const next = latest[index];
-    return next && message.id === next.id && message.text === next.text && message.imageUrl === next.imageUrl && message.readAt === next.readAt;
+    return next && message.id === next.id && message.text === next.text && message.imageUrl === next.imageUrl && message.type === next.type && JSON.stringify(message.gift) === JSON.stringify(next.gift) && message.readAt === next.readAt;
   });
   if (canAppend && latest.length > oldMessages.length) {
     let previousDate = dateLabel(oldMessages[oldMessages.length - 1].createdAt);
@@ -453,7 +549,7 @@ function updateMessages(chat, latest) {
     return true;
   } else if (oldMessages.length !== latest.length || oldMessages.some((message, index) => {
     const next = latest[index];
-    return !next || message.id !== next.id || message.text !== next.text || message.imageUrl !== next.imageUrl || message.readAt !== next.readAt;
+    return !next || message.id !== next.id || message.text !== next.text || message.imageUrl !== next.imageUrl || message.type !== next.type || JSON.stringify(message.gift) !== JSON.stringify(next.gift) || message.readAt !== next.readAt;
   })) {
     chat.messages = latest;
     renderMessages(chat);
@@ -776,6 +872,17 @@ document.getElementById('profileClose').addEventListener('click', closeProfile);
 profileModal.addEventListener('click', event => {
   if (event.target === profileModal) closeProfile();
 });
+messages.addEventListener('click', event => {
+  const button = event.target.closest('[data-gift-open]');
+  if (!button) return;
+  const chat = chats.find(item => item.id === activeId);
+  const giftMessage = chat?.messages.find(message => message.id === button.dataset.giftOpen && message.type === 'udg_gift');
+  if (giftMessage) openGift(giftMessage.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' });
+});
+document.getElementById('giftModalClose').addEventListener('click', closeGift);
+document.getElementById('giftModal').addEventListener('click', event => {
+  if (event.target.id === 'giftModal') closeGift();
+});
 document.getElementById('themeToggle').addEventListener('click', () => {
   const enabled = !document.body.classList.contains('dark-theme');
   const button = document.getElementById('themeToggle');
@@ -916,6 +1023,7 @@ document.getElementById('sessionNoticeOk').addEventListener('click', () => {
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeSettings();
+  if (event.key === 'Escape') closeGift();
 });
 
 async function bootstrap() {
