@@ -148,6 +148,12 @@
     .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 4px; color: #9c9589; font-size: 9px; }
     .checks { color: #5593a0; font-size: 12px; letter-spacing: -4px; padding-right: 3px; }
     .composer-wrap { padding: 12px 18px 17px; border-top: 1px solid var(--line); background: var(--surface); }
+    .composer-wrap[hidden], .deleted-chat-actions[hidden] { display: none !important; }
+    .deleted-chat-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 14px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
+    .deleted-chat-button { min-height: 40px; padding: 0 17px; border: 1px solid #e6c6c1; border-radius: 12px; background: #fff8f6; color: #b94a3f; font-size: 12px; font-weight: 700; cursor: pointer; transition: .16s ease; }
+    .deleted-chat-button:hover { border-color: #b94a3f; background: #f9e9e5; }
+    .deleted-chat-button:disabled { opacity: .6; cursor: wait; }
+    .deleted-chat-status { width: 100%; color: var(--muted); font-size: 10px; text-align: center; }
     .composer { display: flex; min-height: 48px; align-items: center; gap: 8px; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: 16px; background: #fbfaf7; }
     .composer .icon-button { width: 34px; height: 34px; border: 0; background: transparent; }
     .composer input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
@@ -440,6 +446,7 @@
         <div class="reply-bar" id="replyBar" hidden><div class="reply-bar-copy"><div class="reply-bar-title" id="replyBarTitle">Ответ</div><div class="reply-bar-text" id="replyBarText"></div></div><button class="reply-bar-close" id="cancelReply" type="button" aria-label="Отменить ответ">×</button></div>
         <div class="composer"><button type="button" class="icon-button" id="attachButton" aria-label="Прикрепить фото" title="Прикрепить фото"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="attachInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
       </form>
+      <div class="deleted-chat-actions" id="deletedChatActions" hidden><button class="deleted-chat-button" id="deleteDeletedChat" type="button">Удалить чат</button><div class="deleted-chat-status" id="deleteDeletedChatStatus" role="status" aria-live="polite"></div></div>
     </section>
 
     <aside class="details" aria-label="Информация о контакте">
