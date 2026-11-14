@@ -20,15 +20,32 @@ const settingsOverlay = document.getElementById('settingsOverlay');
 const photoSendModal = document.getElementById('photoSendModal');
 const photoSendPreview = document.getElementById('photoSendPreview');
 const photoSendCaption = document.getElementById('photoSendCaption');
+const emojiButton = document.getElementById('emojiButton');
+const emojiPicker = document.getElementById('emojiPicker');
+const emojiPickerWrap = document.getElementById('emojiPickerWrap');
+const emojiSearch = document.getElementById('emojiSearch');
+const emojiCategoriesElement = document.getElementById('emojiCategories');
+const emojiGrid = document.getElementById('emojiGrid');
 const pageLoader = document.getElementById('pageLoader');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
+const emojiCategories = [
+  { id:'smileys', label:'Смайлы', icon:'😀', items:[['😀','улыбка'],['😃','улыбка радость'],['😄','смех'],['😁','зубы'],['😆','смеюсь'],['😅','неловко пот'],['😂','слезы смех'],['🤣','катаюсь смех'],['🙂','улыбка'],['🙃','перевернутый'],['😉','подмигивание'],['😊','доволен'],['😇','ангел'],['🥰','любовь'],['😍','сердечки'],['😘','поцелуй'],['😋','вкусно'],['😛','язык'],['😜','подмигнул язык'],['🤪','сумасшедший'],['😎','круто очки'],['🤓','умный'],['🤔','думаю'],['🫡','салют'],['🤨','сомнение'],['😐','нейтрально'],['😶','без слов'],['🙄','закатил глаза'],['😏','ухмылка'],['😴','сон'],['🥱','зевота'],['😭','плачу'],['😤','злюсь'],['😡','злость'],['🤯','взрыв мозга'],['🥳','праздник'],['🤗','обнимаю'],['🫶','сердце руками']] },
+  { id:'people', label:'Жесты', icon:'👋', items:[['👋','привет'],['🤚','ладонь'],['🖐️','пальцы'],['✋','стоп'],['🫱','рука вправо'],['🫲','рука влево'],['🫳','ладонь вниз'],['🫴','ладонь вверх'],['👌','ок'],['🤌','пальцы'],['🤏','чуть чуть'],['✌️','победа'],['🤞','удача'],['🫰','палец сердце'],['🤟','люблю'],['🤘','рок'],['🤙','позвони'],['👈','влево'],['👉','вправо'],['👆','вверх'],['👇','вниз'],['☝️','указательный'],['👍','лайк'],['👎','дизлайк'],['✊','кулак'],['👊','удар'],['👏','аплодисменты'],['🙌','ура'],['🙏','спасибо пожалуйста'],['💪','сила']] },
+  { id:'animals', label:'Животные', icon:'🐻', items:[['🐶','собака'],['🐱','кошка'],['🐭','мышь'],['🐹','хомяк'],['🐰','кролик'],['🦊','лиса'],['🐻','медведь'],['🐼','панда'],['🐨','коала'],['🐯','тигр'],['🦁','лев'],['🐮','корова'],['🐸','лягушка'],['🐵','обезьяна'],['🐔','курица'],['🐧','пингвин'],['🐦','птица'],['🦆','утка'],['🦉','сова'],['🦇','летучая мышь'],['🐺','волк'],['🐗','кабан'],['🐴','лошадь'],['🦄','единорог'],['🐝','пчела'],['🦋','бабочка'],['🐌','улитка'],['🐞','божья коровка'],['🐢','черепаха'],['🐍','змея'],['🐙','осьминог'],['🦀','краб'],['🐬','дельфин'],['🐳','кит'],['🦈','акула'],['🐊','крокодил'],['🦖','динозавр'],['🌵','кактус'],['🌹','роза'],['🌻','подсолнух']] },
+  { id:'food', label:'Еда', icon:'🍕', items:[['🍏','яблоко'],['🍎','красное яблоко'],['🍐','груша'],['🍊','апельсин'],['🍋','лимон'],['🍌','банан'],['🍉','арбуз'],['🍇','виноград'],['🍓','клубника'],['🫐','черника'],['🍒','вишня'],['🍑','персик'],['🥭','манго'],['🍍','ананас'],['🥥','кокос'],['🥑','авокадо'],['🍆','баклажан'],['🥕','морковь'],['🌽','кукуруза'],['🌶️','перец острый'],['🍕','пицца'],['🍔','бургер'],['🍟','картошка фри'],['🌭','хот дог'],['🍿','попкорн'],['🧁','кекс'],['🍰','торт'],['🍩','пончик'],['🍪','печенье'],['🍫','шоколад'],['☕','кофе'],['🧋','чай бабл'],['🥤','напиток'],['🍺','пиво'],['🍷','вино'],['🥂','тост']] },
+  { id:'activities', label:'Активности', icon:'⚽', items:[['⚽','футбол'],['🏀','баскетбол'],['🏈','американский футбол'],['⚾','бейсбол'],['🎾','теннис'],['🏐','волейбол'],['🎱','бильярд'],['🏓','пинг понг'],['🏸','бадминтон'],['🥊','бокс'],['🥋','карате'],['⛳','гольф'],['🎣','рыбалка'],['🤿','дайвинг'],['🎿','лыжи'],['🏂','сноуборд'],['🏋️','тяжелая атлетика'],['🤸','гимнастика'],['🚴','велосипед'],['🏆','кубок'],['🥇','золото'],['🎮','игра'],['🎲','кости'],['🎯','мишень'],['🎨','рисование'],['🎤','микрофон'],['🎧','наушники'],['🎸','гитара'],['🎹','пианино'],['🎬','кино'],['🎉','вечеринка'],['🎁','подарок']] },
+  { id:'travel', label:'Путешествия', icon:'🚗', items:[['🚗','машина'],['🚕','такси'],['🚌','автобус'],['🚎','троллейбус'],['🏎️','гонки'],['🚓','полиция'],['🚑','скорая'],['🚒','пожарная'],['🚲','велосипед'],['🛵','скутер'],['🚂','поезд'],['✈️','самолет'],['🚀','ракета'],['🛸','нло'],['🚁','вертолет'],['⛵','парусник'],['🚢','корабль'],['🏠','дом'],['🏢','здание'],['🏰','замок'],['🗽','статуя свободы'],['🗼','башня'],['🌋','вулкан'],['🏖️','пляж'],['🏕️','кемпинг'],['🌅','рассвет'],['🌈','радуга'],['🌍','земля'],['🌙','луна'],['⭐','звезда'],['☀️','солнце'],['❄️','снег']] },
+  { id:'objects', label:'Предметы', icon:'💡', items:[['💡','лампочка идея'],['🔦','фонарь'],['🕯️','свеча'],['🧯','огнетушитель'],['🔧','ключ инструмент'],['🔨','молоток'],['⚙️','шестеренка'],['🧲','магнит'],['🪛','отвертка'],['💎','алмаз'],['🔮','шар'],['🧸','медведь игрушка'],['🪄','волшебная палочка'],['🎈','шарик'],['🎀','бант'],['🧧','конверт'],['📱','телефон'],['💻','ноутбук'],['⌚','часы'],['📷','камера'],['🎥','видеокамера'],['📚','книги'],['✏️','карандаш'],['📝','заметка'],['📌','булавка'],['🔑','ключ'],['🔒','замок'],['🛠️','инструменты'],['🧪','пробирка'],['🧬','днк'],['🩺','стетоскоп'],['💊','таблетка']] },
+  { id:'symbols', label:'Символы', icon:'❤️', items:[['❤️','сердце'],['🧡','оранжевое сердце'],['💛','желтое сердце'],['💚','зеленое сердце'],['💙','синее сердце'],['💜','фиолетовое сердце'],['🖤','черное сердце'],['🤍','белое сердце'],['💔','разбитое сердце'],['💕','два сердца'],['💞','вращение сердец'],['💯','сто'],['💢','злость'],['💥','взрыв'],['💫','звездочки'],['💦','капли'],['💨','ветер'],['🕳️','дыра'],['💬','сообщение'],['👁️‍🗨️','глаз речь'],['✅','галочка'],['❌','крестик'],['❓','вопрос'],['❗','восклицание'],['⚠️','внимание'],['♻️','переработка'],['🔞','18'],['©️','копирайт'],['™️','торговая марка'],['🔴','красный круг'],['🟢','зеленый круг'],['🔵','синий круг']] }
+];
 let session = readSession();
 let pinnedChatIds = new Set(readPinnedChatIds());
 let accountSettings = null;
 let telegramId = null;
 let deviceCheckTimer;
 let activeGift = null;
-let pendingPhotoBase64 = '';
+let pendingPhotos = [];
+let pendingPhotoConversationId = null;
 let chats = [];
 let activeId = null;
 let activeFilter = 'all';
@@ -57,6 +74,7 @@ let botRefreshTimer;
 let botRefreshing = false;
 let currentProfile = null;
 let dialogResolver = null;
+let activeEmojiCategory = 'smileys';
 
 function readSession() {
   try {
@@ -187,6 +205,16 @@ function updateAccountMenu() {
   document.getElementById('drawerName').textContent = session?.displayName || session?.username || 'FernieID';
   document.getElementById('drawerHandle').textContent = session?.username ? `@${session.username}` : 'Ваш аккаунт';
   setAvatar(document.getElementById('drawerAvatar'), { ...session, display_name: session?.displayName });
+  const drawerBanner = document.getElementById('drawerBannerImage');
+  const drawerCover = drawerBanner.closest('.drawer-cover');
+  const bannerUrl = safeImageUrl(session?.banner_url || session?.bannerUrl);
+  drawerBanner.hidden = !bannerUrl;
+  drawerCover.classList.toggle('has-banner', Boolean(bannerUrl));
+  drawerBanner.onerror = () => {
+    drawerBanner.hidden = true;
+    drawerCover.classList.remove('has-banner');
+  };
+  if (bannerUrl && drawerBanner.src !== bannerUrl) drawerBanner.src = bannerUrl;
   document.getElementById('accountProfileName').textContent = session?.displayName || session?.username || '—';
   document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
   setAvatar(document.getElementById('accountProfileAvatar'), { ...session, display_name: session?.displayName });
@@ -417,14 +445,15 @@ async function loadManagedBots() {
 
 function openBotManager() {
   closeDrawer();
-  document.getElementById('botManager').classList.add('open');
-  document.getElementById('botManager').setAttribute('aria-hidden', 'false');
+  const manager = document.getElementById('botManager');
+  manager.classList.add('open');
+  manager.setAttribute('aria-hidden', 'false');
   document.getElementById('botTokenNotice').hidden = true;
   selectedManagedBot = null;
   selectedBotChat = null;
-  document.getElementById('botListPanel').classList.remove('hidden');
-  document.getElementById('botInboxPanel').classList.remove('active', 'hidden');
-  document.getElementById('botThreadPanel').classList.remove('active');
+  document.getElementById('botListPanel').classList.remove('hidden', 'is-leaving');
+  document.getElementById('botInboxPanel').classList.remove('active', 'hidden', 'is-leaving');
+  document.getElementById('botThreadPanel').classList.remove('active', 'hidden', 'is-leaving');
   loadManagedBots();
   clearInterval(botRefreshTimer);
   botRefreshTimer = setInterval(() => {
@@ -453,7 +482,33 @@ function closeBotSettings() {
 
 function showBotSettingsPage(page) {
   document.querySelectorAll('[data-bot-settings-page]').forEach(button => button.classList.toggle('active', button.dataset.botSettingsPage === page));
-  document.querySelectorAll('[data-bot-settings-content]').forEach(section => section.classList.toggle('active', section.dataset.botSettingsContent === page));
+  document.querySelectorAll('[data-bot-settings-content]').forEach(section => {
+    if (section.dataset.botSettingsContent === page) {
+      section.classList.remove('is-leaving');
+      section.classList.add('active');
+      return;
+    }
+    if (!section.classList.contains('active')) return;
+    section.classList.add('is-leaving');
+    setTimeout(() => {
+      if (section.classList.contains('is-leaving')) section.classList.remove('active', 'is-leaving');
+    }, 170);
+  });
+}
+
+function showBotPanel(panel) {
+  panel.classList.remove('hidden', 'is-leaving');
+  panel.classList.add('active');
+}
+
+function hideBotPanel(panel) {
+  if (panel.classList.contains('hidden') || panel.classList.contains('is-leaving')) return;
+  panel.classList.add('is-leaving');
+  setTimeout(() => {
+    if (!panel.classList.contains('is-leaving')) return;
+    panel.classList.remove('active', 'is-leaving');
+    panel.classList.add('hidden');
+  }, 190);
 }
 
 function renderBotAvatar(url = '') {
@@ -566,9 +621,10 @@ async function deleteManagedBot() {
     closeBotSettings();
     selectedManagedBot = null;
     selectedBotChat = null;
-    document.getElementById('botInboxPanel').classList.remove('active', 'hidden');
-    document.getElementById('botThreadPanel').classList.remove('active');
-    document.getElementById('botListPanel').classList.remove('hidden');
+    hideBotPanel(document.getElementById('botInboxPanel'));
+    hideBotPanel(document.getElementById('botThreadPanel'));
+    document.getElementById('botListPanel').classList.remove('hidden', 'is-leaving');
+    if (window.matchMedia('(max-width: 700px)').matches) document.getElementById('botListPanel').classList.add('active');
     setBotStatus('Бот удален. В существующих переписках он отображается как удаленный аккаунт.');
     await loadManagedBots();
   } catch (error) {
@@ -581,9 +637,11 @@ async function deleteManagedBot() {
 async function openManagedBot(bot) {
   selectedManagedBot = bot;
   selectedBotChat = null;
-  document.getElementById('botInboxPanel').classList.add('active');
-  document.getElementById('botThreadPanel').classList.remove('active');
-  document.getElementById('botListPanel').classList.toggle('hidden', window.matchMedia('(max-width: 700px)').matches);
+  const mobile = window.matchMedia('(max-width: 700px)').matches;
+  showBotPanel(document.getElementById('botInboxPanel'));
+  hideBotPanel(document.getElementById('botThreadPanel'));
+  if (mobile) hideBotPanel(document.getElementById('botListPanel'));
+  else document.getElementById('botListPanel').classList.remove('active');
   document.getElementById('botInboxTitle').textContent = `@${bot.username} · Входящие`;
   await loadManagedBotInbox();
 }
@@ -615,8 +673,8 @@ async function loadManagedBotInbox() {
 async function openManagedBotChat(chat) {
   selectedBotChat = chat;
   document.getElementById('botThreadTitle').textContent = chat.partner.display_name || chat.partner.username;
-  document.getElementById('botThreadPanel').classList.add('active');
-  document.getElementById('botInboxPanel').classList.toggle('hidden', window.matchMedia('(max-width: 700px)').matches);
+  showBotPanel(document.getElementById('botThreadPanel'));
+  if (window.matchMedia('(max-width: 700px)').matches) hideBotPanel(document.getElementById('botInboxPanel'));
   await loadManagedBotMessages();
 }
 
@@ -842,6 +900,37 @@ function messageStatusMarkup(message) {
   return `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>`;
 }
 
+function photoAlbumAt(list, start) {
+  const first = list[start];
+  if (!first?.imageUrl) return [first];
+  const album = [first];
+  for (let index = start + 1; index < list.length && album.length < 4; index += 1) {
+    const next = list[index];
+    const previous = album[album.length - 1];
+    if (!next.imageUrl || next.own !== first.own) break;
+    if (first.albumId ? next.albumId !== first.albumId : next.albumId || Math.abs(Date.parse(next.createdAt) - Date.parse(previous.createdAt)) > 120000) break;
+    album.push(next);
+  }
+  return album;
+}
+
+function photoAlbumMarkup(chat, album, previousDate = '', animate = false) {
+  const first = album[0];
+  const latest = album[album.length - 1];
+  const day = dateLabel(first.createdAt);
+  const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
+  const replyQuote = first.replyText ? `<div class="reply-quote"><b>${escapeHtml(first.replySender || 'Ответ')}</b>${escapeHtml(first.replyText)}</div>` : '';
+  const tiles = album.map(message => {
+    const image = message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl);
+    return `<div class="album-tile" data-message-id="${escapeHtml(message.id)}"><img src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy"></div>`;
+  }).join('');
+  const statusMessage = album.find(message => message.sendStatus === 'failed') || album.find(message => message.sendStatus === 'sending') || latest;
+  return `${datePill}<div class="message-row ${first.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(first.id)}">
+    ${first.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
+    <article class="bubble album-bubble"><div class="album-grid count-${album.length}">${tiles}</div>${replyQuote}${first.text ? `<div class="album-caption">${escapeHtml(first.text)}</div>` : ''}<div class="bubble-meta"><span>${escapeHtml(latest.time)}</span>${messageStatusMarkup(statusMessage)}</div></article>
+  </div>`;
+}
+
 function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
@@ -883,11 +972,17 @@ function renderMessages(chat) {
     return;
   }
   let previousDate = '';
-  messages.innerHTML = chat.messages.map(message => {
-    const markup = messageMarkup(chat, message, previousDate);
-    previousDate = dateLabel(message.createdAt);
-    return markup;
-  }).join('');
+  let index = 0;
+  const markup = [];
+  while (index < chat.messages.length) {
+    const album = photoAlbumAt(chat.messages, index);
+    markup.push(album.length > 1
+      ? photoAlbumMarkup(chat, album, previousDate)
+      : messageMarkup(chat, album[0], previousDate));
+    previousDate = dateLabel(album[0].createdAt);
+    index += album.length;
+  }
+  messages.innerHTML = markup.join('');
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -962,21 +1057,130 @@ function openGiftPage() {
   if (activeGift?.uid) window.open(giftPageUrl(activeGift), '_blank', 'noopener,noreferrer');
 }
 
-function openPhotoSend(imageBase64) {
+function renderPhotoSendPreview() {
+  photoSendPreview.replaceChildren();
+  for (let start = 0; start < pendingPhotos.length; start += 4) {
+    const album = document.createElement('div');
+    album.className = `photo-send-album${pendingPhotos.slice(start, start + 4).length === 1 ? ' single' : ''}`;
+    pendingPhotos.slice(start, start + 4).forEach((photo, offset) => {
+      const index = start + offset;
+      const tile = document.createElement('div');
+      tile.className = 'photo-send-thumb';
+      const image = document.createElement('img');
+      image.src = photo.dataUrl;
+      image.alt = `Фото ${index + 1}`;
+      const remove = document.createElement('button');
+      remove.className = 'photo-send-remove';
+      remove.type = 'button';
+      remove.dataset.removePhoto = String(index);
+      remove.setAttribute('aria-label', `Удалить фото ${index + 1}`);
+      remove.textContent = '×';
+      tile.append(image, remove);
+      album.append(tile);
+    });
+    photoSendPreview.append(album);
+  }
+  const count = document.createElement('div');
+  count.className = 'photo-send-count';
+  count.textContent = `${pendingPhotos.length} фото · группы до 4`;
+  photoSendPreview.append(count);
+  document.getElementById('photoSendTitle').textContent = pendingPhotos.length === 1 ? 'Отправить изображение' : `Отправить ${pendingPhotos.length} фото`;
+  document.getElementById('photoSendSubmit').disabled = pendingPhotos.length === 0;
+}
+
+function openPhotoSend(images) {
+  if (!activeId) return showMessageToast('Сначала выберите чат');
   const isOpen = photoSendModal.classList.contains('open');
-  pendingPhotoBase64 = imageBase64;
-  photoSendPreview.src = imageBase64;
-  if (!isOpen) photoSendCaption.value = '';
+  if (!isOpen) {
+    pendingPhotos = [];
+    pendingPhotoConversationId = activeId;
+    photoSendCaption.value = '';
+  }
+  pendingPhotos.push(...images.map(dataUrl => ({ id: crypto.randomUUID(), dataUrl })));
+  renderPhotoSendPreview();
   photoSendModal.classList.add('open');
   photoSendModal.setAttribute('aria-hidden', 'false');
+}
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function openPhotoFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  const valid = files.filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 8 * 1024 * 1024);
+  if (valid.length !== files.length) showMessageToast('Принимаются JPG, PNG и WEBP до 8 МБ каждый.');
+  if (!valid.length) return;
+  try {
+    openPhotoSend(await Promise.all(valid.map(readImageFile)));
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось прочитать изображения.');
+  }
+}
+
+function renderEmojiPicker() {
+  emojiCategoriesElement.innerHTML = emojiCategories.map(category => `
+    <button class="emoji-picker-category ${category.id === activeEmojiCategory ? 'active' : ''}" type="button" role="tab" aria-label="${escapeHtml(category.label)}" title="${escapeHtml(category.label)}" data-emoji-category="${category.id}">${category.icon}</button>`).join('');
+  const query = emojiSearch.value.trim().toLocaleLowerCase('ru');
+  const source = query ? emojiCategories.flatMap(category => category.items) : (emojiCategories.find(category => category.id === activeEmojiCategory)?.items || []);
+  const results = query ? source.filter(([emoji, keywords]) => `${emoji} ${keywords}`.toLocaleLowerCase('ru').includes(query)) : source;
+  emojiGrid.innerHTML = results.map(([emoji, keywords]) => `
+    <button class="emoji-picker-item" type="button" role="option" aria-label="${escapeHtml(keywords)}" title="${escapeHtml(keywords)}" data-emoji="${emoji}">${emoji}</button>`).join('') || '<span class="emoji-empty">Ничего не найдено</span>';
+}
+
+function setEmojiPickerOpen(open) {
+  emojiPicker.classList.toggle('open', open);
+  emojiButton.setAttribute('aria-expanded', String(open));
+  if (open) renderEmojiPicker();
+}
+
+function insertEmoji(emoji) {
+  const start = messageInput.selectionStart ?? messageInput.value.length;
+  const end = messageInput.selectionEnd ?? start;
+  messageInput.setRangeText(emoji, start, end, 'end');
+  messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+  messageInput.focus();
+  setEmojiPickerOpen(false);
 }
 
 function closePhotoSend() {
   photoSendModal.classList.remove('open');
   photoSendModal.setAttribute('aria-hidden', 'true');
-  photoSendPreview.removeAttribute('src');
+  photoSendPreview.replaceChildren();
   photoSendCaption.value = '';
-  pendingPhotoBase64 = '';
+  pendingPhotos = [];
+  pendingPhotoConversationId = null;
+}
+
+function savedPhotoAlbumId(messageId) {
+  if (!session?.userId) return '';
+  try {
+    const albums = JSON.parse(localStorage.getItem(`ferniex_messenger_albums_${session.userId}`) || '{}');
+    return albums[String(messageId)] || '';
+  } catch {
+    return '';
+  }
+}
+
+function savePhotoAlbumId(messageId, albumId) {
+  if (!session?.userId || !messageId || !albumId) return;
+  const key = `ferniex_messenger_albums_${session.userId}`;
+  let albums = {};
+  try {
+    albums = JSON.parse(localStorage.getItem(key) || '{}');
+  } catch {}
+  albums[String(messageId)] = albumId;
+  const ids = Object.keys(albums);
+  if (ids.length > 1000) ids.slice(0, ids.length - 1000).forEach(id => delete albums[id]);
+  try {
+    localStorage.setItem(key, JSON.stringify(albums));
+  } catch {}
 }
 
 function mapMessages(rows) {
@@ -997,6 +1201,7 @@ function mapMessages(rows) {
     createdAt: row.created_at,
     time: formatTime(row.created_at),
     readAt: row.read_at,
+    albumId: savedPhotoAlbumId(row.id),
     own: String(row.sender_id) === String(session.userId)
     };
   });
@@ -1026,7 +1231,8 @@ function sameMessage(left, right) {
     && JSON.stringify(left.gift) === JSON.stringify(right.gift)
     && left.readAt === right.readAt
     && left.sendStatus === right.sendStatus
-    && left.localImage === right.localImage;
+    && left.localImage === right.localImage
+    && left.albumId === right.albumId;
 }
 
 function updateMessages(chat, latest) {
@@ -1042,7 +1248,7 @@ function updateMessages(chat, latest) {
     const next = latest[index];
     return next && sameMessage(message, next);
   });
-  if (canAppend && latest.length > oldMessages.length) {
+  if (canAppend && latest.length > oldMessages.length && !latest.slice(oldMessages.length).some(message => message.imageUrl)) {
     let previousDate = dateLabel(oldMessages[oldMessages.length - 1].createdAt);
     messages.insertAdjacentHTML('beforeend', latest.slice(oldMessages.length).map(message => {
       const markup = messageMarkup(chat, message, previousDate, true);
@@ -1485,7 +1691,7 @@ function messageCopyText(message) {
 }
 
 function messageImageUrl(message) {
-  return safeImageUrl(message.imageUrl || (message.type === 'udg_gift' ? message.gift?.image_url : ''));
+  return message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl || (message.type === 'udg_gift' ? message.gift?.image_url : ''));
 }
 
 async function copyImage(messageId) {
@@ -1584,8 +1790,8 @@ async function deleteMessage(messageId) {
   }
 }
 
-async function sendMessage(body, imageBase64 = '', existingMessage = null, focusComposer = true) {
-  const conversationId = activeId;
+async function sendMessage(body, imageBase64 = '', existingMessage = null, focusComposer = true, refreshChatList = true) {
+  const conversationId = existingMessage?.conversationId || activeId;
   const chat = chats.find(item => item.id === conversationId);
   body = String(body || '').trim();
   if (!chat || (!body && !imageBase64)) return false;
@@ -1595,6 +1801,7 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
     : null;
   const pendingMessage = existingMessage || {
     id: `local-${crypto.randomUUID()}`,
+    conversationId,
     localMessage: true,
     text: body,
     imageUrl: imageBase64,
@@ -1607,6 +1814,7 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
     createdAt,
     time: formatTime(createdAt),
     readAt: null,
+    albumId: '',
     own: true
   };
   pendingMessage.sendStatus = 'sending';
@@ -1629,7 +1837,9 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
     const sentMessage = mapMessages([result.message])[0];
     sentMessage.replyText = pendingMessage.replyText;
     sentMessage.replySender = pendingMessage.replySender;
+    sentMessage.albumId = pendingMessage.albumId || '';
     sentMessage.sendStatus = 'sent';
+    if (sentMessage.albumId) savePhotoAlbumId(sentMessage.id, sentMessage.albumId);
     const currentChat = chats.find(item => item.id === conversationId) || chat;
     currentChat.messages = currentChat.messages.filter(message => message.id !== pendingMessage.id && String(message.id) !== String(sentMessage.id));
     currentChat.messages.push(sentMessage);
@@ -1642,7 +1852,7 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
       renderSharedDetails(currentChat);
     }
     renderChats();
-    loadChats();
+    if (refreshChatList) loadChats();
     if (focusComposer && activeId === conversationId) messageInput.focus();
     return true;
   } catch (error) {
@@ -1653,6 +1863,55 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
     showMessageToast(error.message || 'Не удалось отправить сообщение');
     return false;
   }
+}
+
+async function sendPhotoSelection() {
+  const chat = chats.find(item => String(item.id) === String(pendingPhotoConversationId));
+  if (!chat || !pendingPhotos.length) return;
+  const conversationId = String(chat.id);
+  const caption = photoSendCaption.value.trim();
+  const replied = replyToMessageId ? chat.messages.find(message => String(message.id) === String(replyToMessageId)) : null;
+  const pendingMessages = [];
+  for (let start = 0; start < pendingPhotos.length; start += 4) {
+    const albumId = crypto.randomUUID();
+    pendingPhotos.slice(start, start + 4).forEach((photo, offset) => {
+      const firstInAlbum = offset === 0;
+      const createdAt = new Date(Date.now() + pendingMessages.length).toISOString();
+      pendingMessages.push({
+        id: `local-${crypto.randomUUID()}`,
+        conversationId,
+        localMessage: true,
+        text: pendingMessages.length === 0 ? caption : '',
+        imageUrl: photo.dataUrl,
+        localImage: true,
+        type: 'text',
+        gift: null,
+        replyToMessageId: firstInAlbum && start === 0 ? replyToMessageId : null,
+        replyText: firstInAlbum && start === 0 && replied ? (replied.deletedAt ? 'Сообщение удалено' : replied.type === 'udg_gift' ? replied.gift?.model_name || 'Подарок UDG' : replied.text || (replied.imageUrl ? 'Фото' : 'Сообщение')) : '',
+        replySender: firstInAlbum && start === 0 && replied ? (replied.own ? 'Вы' : 'Собеседник') : '',
+        createdAt,
+        time: formatTime(createdAt),
+        readAt: null,
+        albumId,
+        sendStatus: 'sending',
+        own: true
+      });
+    });
+  }
+  chat.messages.push(...pendingMessages);
+  chat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+  chat.messagesLoaded = true;
+  chat.preview = caption || '📷 Фото';
+  chat.lastMessageAt = pendingMessages[pendingMessages.length - 1].createdAt;
+  chat.time = pendingMessages[pendingMessages.length - 1].time;
+  clearReply();
+  closePhotoSend();
+  if (activeId === conversationId) renderMessages(chat);
+  renderChats();
+  for (const message of pendingMessages) {
+    await sendMessage(message.text, message.imageUrl, message, false, false);
+  }
+  await loadChats();
 }
 
 async function deleteDeletedAccountChat() {
@@ -1847,14 +2106,14 @@ document.getElementById('botSettingsOverlay').addEventListener('click', event =>
 document.getElementById('botBackToList').addEventListener('click', () => {
   selectedManagedBot = null;
   selectedBotChat = null;
-  document.getElementById('botInboxPanel').classList.remove('active');
-  document.getElementById('botThreadPanel').classList.remove('active');
-  document.getElementById('botListPanel').classList.remove('hidden');
+  hideBotPanel(document.getElementById('botInboxPanel'));
+  hideBotPanel(document.getElementById('botThreadPanel'));
+  showBotPanel(document.getElementById('botListPanel'));
 });
 document.getElementById('botBackToInbox').addEventListener('click', () => {
   selectedBotChat = null;
-  document.getElementById('botThreadPanel').classList.remove('active');
-  document.getElementById('botInboxPanel').classList.remove('hidden');
+  hideBotPanel(document.getElementById('botThreadPanel'));
+  showBotPanel(document.getElementById('botInboxPanel'));
 });
 document.getElementById('botReplyForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -1939,10 +2198,10 @@ messages.addEventListener('click', event => {
   if (giftMessage) openGift(giftMessage.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' });
 });
 messages.addEventListener('contextmenu', event => {
-  const row = event.target.closest('.message-row[data-message-id]');
-  if (!row) return;
+  const target = event.target.closest('.album-tile[data-message-id], .message-row[data-message-id]');
+  if (!target) return;
   event.preventDefault();
-  openMessageMenu(row.dataset.messageId, event.clientX, event.clientY);
+  openMessageMenu(target.dataset.messageId, event.clientX, event.clientY);
 });
 chatList.addEventListener('contextmenu', event => {
   const row = event.target.closest('[data-chat]');
@@ -1979,10 +2238,10 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
 }
 messages.addEventListener('pointerdown', event => {
   if (event.pointerType !== 'touch') return;
-  const row = event.target.closest('.message-row[data-message-id]');
-  if (!row) return;
+  const target = event.target.closest('.album-tile[data-message-id], .message-row[data-message-id]');
+  if (!target) return;
   clearTimeout(longPressTimer);
-  longPressStart = { x: event.clientX, y: event.clientY, id: row.dataset.messageId };
+  longPressStart = { x: event.clientX, y: event.clientY, id: target.dataset.messageId };
   longPressTimer = setTimeout(() => {
     if (!longPressStart) return;
     suppressMessageClick = true;
@@ -2024,6 +2283,7 @@ document.addEventListener('pointerdown', event => {
   if (menu.classList.contains('open') && !menu.contains(event.target)) closeMessageMenu();
   const chatMenu = document.getElementById('chatContextMenu');
   if (chatMenu.classList.contains('open') && !chatMenu.contains(event.target)) closeChatContextMenu();
+  if (!emojiPickerWrap.contains(event.target)) setEmojiPickerOpen(false);
 });
 messages.addEventListener('scroll', closeMessageMenu, { passive: true });
 chatList.addEventListener('scroll', closeChatContextMenu, { passive:true });
@@ -2034,17 +2294,19 @@ document.getElementById('giftModal').addEventListener('click', event => {
 document.getElementById('photoSendClose').addEventListener('click', closePhotoSend);
 document.getElementById('photoSendCancel').addEventListener('click', closePhotoSend);
 document.getElementById('photoSendChoose').addEventListener('click', () => document.getElementById('attachInput').click());
-document.getElementById('photoSendReplace').addEventListener('click', () => document.getElementById('attachInput').click());
+photoSendPreview.addEventListener('click', event => {
+  const remove = event.target.closest('[data-remove-photo]');
+  if (!remove) return;
+  pendingPhotos.splice(Number(remove.dataset.removePhoto), 1);
+  if (!pendingPhotos.length) return closePhotoSend();
+  renderPhotoSendPreview();
+});
 photoSendModal.addEventListener('click', event => {
   if (event.target === photoSendModal) closePhotoSend();
 });
-document.getElementById('photoSendForm').addEventListener('submit', event => {
+document.getElementById('photoSendForm').addEventListener('submit', async event => {
   event.preventDefault();
-  if (!pendingPhotoBase64) return;
-  const imageBase64 = pendingPhotoBase64;
-  const caption = photoSendCaption.value.trim();
-  closePhotoSend();
-  sendMessage(caption, imageBase64, null, false);
+  await sendPhotoSelection();
 });
 document.getElementById('themeToggle').addEventListener('click', () => {
   const enabled = !document.body.classList.contains('dark-theme');
@@ -2073,19 +2335,31 @@ document.getElementById('messageSearchButton').addEventListener('click', async (
 });
 document.getElementById('attachButton').addEventListener('click', () => document.getElementById('attachInput').click());
 document.getElementById('attachInput').addEventListener('change', event => {
-  const file = event.target.files?.[0];
-  event.target.value = '';
-  if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showMessageToast('Можно прикрепить JPG, PNG или WEBP.');
-  if (file.size > 8 * 1024 * 1024) return showMessageToast('Размер фото не должен превышать 8 МБ.');
-  const reader = new FileReader();
-  reader.onload = () => openPhotoSend(String(reader.result));
-  reader.onerror = () => showMessageToast('Не удалось прочитать файл.');
-  reader.readAsDataURL(file);
+  const files = [...(event.currentTarget.files || [])];
+  event.currentTarget.value = '';
+  openPhotoFiles(files);
 });
-document.getElementById('emojiButton').addEventListener('click', () => {
-  messageInput.value += ' 😊';
-  messageInput.focus();
+emojiButton.addEventListener('click', () => setEmojiPickerOpen(!emojiPicker.classList.contains('open')));
+emojiCategoriesElement.addEventListener('click', event => {
+  const button = event.target.closest('[data-emoji-category]');
+  if (!button) return;
+  activeEmojiCategory = button.dataset.emojiCategory;
+  emojiSearch.value = '';
+  renderEmojiPicker();
+});
+emojiSearch.addEventListener('input', renderEmojiPicker);
+emojiGrid.addEventListener('click', event => {
+  const button = event.target.closest('[data-emoji]');
+  if (button) insertEmoji(button.dataset.emoji);
+});
+messageInput.addEventListener('paste', event => {
+  const files = [...(event.clipboardData?.items || [])]
+    .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter(Boolean);
+  if (!files.length) return;
+  event.preventDefault();
+  openPhotoFiles(files);
 });
 messageInput.addEventListener('input', () => {
   if (!activeId || !messageInput.value.trim()) return;
@@ -2191,6 +2465,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
   if (event.key === 'Escape') closePhotoSend();
+  if (event.key === 'Escape') setEmojiPickerOpen(false);
   if (event.key === 'Escape') closeMessageMenu();
   if (event.key === 'Escape') closeChatContextMenu();
 });
