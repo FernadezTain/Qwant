@@ -84,6 +84,9 @@ let botRefreshing = false;
 let currentProfile = null;
 let dialogResolver = null;
 let activeEmojiCategory = 'smileys';
+let fontScaleRulesApplied = false;
+let chatBackgroundDbPromise = null;
+const chatBackgroundUrls = new Map();
 
 function readSession() {
   try {
@@ -259,16 +262,173 @@ function promptAction(message, value = '') {
   return showDialog({ title: 'Поиск в переписке', message, input: true, value, confirmLabel: 'Найти' });
 }
 
+function applyFontScaleRules(rules) {
+  for (const rule of rules) {
+    if (rule.style) {
+      const size = rule.style.getPropertyValue('font-size');
+      if (size && !size.includes('--font-scale')) {
+        rule.style.setProperty('font-size', `calc(${size} * var(--font-scale, 1))`, rule.style.getPropertyPriority('font-size'));
+      }
+    }
+    if (rule.cssRules) applyFontScaleRules(rule.cssRules);
+  }
+}
+
+function applyTextScale(value = 100) {
+  if (!fontScaleRulesApplied) {
+    for (const sheet of document.styleSheets) {
+      try {
+        applyFontScaleRules(sheet.cssRules);
+      } catch {}
+    }
+    fontScaleRulesApplied = true;
+  }
+  document.body.style.setProperty('--font-scale', String(Number(value) / 100));
+}
+
 function hidePageLoader() {
   pageLoader.classList.add('hidden');
 }
 
 function applyPersonalization(settings = accountSettings) {
   const theme = settings?.theme || (localStorage.getItem('ferniex_messenger_dark') === 'true' ? 'dark' : 'light');
-  document.body.classList.toggle('dark-theme', theme === 'dark');
+  document.body.dataset.theme = theme;
+  document.body.classList.toggle('dark-theme', ['dark', 'midnight'].includes(theme));
   if (settings?.accent_color) document.body.style.setProperty('--accent', settings.accent_color);
-  if (settings?.font_scale) document.body.style.setProperty('--page-zoom', Number(settings.font_scale) / 100);
-  document.getElementById('themeState').textContent = theme === 'dark' ? 'Вкл.' : 'Выкл.';
+  applyTextScale(settings?.font_scale || 100);
+  document.getElementById('themeState').textContent = ['dark', 'midnight'].includes(theme) ? 'Вкл.' : 'Выкл.';
+}
+
+function openChatBackgroundDatabase() {
+  if (!chatBackgroundDbPromise) {
+    chatBackgroundDbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('qwant-messenger-local', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('chat-backgrounds');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+  return chatBackgroundDbPromise;
+}
+
+async function getChatBackground(key) {
+  const database = await openChatBackgroundDatabase();
+  return new Promise((resolve, reject) => {
+    const request = database.transaction('chat-backgrounds').objectStore('chat-backgrounds').get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function storeChatBackground(key, blob) {
+  const database = await openChatBackgroundDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction('chat-backgrounds', 'readwrite');
+    transaction.objectStore('chat-backgrounds').put(blob, key);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('Не удалось сохранить фон'));
+  });
+}
+
+async function deleteChatBackground(key) {
+  const database = await openChatBackgroundDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction('chat-backgrounds', 'readwrite');
+    transaction.objectStore('chat-backgrounds').delete(key);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('Не удалось убрать фон'));
+  });
+}
+
+function chatBackgroundKey(chatId) {
+  return `${session?.userId || 'guest'}:${chatId}`;
+}
+
+async function applyChatBackground(chatId) {
+  const preview = document.getElementById('chatWallpaperPreview');
+  const removeButton = document.getElementById('removeChatWallpaper');
+  messages.classList.remove('has-chat-wallpaper');
+  messages.style.removeProperty('--chat-wallpaper');
+  preview.style.removeProperty('background-image');
+  preview.classList.remove('has-image');
+  preview.textContent = 'Фон по умолчанию';
+  removeButton.hidden = true;
+  if (!chatId) return;
+  try {
+    const key = chatBackgroundKey(chatId);
+    let url = chatBackgroundUrls.get(key);
+    if (!url) {
+      const blob = await getChatBackground(key);
+      if (!blob) return;
+      url = URL.createObjectURL(blob);
+      chatBackgroundUrls.set(key, url);
+    }
+    if (String(activeId) !== String(chatId)) return;
+    messages.style.setProperty('--chat-wallpaper', `url("${url}")`);
+    messages.classList.add('has-chat-wallpaper');
+    preview.style.backgroundImage = `url("${url}")`;
+    preview.classList.add('has-image');
+    preview.textContent = 'Свой фон';
+    removeButton.hidden = false;
+  } catch (error) {
+    document.getElementById('chatWallpaperStatus').textContent = error.message || 'Не удалось загрузить фон чата';
+  }
+}
+
+async function compressChatBackground(file) {
+  if (!file.type.startsWith('image/')) throw new Error('Выберите файл изображения.');
+  if (file.size > 12 * 1024 * 1024) throw new Error('Размер изображения не должен превышать 12 МБ.');
+  const bitmap = await createImageBitmap(file);
+  try {
+    for (const [maxSize, quality] of [[1440, .76], [1120, .64], [880, .52]]) {
+      const ratio = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * ratio));
+      canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (blob && blob.size <= 650 * 1024) return blob;
+    }
+  } finally {
+    bitmap.close();
+  }
+  throw new Error('Не удалось сжать фон до допустимого размера.');
+}
+
+async function chooseChatBackground(file) {
+  const chatId = activeId;
+  if (!chatId || !file) return;
+  const status = document.getElementById('chatWallpaperStatus');
+  status.textContent = 'Подготавливаем фон…';
+  try {
+    const blob = await compressChatBackground(file);
+    const key = chatBackgroundKey(chatId);
+    await storeChatBackground(key, blob);
+    const oldUrl = chatBackgroundUrls.get(key);
+    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    chatBackgroundUrls.set(key, URL.createObjectURL(blob));
+    if (String(activeId) === String(chatId)) await applyChatBackground(chatId);
+    status.textContent = 'Фон сохранён для этого чата.';
+  } catch (error) {
+    status.textContent = error.message || 'Не удалось сохранить фон';
+  }
+}
+
+async function removeChatBackground() {
+  if (!activeId) return;
+  const key = chatBackgroundKey(activeId);
+  try {
+    await deleteChatBackground(key);
+    const url = chatBackgroundUrls.get(key);
+    if (url) URL.revokeObjectURL(url);
+    chatBackgroundUrls.delete(key);
+    await applyChatBackground(activeId);
+    document.getElementById('chatWallpaperStatus').textContent = 'Установлен стандартный фон.';
+  } catch (error) {
+    document.getElementById('chatWallpaperStatus').textContent = error.message || 'Не удалось убрать фон';
+  }
 }
 
 function createDeviceId() {
@@ -1412,6 +1572,8 @@ async function loadChats() {
     renderChats();
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       activeId = null;
+      document.getElementById('chatAppearance').hidden = true;
+      applyChatBackground(null);
       document.getElementById('messageForm').hidden = false;
       document.getElementById('deletedChatActions').hidden = true;
       app.classList.remove('show-conversation');
@@ -1445,6 +1607,9 @@ async function selectChat(id) {
   if (activeId !== id) clearReply();
   closeMessageMenu();
   activeId = id;
+  document.getElementById('chatAppearance').hidden = false;
+  document.getElementById('chatWallpaperStatus').textContent = '';
+  applyChatBackground(id);
   chat.unread = 0;
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').textContent = chat.name;
@@ -1702,6 +1867,8 @@ async function markChatUnread(chatId) {
     if (activeId === chat.id) {
       api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method:'DELETE' }).catch(() => {});
       activeId = null;
+      document.getElementById('chatAppearance').hidden = true;
+      applyChatBackground(null);
       app.classList.remove('show-conversation');
     }
     await loadChats();
@@ -1721,6 +1888,8 @@ async function hideChatFromList(chatId) {
     if (session?.userId) localStorage.setItem(`ferniex_messenger_pins_${session.userId}`, JSON.stringify([...pinnedChatIds]));
     if (activeId === chat.id) {
       activeId = null;
+      document.getElementById('chatAppearance').hidden = true;
+      applyChatBackground(null);
       app.classList.remove('show-conversation');
       document.getElementById('messageForm').hidden = false;
       document.getElementById('deletedChatActions').hidden = true;
@@ -1991,6 +2160,8 @@ async function deleteDeletedAccountChat() {
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}`, { method:'DELETE' });
     chats = chats.filter(item => item.id !== chat.id);
     activeId = null;
+    document.getElementById('chatAppearance').hidden = true;
+    applyChatBackground(null);
     document.getElementById('messageForm').hidden = false;
     document.getElementById('deletedChatActions').hidden = true;
     document.getElementById('headerName').textContent = 'Выберите чат';
@@ -2424,6 +2595,13 @@ document.getElementById('detailsClose').addEventListener('click', () => {
   if (window.matchMedia('(max-width: 1180px)').matches) app.classList.remove('show-details');
   else app.classList.add('details-hidden');
 });
+document.getElementById('chooseChatWallpaper').addEventListener('click', () => document.getElementById('chatWallpaperInput').click());
+document.getElementById('chatWallpaperInput').addEventListener('change', event => {
+  const file = event.currentTarget.files?.[0];
+  event.currentTarget.value = '';
+  if (file) chooseChatBackground(file);
+});
+document.getElementById('removeChatWallpaper').addEventListener('click', removeChatBackground);
 document.getElementById('messageSearchButton').addEventListener('click', async () => {
   const query = await promptAction('Введите текст для поиска в текущей переписке.');
   if (!query?.trim()) return;
