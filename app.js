@@ -7,7 +7,8 @@ const chatList = document.getElementById('chatList');
 const messages = document.getElementById('messages');
 const searchInput = document.getElementById('searchInput');
 const messageInput = document.getElementById('messageInput');
-const accountButton = document.getElementById('accountButton');
+const drawerBackdrop = document.getElementById('drawerBackdrop');
+const profileModal = document.getElementById('profileModal');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 let session = readSession();
 let chats = [];
@@ -17,6 +18,7 @@ let searchUsers = false;
 let searchTimer;
 let pendingChallenge = null;
 let refreshing = false;
+let chatsLoadedOnce = false;
 
 function readSession() {
   try {
@@ -78,11 +80,43 @@ function unlock(data) {
   authScreen.classList.add('is-hidden');
   document.getElementById('authPassword').value = '';
   document.getElementById('authCode').value = '';
-  accountButton.textContent = initials(session.username);
-  accountButton.title = `Вы вошли как ${session.username}. Нажмите, чтобы выйти.`;
-  document.getElementById('detailName').textContent = session.username;
-  document.getElementById('detailHandle').textContent = `@${session.username}`;
+  updateAccountMenu();
   loadChats();
+}
+
+function updateAccountMenu() {
+  document.getElementById('drawerName').textContent = session?.username || 'FernieID';
+  document.getElementById('drawerHandle').textContent = session?.userId ? `ID ${session.userId}` : 'Ваш аккаунт';
+  document.getElementById('drawerAvatar').textContent = initials(session?.username);
+  document.getElementById('accountProfileName').textContent = session?.username || '—';
+  document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
+  document.getElementById('accountProfileAvatar').textContent = initials(session?.username);
+}
+
+function openDrawer() {
+  drawerBackdrop.classList.add('open');
+  drawerBackdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closeDrawer() {
+  drawerBackdrop.classList.remove('open');
+  drawerBackdrop.setAttribute('aria-hidden', 'true');
+}
+
+function openProfile(person = null) {
+  const username = person?.username || session?.username || 'FernieID';
+  const userId = person?.id || session?.userId;
+  document.getElementById('profileTitle').textContent = person ? 'Профиль контакта' : 'Мой профиль';
+  document.getElementById('accountProfileName').textContent = username;
+  document.getElementById('accountProfileId').textContent = userId ? `ID ${userId}` : 'FernieID';
+  setAvatar(document.getElementById('accountProfileAvatar'), { ...person, username, id: userId });
+  profileModal.classList.add('open');
+  profileModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeProfile() {
+  profileModal.classList.remove('open');
+  profileModal.setAttribute('aria-hidden', 'true');
 }
 
 function escapeHtml(value) {
@@ -152,12 +186,14 @@ function mapChat(row) {
     handle: `@${name}`,
     initials: initials(name),
     color: colors[Math.abs(Number(String(partner.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length],
+    lastMessageAt: row.lastMessageAt,
     time: formatTime(row.lastMessageAt),
     preview: row.lastMessage || 'Начните переписку',
     unread: Number(row.unreadCount) || 0,
     online: false,
     personal: true,
-    messages: []
+    messages: [],
+    messagesLoaded: false
   };
 }
 
@@ -176,6 +212,17 @@ function renderChats() {
   chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', () => selectChat(button.dataset.chat)));
 }
 
+function messageMarkup(chat, message, previousDate = '', animate = false) {
+  const day = dateLabel(message.createdAt);
+  const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
+  const image = safeImageUrl(message.imageUrl);
+  const text = message.text || (image ? ' ' : 'Сообщение без текста');
+  return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
+    ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
+    <div class="bubble">${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? '<span class="checks">✓✓</span>' : ''}</div></div>
+  </div>`;
+}
+
 function renderMessages(chat) {
   if (!chat.messages.length) {
     messages.innerHTML = '<div class="empty-state">Здесь пока нет сообщений.<br>Напишите первым.</div>';
@@ -183,33 +230,135 @@ function renderMessages(chat) {
   }
   let previousDate = '';
   messages.innerHTML = chat.messages.map(message => {
-    const day = dateLabel(message.createdAt);
-    const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
-    previousDate = day;
-    const image = safeImageUrl(message.imageUrl);
-    const text = message.text || (image ? ' ' : 'Сообщение без текста');
-    return `${datePill}<div class="message-row ${message.own ? 'own' : ''}">
-      ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-      <div class="bubble">${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? '<span class="checks">✓✓</span>' : ''}</div></div>
-    </div>`;
+    const markup = messageMarkup(chat, message, previousDate);
+    previousDate = dateLabel(message.createdAt);
+    return markup;
   }).join('');
   messages.scrollTop = messages.scrollHeight;
+}
+
+function mapMessages(rows) {
+  return rows.map(row => ({
+    id: row.id,
+    text: row.deleted_at ? 'Сообщение удалено' : row.body,
+    imageUrl: row.deleted_at ? '' : row.image_url,
+    createdAt: row.created_at,
+    time: formatTime(row.created_at),
+    own: String(row.sender_id) === String(session.userId)
+  }));
+}
+
+function updateMessages(chat, latest) {
+  const oldMessages = chat.messages;
+  if (!chat.messagesLoaded) {
+    chat.messages = latest;
+    chat.messagesLoaded = true;
+    renderMessages(chat);
+    return true;
+  }
+  const canAppend = oldMessages.length > 0 && oldMessages.every((message, index) => {
+    const next = latest[index];
+    return next && message.id === next.id && message.text === next.text && message.imageUrl === next.imageUrl;
+  });
+  if (canAppend && latest.length > oldMessages.length) {
+    let previousDate = dateLabel(oldMessages[oldMessages.length - 1].createdAt);
+    messages.insertAdjacentHTML('beforeend', latest.slice(oldMessages.length).map(message => {
+      const markup = messageMarkup(chat, message, previousDate, true);
+      previousDate = dateLabel(message.createdAt);
+      return markup;
+    }).join(''));
+    chat.messages = latest;
+    messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
+    return true;
+  } else if (oldMessages.length !== latest.length || oldMessages.some((message, index) => {
+    const next = latest[index];
+    return !next || message.id !== next.id || message.text !== next.text || message.imageUrl !== next.imageUrl;
+  })) {
+    chat.messages = latest;
+    renderMessages(chat);
+    return true;
+  }
+  return false;
+}
+
+function isConversationVisible() {
+  return window.matchMedia('(max-width: 760px)').matches
+    ? app.classList.contains('show-conversation')
+    : activeId !== null;
+}
+
+async function loadChatMessages(chat, showLoader = false) {
+  if (showLoader && !chat.messagesLoaded) {
+    messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
+  }
+  try {
+    const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages`);
+    if (activeId !== chat.id) return;
+    const changed = updateMessages(chat, mapMessages(result.messages));
+    if (changed) renderSharedDetails(chat);
+    try {
+      await api(`/api/social/chats/${encodeURIComponent(chat.id)}/read`, { method: 'PATCH' });
+    } catch {}
+  } catch (error) {
+    if (activeId === chat.id && !chat.messagesLoaded) {
+      messages.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    }
+  }
+}
+
+function renderSharedDetails(chat) {
+  const media = chat.messages.filter(message => message.imageUrl && safeImageUrl(message.imageUrl));
+  const links = [];
+  const seen = new Set();
+  chat.messages.forEach(message => {
+    for (const match of String(message.text || '').matchAll(/https?:\/\/[^\s<>"']+/giu)) {
+      const href = safeImageUrl(match[0].replace(/[),.!?]+$/, ''));
+      if (href && !seen.has(href)) {
+        seen.add(href);
+        links.push({ href, createdAt: message.createdAt });
+      }
+    }
+  });
+  document.getElementById('mediaCount').textContent = media.length;
+  document.getElementById('mediaGrid').innerHTML = media.slice(0, 9).map(item => `<a class="media-tile" href="${escapeHtml(safeImageUrl(item.imageUrl))}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(safeImageUrl(item.imageUrl))}" alt="Фото из переписки" loading="lazy"></a>`).join('');
+  document.getElementById('mediaEmpty').hidden = media.length > 0;
+  document.getElementById('linkCount').textContent = links.length;
+  document.getElementById('sharedLinks').innerHTML = links.slice(0, 12).map(link => `<a class="shared-link" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer"><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>${escapeHtml(new URL(link.href).hostname)}<br><small style="color:var(--muted)">${escapeHtml(formatTime(link.createdAt))}</small></span></a>`).join('');
+  document.getElementById('linksEmpty').hidden = links.length > 0;
 }
 
 async function loadChats() {
   if (!session?.sessionToken) return;
   try {
     const result = await api('/api/social/chats');
-    chats = result.chats.map(mapChat);
+    const previousChats = new Map(chats.map(chat => [chat.id, chat]));
+    const nextChats = result.chats.map(row => {
+      const chat = mapChat(row);
+      const previous = previousChats.get(chat.id);
+      if (previous) {
+        chat.messages = previous.messages;
+        chat.messagesLoaded = previous.messagesLoaded;
+      }
+      return chat;
+    });
+    const loadedIds = new Set(nextChats.map(chat => chat.id));
+    const pendingChat = chats.find(chat => chat.id === activeId && !chat.lastMessageAt && !loadedIds.has(chat.id));
+    chats = pendingChat ? [...nextChats, pendingChat] : nextChats;
     renderChats();
-    if (activeId && !chats.some(chat => chat.id === activeId)) activeId = null;
-    if (!activeId && chats.length) await selectChat(chats[0].id);
+    if (activeId && !chats.some(chat => chat.id === activeId)) {
+      activeId = null;
+      app.classList.remove('show-conversation');
+    }
+    const firstLoad = !chatsLoadedOnce;
+    chatsLoadedOnce = true;
+    if (firstLoad && !activeId && chats.length) await selectChat(chats[0].id);
     if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
   } catch (error) {
     if (error.status === 401) {
       localStorage.removeItem('ferniex_messenger_session');
       session = null;
       chats = [];
+      chatsLoadedOnce = false;
       showAuth('Сессия FernieID завершилась. Войдите снова.');
       return;
     }
@@ -229,35 +378,33 @@ async function selectChat(id) {
   document.getElementById('detailName').textContent = chat.name;
   document.getElementById('detailHandle').textContent = chat.handle;
   document.getElementById('detailStatus').textContent = '● личный чат';
-  messages.innerHTML = '<div class="empty-state">Загружаем переписку…</div>';
+  document.getElementById('mediaGrid').replaceChildren();
+  document.getElementById('sharedLinks').replaceChildren();
+  document.getElementById('mediaCount').textContent = '0';
+  document.getElementById('linkCount').textContent = '0';
+  document.getElementById('mediaEmpty').hidden = false;
+  document.getElementById('linksEmpty').hidden = false;
+  if (chat.messagesLoaded) {
+    renderMessages(chat);
+    renderSharedDetails(chat);
+  } else {
+    messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
+  }
   renderChats();
   app.classList.add('show-conversation');
-  try {
-    const result = await api(`/api/social/chats/${encodeURIComponent(id)}/messages`);
-    if (activeId !== id) return;
-    chat.messages = result.messages.map(row => ({
-      text: row.deleted_at ? 'Сообщение удалено' : row.body,
-      imageUrl: row.deleted_at ? '' : row.image_url,
-      createdAt: row.created_at,
-      time: formatTime(row.created_at),
-      own: String(row.sender_id) === String(session.userId)
-    }));
-    renderMessages(chat);
-    try {
-      await api(`/api/social/chats/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
-    } catch {}
-  } catch (error) {
-    if (activeId === id) messages.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
-  }
+  await loadChatMessages(chat, !chat.messagesLoaded);
 }
 
 async function refreshChats() {
   if (refreshing) return;
   refreshing = true;
-  const selectedId = activeId;
+  const shouldRefreshConversation = isConversationVisible();
   try {
     await loadChats();
-    if (selectedId && activeId === selectedId) await selectChat(selectedId);
+    if (shouldRefreshConversation && activeId) {
+      const chat = chats.find(item => item.id === activeId);
+      if (chat) await loadChatMessages(chat);
+    }
   } finally {
     refreshing = false;
   }
@@ -349,22 +496,29 @@ document.getElementById('backToLogin').addEventListener('click', () => {
   setAuthError();
 });
 
-document.getElementById('messageForm').addEventListener('submit', async event => {
-  event.preventDefault();
-  const text = messageInput.value.trim();
-  if (!text || !activeId) return;
-  const button = event.currentTarget.querySelector('.send-button');
-  button.disabled = true;
+async function sendMessage(body, imageBase64 = '') {
+  if (!activeId || (!body && !imageBase64)) return;
   try {
-    await api(`/api/social/chats/${encodeURIComponent(activeId)}/messages`, { method: 'POST', body: JSON.stringify({ body: text }) });
+    await api(`/api/social/chats/${encodeURIComponent(activeId)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}) })
+    });
     messageInput.value = '';
     await Promise.all([loadChats(), selectChat(activeId)]);
   } catch (error) {
     messages.insertAdjacentHTML('beforeend', `<div class="empty-state">${escapeHtml(error.message)}</div>`);
-  } finally {
-    button.disabled = false;
-    messageInput.focus();
   }
+  messageInput.focus();
+}
+
+document.getElementById('messageForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('.send-button');
+  const text = messageInput.value.trim();
+  if (!text || !activeId) return;
+  button.disabled = true;
+  await sendMessage(text);
+  button.disabled = false;
 });
 
 searchInput.addEventListener('input', () => {
@@ -396,17 +550,89 @@ document.getElementById('newChat').addEventListener('click', () => {
   chatList.innerHTML = '<div class="empty-state">Введите имя пользователя FernieID</div>';
   searchInput.focus();
 });
+document.getElementById('menuToggle').addEventListener('click', openDrawer);
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+drawerBackdrop.addEventListener('click', event => {
+  if (event.target === drawerBackdrop) closeDrawer();
+});
+document.getElementById('drawerNewChat').addEventListener('click', () => {
+  closeDrawer();
+  document.getElementById('newChat').click();
+});
+document.getElementById('drawerProfileButton').addEventListener('click', () => {
+  closeDrawer();
+  openProfile();
+});
+document.getElementById('drawerProfile').addEventListener('click', () => {
+  closeDrawer();
+  openProfile();
+});
+document.getElementById('profileOpenButton').addEventListener('click', () => {
+  const chat = chats.find(item => item.id === activeId);
+  if (chat) openProfile(chat.partner);
+});
+document.getElementById('profileMessageButton').addEventListener('click', () => messageInput.focus());
+document.getElementById('profileClose').addEventListener('click', closeProfile);
+profileModal.addEventListener('click', event => {
+  if (event.target === profileModal) closeProfile();
+});
+document.getElementById('themeToggle').addEventListener('click', () => {
+  document.body.classList.toggle('dark-theme');
+  const enabled = document.body.classList.contains('dark-theme');
+  document.getElementById('themeState').textContent = enabled ? 'Вкл.' : 'Выкл.';
+  localStorage.setItem('ferniex_messenger_dark', String(enabled));
+});
+document.getElementById('detailsToggle').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 1180px)').matches) app.classList.add('show-details');
+  else app.classList.remove('details-hidden');
+});
+document.getElementById('detailsClose').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 1180px)').matches) app.classList.remove('show-details');
+  else app.classList.add('details-hidden');
+});
+document.getElementById('messageSearchButton').addEventListener('click', () => {
+  const query = window.prompt('Поиск в текущей переписке');
+  if (!query?.trim()) return;
+  const target = [...messages.querySelectorAll('.bubble')].find(bubble => bubble.textContent.toLocaleLowerCase('ru').includes(query.trim().toLocaleLowerCase('ru')));
+  messages.querySelectorAll('.search-highlight').forEach(bubble => bubble.classList.remove('search-highlight'));
+  if (!target) return window.alert('Сообщение не найдено');
+  target.classList.add('search-highlight');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+document.getElementById('attachButton').addEventListener('click', () => document.getElementById('attachInput').click());
+document.getElementById('attachInput').addEventListener('change', event => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return window.alert('Можно прикрепить JPG, PNG или WEBP.');
+  if (file.size > 8 * 1024 * 1024) return window.alert('Размер фото не должен превышать 8 МБ.');
+  const reader = new FileReader();
+  reader.onload = () => sendMessage('', String(reader.result));
+  reader.onerror = () => window.alert('Не удалось прочитать файл.');
+  reader.readAsDataURL(file);
+});
 document.getElementById('emojiButton').addEventListener('click', () => {
   messageInput.value += ' 😊';
   messageInput.focus();
 });
-accountButton.addEventListener('click', () => {
+function logout() {
   if (!confirm('Выйти из FernieX Messenger?')) return;
   localStorage.removeItem('ferniex_messenger_session');
   session = null;
   chats = [];
+  chatsLoadedOnce = false;
   activeId = null;
+  closeDrawer();
+  closeProfile();
   showAuth();
+}
+document.getElementById('drawerLogout').addEventListener('click', logout);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeDrawer();
+    closeProfile();
+    app.classList.remove('show-details');
+  }
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -416,15 +642,17 @@ document.addEventListener('visibilitychange', () => {
 if (session?.sessionToken) {
   document.body.classList.remove('auth-locked');
   authScreen.classList.add('is-hidden');
-  accountButton.textContent = initials(session.username);
-  accountButton.title = `Вы вошли как ${session.username}. Нажмите, чтобы выйти.`;
-  document.getElementById('detailName').textContent = session.username;
-  document.getElementById('detailHandle').textContent = `@${session.username}`;
+  updateAccountMenu();
   loadChats();
 } else {
   showAuth();
 }
 
+if (localStorage.getItem('ferniex_messenger_dark') === 'true') {
+  document.body.classList.add('dark-theme');
+  document.getElementById('themeState').textContent = 'Вкл.';
+}
+
 setInterval(() => {
   if (!document.hidden && session?.sessionToken) refreshChats();
-}, 20000);
+}, 8000);
