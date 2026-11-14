@@ -124,6 +124,25 @@
     .gift-modal-actions { display: flex; gap: 8px; margin-top: 12px; }
     .gift-modal-actions .settings-button { flex: 1; }
     .gift-market-note { margin: 10px 2px 0; color: var(--muted); font-size: 9px; line-height: 1.5; text-align: center; }
+    .message-context-menu { position: fixed; z-index: 90; display: none; width: 190px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 16px 42px rgba(34,29,23,.22); }
+    .message-context-menu.open { display: block; animation: context-menu-in .12s ease both; }
+    .context-menu-date { padding: 8px 10px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .context-menu-divider { height: 1px; margin: 3px 4px; background: var(--line); }
+    .context-menu-action { display: flex; width: 100%; min-height: 34px; align-items: center; gap: 10px; padding: 0 9px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font-size: 11px; text-align: left; cursor: pointer; }
+    .context-menu-action:hover { background: var(--surface-soft); }
+    .context-menu-action svg { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .context-menu-action.danger { color: #b94a3f; }
+    .reply-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; padding: 8px 10px; border-left: 3px solid var(--accent); border-radius: 8px; background: var(--surface-soft); }
+    .reply-bar[hidden] { display: none; }
+    .reply-bar-copy { min-width: 0; flex: 1; }
+    .reply-bar-title { color: var(--accent); font-size: 10px; font-weight: 700; }
+    .reply-bar-text { overflow: hidden; margin-top: 3px; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .reply-bar-close { width: 25px; height: 25px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; }
+    .reply-quote { margin: 0 0 7px; padding: 5px 8px; border-left: 2px solid var(--accent); border-radius: 4px; background: rgba(182,79,63,.07); color: var(--muted); font-size: 10px; }
+    .reply-quote b { display: block; margin-bottom: 2px; color: var(--accent); font-size: 9px; }
+    .message-toast { position: fixed; z-index: 95; bottom: 26px; left: 50%; padding: 9px 14px; border-radius: 99px; background: var(--ink); color: var(--surface); font-size: 11px; opacity: 0; pointer-events: none; transform: translate(-50%,8px); transition: .18s ease; }
+    .message-toast.visible { opacity: 1; transform: translate(-50%,0); }
+    @keyframes context-menu-in { from { opacity: 0; transform: translateY(3px) scale(.98); } to { opacity: 1; transform: none; } }
     .bubble { max-width: min(76%, 470px); padding: 11px 13px 8px; border: 1px solid rgba(233, 231, 224, .86); border-radius: 16px 16px 16px 5px; background: var(--surface); box-shadow: 0 4px 14px -12px rgba(35, 29, 21, .3); color: #383630; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
     .own .bubble { border-color: #ead4c9; border-radius: 16px 16px 5px 16px; background: #f8e9e1; }
     .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 4px; color: #9c9589; font-size: 9px; }
@@ -360,6 +379,7 @@
       </header>
       <div class="messages" id="messages" aria-live="polite"></div>
       <form class="composer-wrap" id="messageForm">
+        <div class="reply-bar" id="replyBar" hidden><div class="reply-bar-copy"><div class="reply-bar-title" id="replyBarTitle">Ответ</div><div class="reply-bar-text" id="replyBarText"></div></div><button class="reply-bar-close" id="cancelReply" type="button" aria-label="Отменить ответ">×</button></div>
         <div class="composer"><button type="button" class="icon-button" id="attachButton" aria-label="Прикрепить фото" title="Прикрепить фото"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="attachInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
       </form>
     </section>
@@ -445,6 +465,9 @@
       <div class="gift-modal-body" id="giftModalBody"></div>
     </section>
   </div>
+
+  <div class="message-context-menu" id="messageContextMenu" role="menu" aria-label="Действия с сообщением"></div>
+  <div class="message-toast" id="messageToast" role="status" aria-live="polite"></div>
 
   <section class="auth-screen" id="authScreen" aria-label="Вход в Qwant Messenger">
     <div class="auth-glow"></div>
