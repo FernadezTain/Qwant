@@ -30,6 +30,11 @@ let replyToMessageId = null;
 let longPressTimer;
 let longPressStart = null;
 let suppressMessageClick = false;
+let managedBots = [];
+let selectedManagedBot = null;
+let selectedBotChat = null;
+let botRefreshTimer;
+let botRefreshing = false;
 
 function readSession() {
   try {
@@ -277,6 +282,110 @@ function closeSettings() {
   settingsOverlay.setAttribute('aria-hidden', 'true');
 }
 
+function setBotStatus(message = '') {
+  document.getElementById('botManagerStatus').textContent = message;
+}
+
+function renderManagedBots() {
+  const list = document.getElementById('botList');
+  list.innerHTML = managedBots.length ? managedBots.map(bot => `
+    <button class="bot-row" type="button" data-managed-bot="${escapeHtml(bot.id)}"><strong>${escapeHtml(bot.display_name)}</strong><small>@${escapeHtml(bot.username)} · токен ${escapeHtml(bot.token_prefix)}…</small></button>`).join('') : '<div class="bot-empty">У вас пока нет ботов.</div>';
+  list.querySelectorAll('[data-managed-bot]').forEach(button => button.addEventListener('click', () => {
+    const bot = managedBots.find(item => item.id === button.dataset.managedBot);
+    if (bot) openManagedBot(bot);
+  }));
+}
+
+async function loadManagedBots() {
+  const list = document.getElementById('botList');
+  list.innerHTML = '<div class="bot-empty">Загружаем ботов…</div>';
+  try {
+    const result = await api('/api/qwant/bots');
+    managedBots = result.bots;
+    renderManagedBots();
+  } catch (error) {
+    list.innerHTML = `<div class="bot-empty">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function openBotManager() {
+  closeDrawer();
+  document.getElementById('botManager').classList.add('open');
+  document.getElementById('botManager').setAttribute('aria-hidden', 'false');
+  document.getElementById('botTokenNotice').hidden = true;
+  selectedManagedBot = null;
+  selectedBotChat = null;
+  document.getElementById('botListPanel').classList.remove('hidden');
+  document.getElementById('botInboxPanel').classList.remove('active', 'hidden');
+  document.getElementById('botThreadPanel').classList.remove('active');
+  loadManagedBots();
+  clearInterval(botRefreshTimer);
+  botRefreshTimer = setInterval(() => {
+    if (selectedManagedBot && document.getElementById('botManager').classList.contains('open')) loadManagedBotInbox();
+  }, 7000);
+}
+
+function closeBotManager() {
+  document.getElementById('botManager').classList.remove('open');
+  document.getElementById('botManager').setAttribute('aria-hidden', 'true');
+  clearInterval(botRefreshTimer);
+}
+
+async function openManagedBot(bot) {
+  selectedManagedBot = bot;
+  selectedBotChat = null;
+  document.getElementById('botInboxPanel').classList.add('active');
+  document.getElementById('botThreadPanel').classList.remove('active');
+  document.getElementById('botListPanel').classList.toggle('hidden', window.matchMedia('(max-width: 700px)').matches);
+  document.getElementById('botInboxTitle').textContent = `@${bot.username} · Входящие`;
+  await loadManagedBotInbox();
+}
+
+async function loadManagedBotInbox() {
+  if (!selectedManagedBot || botRefreshing) return;
+  botRefreshing = true;
+  try {
+    const result = await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/inbox`);
+    const inbox = document.getElementById('botInbox');
+    inbox.innerHTML = result.chats.length ? result.chats.map(chat => `
+      <button class="bot-inbox-row" type="button" data-bot-chat="${escapeHtml(chat.id)}"><strong>${escapeHtml(chat.partner.username)}</strong><small>${escapeHtml(chat.lastMessage || 'Новое сообщение')}${chat.unreadCount ? ` · ${chat.unreadCount} новых` : ''}</small></button>`).join('') : '<div class="bot-empty">Сообщений пока нет. Пользователи могут найти бота по username и написать ему.</div>';
+    inbox.querySelectorAll('[data-bot-chat]').forEach(button => button.addEventListener('click', () => {
+      const chat = result.chats.find(item => item.id === button.dataset.botChat);
+      if (chat) openManagedBotChat(chat);
+    }));
+    if (selectedBotChat) {
+      const updatedChat = result.chats.find(chat => chat.id === selectedBotChat.id);
+      if (updatedChat) selectedBotChat = updatedChat;
+      await loadManagedBotMessages();
+    }
+  } catch (error) {
+    document.getElementById('botInbox').innerHTML = `<div class="bot-empty">${escapeHtml(error.message)}</div>`;
+  } finally {
+    botRefreshing = false;
+  }
+}
+
+async function openManagedBotChat(chat) {
+  selectedBotChat = chat;
+  document.getElementById('botThreadTitle').textContent = chat.partner.username;
+  document.getElementById('botThreadPanel').classList.add('active');
+  document.getElementById('botInboxPanel').classList.toggle('hidden', window.matchMedia('(max-width: 700px)').matches);
+  await loadManagedBotMessages();
+}
+
+async function loadManagedBotMessages() {
+  if (!selectedManagedBot || !selectedBotChat) return;
+  try {
+    const result = await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/chats/${encodeURIComponent(selectedBotChat.id)}/messages`);
+    const thread = document.getElementById('botThreadMessages');
+    thread.innerHTML = result.messages.length ? result.messages.map(message => `
+      <article class="bot-message ${String(message.sender_id) === String(selectedManagedBot.user_id) ? 'own' : ''}">${escapeHtml(message.deleted_at ? 'Сообщение удалено' : message.body)}<small>${escapeHtml(formatTime(message.created_at))}</small></article>`).join('') : '<div class="bot-empty">Сообщений пока нет.</div>';
+    thread.scrollTop = thread.scrollHeight;
+  } catch (error) {
+    document.getElementById('botThreadMessages').innerHTML = `<div class="bot-empty">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 function openDrawer() {
   drawerBackdrop.classList.add('open');
   drawerBackdrop.setAttribute('aria-hidden', 'false');
@@ -288,7 +397,7 @@ function closeDrawer() {
 }
 
 function openProfile(person = null) {
-  const username = person?.username || session?.username || 'FernieID';
+  const username = person?.display_name || person?.username || session?.username || 'FernieID';
   const userId = person?.id || session?.userId;
   document.getElementById('profileTitle').textContent = person ? 'Профиль контакта' : 'Мой профиль';
   document.getElementById('accountProfileName').textContent = username;
@@ -312,7 +421,7 @@ function initials(name = '') {
 }
 
 function avatarMarkup(person, className = 'avatar') {
-  const name = person.username || person.name || 'Пользователь';
+  const name = person.display_name || person.username || person.name || 'Пользователь';
   const color = colors[Math.abs(Number(String(person.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length];
   const photo = safeImageUrl(person.avatar_url);
   return `<span class="${className}" style="background:${color}">${photo ? `<img src="${escapeHtml(photo)}" alt="">` : escapeHtml(initials(name))}</span>`;
@@ -367,12 +476,12 @@ function dateLabel(value) {
 
 function mapChat(row) {
   const partner = row.partner || {};
-  const name = partner.username || 'Пользователь';
+  const name = partner.display_name || partner.username || 'Пользователь';
   return {
     id: row.id,
     partner,
     name,
-    handle: `@${name}`,
+    handle: `@${partner.username || name}`,
     initials: initials(name),
     color: colors[Math.abs(Number(String(partner.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length],
     lastMessageAt: row.lastMessageAt,
@@ -688,7 +797,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
   document.getElementById('detailHandle').textContent = chat.handle;
-  document.getElementById('detailStatus').textContent = '● личный чат';
+  document.getElementById('detailStatus').textContent = chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
   document.getElementById('mediaCount').textContent = '0';
@@ -728,7 +837,7 @@ async function searchPeople(query) {
     chatList.innerHTML = result.users.length ? result.users.map(person => `
       <button class="chat-item" data-person="${escapeHtml(person.id)}">
         <span class="avatar-wrap">${avatarMarkup(person)}</span>
-        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.username)}</span></span><span class="chat-preview">Начать переписку</span></span>
+        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.display_name || person.username)}</span></span><span class="chat-preview">${person.is_bot ? 'Бот · ' : ''}@${escapeHtml(person.username)} · Начать переписку</span></span>
       </button>`).join('') : '<div class="empty-state">Пользователи не найдены</div>';
     chatList.querySelectorAll('[data-person]').forEach(button => button.addEventListener('click', () => openChat(button.dataset.person)));
   } catch (error) {
@@ -1008,8 +1117,78 @@ document.getElementById('drawerProfile').addEventListener('click', () => {
   openProfile();
 });
 document.getElementById('drawerSettings').addEventListener('click', () => openSettings());
+document.getElementById('drawerBots').addEventListener('click', openBotManager);
 document.getElementById('drawerPlus').addEventListener('click', () => openSettings('plus'));
 document.getElementById('drawerCoins').addEventListener('click', () => openSettings('coins'));
+document.getElementById('botManagerClose').addEventListener('click', closeBotManager);
+document.getElementById('botManager').addEventListener('click', event => {
+  if (event.target.id === 'botManager') closeBotManager();
+});
+document.getElementById('botCreateForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  document.getElementById('botTokenNotice').hidden = true;
+  setBotStatus('Создаём профиль…');
+  try {
+    const result = await api('/api/qwant/bots', {
+      method:'POST',
+      body:JSON.stringify({
+        displayName:document.getElementById('botDisplayName').value.trim(),
+        username:document.getElementById('botUsername').value.trim()
+      })
+    });
+    document.getElementById('botTokenValue').textContent = result.token;
+    document.getElementById('botTokenNotice').hidden = false;
+    form.reset();
+    setBotStatus('Бот создан. Сохраните токен — повторно он не отображается.');
+    await loadManagedBots();
+  } catch (error) {
+    setBotStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+document.getElementById('botTokenCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('botTokenValue').textContent);
+    document.getElementById('botTokenCopy').textContent = 'Скопировано';
+  } catch {
+    setBotStatus('Не удалось скопировать токен. Выделите и скопируйте его вручную.');
+  }
+});
+document.getElementById('botInboxRefresh').addEventListener('click', loadManagedBotInbox);
+document.getElementById('botBackToList').addEventListener('click', () => {
+  selectedManagedBot = null;
+  selectedBotChat = null;
+  document.getElementById('botInboxPanel').classList.remove('active');
+  document.getElementById('botThreadPanel').classList.remove('active');
+  document.getElementById('botListPanel').classList.remove('hidden');
+});
+document.getElementById('botBackToInbox').addEventListener('click', () => {
+  selectedBotChat = null;
+  document.getElementById('botThreadPanel').classList.remove('active');
+  document.getElementById('botInboxPanel').classList.remove('hidden');
+});
+document.getElementById('botReplyForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!selectedManagedBot || !selectedBotChat) return;
+  const input = document.getElementById('botReplyInput');
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/chats/${encodeURIComponent(selectedBotChat.id)}/messages`, {
+      method:'POST', body:JSON.stringify({ body:input.value.trim() })
+    });
+    input.value = '';
+    await Promise.all([loadManagedBotMessages(), loadManagedBotInbox()]);
+  } catch (error) {
+    setBotStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
 document.getElementById('profileOpenButton').addEventListener('click', () => {
   const chat = chats.find(item => item.id === activeId);
   if (chat) openProfile(chat.partner);
@@ -1145,6 +1324,7 @@ function logout() {
     clearInterval(deviceCheckTimer);
     closeDrawer();
     closeProfile();
+    closeBotManager();
     showAuth();
   };
   const request = session?.deviceId
@@ -1157,6 +1337,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     closeDrawer();
     closeProfile();
+    closeBotManager();
     app.classList.remove('show-details');
   }
 });
