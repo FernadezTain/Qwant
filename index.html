@@ -127,6 +127,29 @@
     .gift-modal-actions { display: flex; gap: 8px; margin-top: 12px; }
     .gift-modal-actions .settings-button { flex: 1; }
     .gift-market-note { margin: 10px 2px 0; color: var(--muted); font-size: 9px; line-height: 1.5; text-align: center; }
+    .photo-send-overlay { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; padding: 18px; background: rgba(5,9,14,.68); opacity: 0; visibility: hidden; transition: opacity .2s, visibility .2s; }
+    .photo-send-overlay.open { opacity: 1; visibility: visible; }
+    .photo-send-dialog { display: grid; grid-template-rows: auto minmax(0,1fr) auto auto; width: min(100%, 470px); max-height: min(90dvh, 760px); overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.4); transform: translateY(8px) scale(.99); transition: transform .2s; }
+    .photo-send-overlay.open .photo-send-dialog { transform: none; }
+    .photo-send-head { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; }
+    .photo-send-preview { position: relative; display: grid; min-height: 180px; height: min(52dvh, 440px); place-items: center; overflow: hidden; margin: 12px 14px 0; border-radius: 11px; background: #080b10; }
+    .photo-send-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .photo-send-preview #photoSendReplace { position: absolute; top: 9px; right: 9px; border-color: rgba(255,255,255,.2); background: rgba(12,18,26,.76); color: white; }
+    .photo-send-caption { width: calc(100% - 28px); min-height: 42px; max-height: 110px; margin: 12px 14px 0; padding: 10px 11px; resize: vertical; border: 0; border-bottom: 1px solid var(--line); outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
+    .photo-send-caption::placeholder { color: var(--muted); }
+    .photo-send-actions { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px max(9px, env(safe-area-inset-bottom)); }
+    .photo-send-actions-right { display: flex; gap: 8px; }
+    .photo-send-button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 650; cursor: pointer; }
+    .photo-send-button:hover { background: var(--surface-soft); color: var(--ink); }
+    .photo-send-button.primary { background: #4b9de8; color: white; }
+    .photo-send-button.primary:hover { background: #378bd8; }
+    .message-send-status { display: inline-grid; width: 15px; height: 15px; flex: 0 0 auto; place-items: center; padding: 0; color: #a4a9b0; }
+    .message-send-status svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .message-send-status.sending svg { animation: send-clock 1.6s linear infinite; }
+    .message-send-status.failed { width: 17px; height: 17px; border: 0; border-radius: 50%; background: #c94f5a; color: white; cursor: pointer; }
+    .message-send-status.failed svg { width: 12px; height: 12px; stroke-width: 2.4; }
+    .message-send-status.sent { color: #5593a0; }
+    @keyframes send-clock { to { transform: rotate(360deg); } }
     .message-context-menu { position: fixed; z-index: 90; display: none; width: 190px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 16px 42px rgba(34,29,23,.22); }
     .chat-context-menu { width: 238px; }
     .message-context-menu.open { display: block; animation: context-menu-in .12s ease both; }
@@ -502,6 +525,11 @@
       .profile-main { gap: 14px; padding: 0 18px 18px; }
       .profile-main .avatar { width: 88px; height: 88px; margin-top: -36px; border-width: 4px; border-radius: 28px; font-size: 25px; }
       .profile-info { padding: 0 18px 24px; }
+      .photo-send-overlay { align-items: end; padding: 0; }
+      .photo-send-dialog { width: 100%; max-height: 94dvh; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 20px 20px 0 0; }
+      .photo-send-preview { height: min(46dvh, 430px); min-height: 150px; margin: 10px 10px 0; }
+      .photo-send-caption { width: calc(100% - 20px); margin: 10px 10px 0; }
+      .photo-send-actions { padding-right: 10px; padding-left: 10px; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>
@@ -681,6 +709,15 @@
       <header class="gift-modal-head"><span>Подарок UDG</span><button class="icon-button" id="giftModalClose" type="button" aria-label="Закрыть подарок">×</button></header>
       <div class="gift-modal-body" id="giftModalBody"></div>
     </section>
+  </div>
+
+  <div class="photo-send-overlay" id="photoSendModal" aria-hidden="true">
+    <form class="photo-send-dialog" id="photoSendForm" role="dialog" aria-modal="true" aria-labelledby="photoSendTitle">
+      <header class="photo-send-head"><span id="photoSendTitle">Отправить изображение</span><button class="icon-button" id="photoSendClose" type="button" aria-label="Закрыть">×</button></header>
+      <div class="photo-send-preview"><img id="photoSendPreview" alt="Предпросмотр изображения"><button class="icon-button" id="photoSendReplace" type="button" aria-label="Выбрать другое фото" title="Выбрать другое фото">↻</button></div>
+      <textarea class="photo-send-caption" id="photoSendCaption" maxlength="4000" placeholder="Подпись" aria-label="Подпись к фото"></textarea>
+      <div class="photo-send-actions"><button class="photo-send-button" id="photoSendChoose" type="button">Выбрать другое фото</button><div class="photo-send-actions-right"><button class="photo-send-button" id="photoSendCancel" type="button">Отмена</button><button class="photo-send-button primary" id="photoSendSubmit" type="submit">Отправить</button></div></div>
+    </form>
   </div>
 
   <div class="message-context-menu chat-context-menu" id="chatContextMenu" role="menu" aria-label="Действия с чатом"></div>
