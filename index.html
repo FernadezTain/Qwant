@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f6f5f1">
-  <title>Messenger — FernieX</title>
+  <title>Qwant Messenger</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@
     }
 
     * { box-sizing: border-box; }
-    body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
+    body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); zoom: var(--page-zoom, 1); }
     button, input { font: inherit; }
     button { color: inherit; }
     .app { display: grid; grid-template-columns: 330px minmax(360px, 1fr) 286px; width: 100%; height: 100%; padding: 14px; gap: 10px; }
@@ -139,21 +139,22 @@
     .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
     .drawer-backdrop.open { opacity: 1; visibility: visible; }
-    .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; padding: 0 12px 14px; overflow-y: auto; background: #18232d; color: #eaf0f5; box-shadow: 16px 0 45px rgba(0,0,0,.22); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+    .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; padding: 0 12px 14px; overflow-y: auto; background: var(--surface); color: var(--ink); box-shadow: 16px 0 45px rgba(0,0,0,.16); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
     .drawer-backdrop.open .drawer { transform: translateX(0); }
-    .drawer-cover { position: relative; display: flex; min-height: 145px; align-items: flex-end; justify-content: space-between; padding: 18px 12px; background: radial-gradient(circle at 20% 20%, #527168, transparent 56%), linear-gradient(140deg, #263d43, #253239); }
-    .drawer-profile { display: flex; width: 100%; align-items: center; gap: 12px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    .drawer-cover { position: relative; display: flex; min-height: 145px; align-items: flex-end; justify-content: space-between; margin: 0 -12px 8px; padding: 18px 22px; background: radial-gradient(circle at 20% 20%, rgba(181,198,177,.55), transparent 58%), linear-gradient(140deg, #f1e8dc, #e8eee6); }
+    .drawer-profile { display: flex; width: 100%; align-items: center; gap: 12px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
     .drawer-avatar { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; background: #b64f3f; color: white; font-weight: 700; }
     .drawer-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .drawer-account { min-width: 0; }
     .drawer-name { overflow: hidden; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
     .drawer-handle { margin-top: 4px; color: #a9bac5; font-size: 11px; }
-    .drawer-close { position: absolute; top: 12px; right: 12px; display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: white; cursor: pointer; }
-    .drawer-item { display: flex; min-height: 48px; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #e4eaf0; font-size: 13px; text-align: left; cursor: pointer; }
-    .drawer-item:hover { background: rgba(255,255,255,.07); }
+    .drawer-close { position: absolute; top: 12px; right: 12px; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(54,48,38,.08); border-radius: 50%; background: rgba(255,255,255,.62); color: var(--muted); cursor: pointer; }
+    .drawer-item { display: flex; min-height: 48px; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer; }
+    .drawer-item:hover { background: var(--surface-soft); }
     .drawer-item svg { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-    .drawer-separator { height: 1px; margin: 8px 0; background: rgba(255,255,255,.09); }
+    .drawer-separator { height: 1px; margin: 8px 0; background: var(--line); }
     .drawer-spacer { flex: 1; min-height: 35px; }
+    .drawer-product { background: linear-gradient(110deg,rgba(255,255,255,.07),transparent); }
     .drawer-switch { margin-left: auto; color: #8eb6d5; }
     .profile-modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(10,15,20,.52); opacity: 0; visibility: hidden; transition: .2s; }
     .profile-modal.open { opacity: 1; visibility: visible; }
@@ -163,6 +164,63 @@
     .profile-card-user { display: flex; align-items: center; gap: 13px; }
     .profile-card-user .avatar { width: 58px; height: 58px; border-radius: 20px; }
     .profile-card-meta { color: var(--muted); font-size: 12px; }
+    .settings-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.34); opacity: 0; visibility: hidden; transition: .2s ease; }
+    .settings-overlay.open { opacity: 1; visibility: visible; }
+    .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
+    .settings-overlay.open .settings-dialog { transform: none; }
+    .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 21px; border-bottom: 1px solid var(--line); }
+    .settings-heading { font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
+    .settings-body { display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: 0; }
+    .settings-nav { display: flex; flex-direction: column; gap: 4px; padding: 15px 11px; border-right: 1px solid var(--line); background: var(--surface-soft); }
+    .settings-nav-button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font-size: 12px; text-align: left; cursor: pointer; transition: .16s ease; }
+    .settings-nav-button:hover { background: var(--surface); color: var(--ink); }
+    .settings-nav-button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); font-weight: 700; }
+    .settings-nav-icon { width: 18px; text-align: center; font-size: 15px; }
+    .settings-content { overflow: auto; padding: clamp(18px,4vw,32px); }
+    .settings-page { display: none; max-width: 620px; animation: auth-rise .24s ease both; }
+    .settings-page.active { display: block; }
+    .settings-page-title { margin: 0; font-size: 21px; letter-spacing: -.7px; }
+    .settings-page-copy { margin: 7px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .setting-row { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .setting-row:last-child { border-bottom: 0; }
+    .setting-label { font-size: 12px; font-weight: 600; }
+    .setting-description { margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .setting-switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; border: 0; border-radius: 20px; background: #d3d0c8; cursor: pointer; transition: background .2s; }
+    .setting-switch::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.18); content: ''; transition: transform .2s; }
+    .setting-switch[aria-checked="true"] { background: var(--accent); }
+    .setting-switch[aria-checked="true"]::after { transform: translateX(18px); }
+    .setting-switch:disabled { opacity: .42; cursor: not-allowed; }
+    .settings-note { padding: 12px 14px; border-radius: 13px; background: var(--surface-soft); color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .settings-button { min-height: 37px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 600; cursor: pointer; }
+    .settings-button:hover { border-color: var(--accent); color: var(--accent); }
+    .settings-button.danger { color: #b94a3f; }
+    .telegram-card, .device-card, .product-card { margin-bottom: 10px; padding: 15px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+    .telegram-head, .device-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .device-title { font-size: 12px; font-weight: 700; }
+    .device-meta { margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .device-current { color: var(--green); font-size: 10px; font-weight: 700; }
+    .color-options { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+    .color-option { width: 28px; height: 28px; border: 3px solid var(--surface); border-radius: 50%; outline: 1px solid var(--line); cursor: pointer; }
+    .color-option.active { outline: 2px solid var(--ink); }
+    .settings-range { width: min(220px,40vw); accent-color: var(--accent); }
+    .product-card { padding: 23px; background: linear-gradient(135deg,#fff8eb,#f8e8dd 62%,#f3eee2); }
+    .product-title { margin: 0; font-size: 24px; letter-spacing: -1px; }
+    .product-balance { margin: 12px 0 18px; color: #8d6044; font-size: 14px; font-weight: 700; }
+    .product-description { color: #62574e; font-size: 12px; line-height: 1.65; }
+    .settings-status { min-height: 18px; margin-top: 12px; color: var(--muted); font-size: 10px; }
+    .session-notice { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(36,35,32,.42); opacity: 0; visibility: hidden; transition: .2s; }
+    .session-notice.open { opacity: 1; visibility: visible; }
+    .session-notice-card { width: min(100%,360px); padding: 25px; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); text-align: center; box-shadow: var(--shadow); }
+    .session-notice-card h2 { margin: 0 0 8px; font-size: 19px; }
+    .session-notice-card p { margin: 0 0 18px; color: var(--muted); font-size: 12px; }
+    .page-loader { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: var(--page); transition: opacity .3s, visibility .3s; }
+    .page-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .page-loader-card { display: grid; justify-items: center; gap: 15px; color: var(--muted); font-size: 12px; }
+    .page-loader-mark { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 18px; background: var(--ink); color: var(--surface); font-size: 20px; font-weight: 800; letter-spacing: -2px; box-shadow: 0 12px 32px -15px rgba(30,25,20,.4); animation: loader-breathe 1.4s ease-in-out infinite; }
+    .page-loader-line { width: 100px; height: 3px; overflow: hidden; border-radius: 3px; background: var(--line); }
+    .page-loader-line::after { display: block; width: 42%; height: 100%; border-radius: inherit; background: var(--accent); content: ''; animation: loader-progress 1s ease-in-out infinite; }
+    @keyframes loader-breathe { 50% { transform: translateY(-3px); box-shadow: 0 17px 36px -15px rgba(30,25,20,.32); } }
+    @keyframes loader-progress { from { transform: translateX(-120%); } to { transform: translateX(250%); } }
     .link-icon { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
     .link-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .detail-foot { margin-top: auto; padding: 13px 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
@@ -171,31 +229,31 @@
 
     body.auth-locked .app { opacity: .24; filter: blur(7px); pointer-events: none; transform: scale(.99); }
     .app { transition: opacity .45s ease, filter .45s ease, transform .45s ease; }
-    .auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; padding: 24px; background: #181714; color: #f7f3eb; transition: opacity .4s ease, visibility .4s ease; }
+    .auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; padding: 24px; background: var(--page); color: var(--ink); transition: opacity .4s ease, visibility .4s ease; }
     .auth-screen.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
-    .auth-screen::before, .auth-screen::after { position: absolute; width: min(60vw, 700px); aspect-ratio: 1; border: 1px solid rgba(255,255,255,.07); border-radius: 50%; content: ''; pointer-events: none; animation: auth-orbit 28s linear infinite; }
-    .auth-screen::before { top: -34%; left: -12%; box-shadow: 0 0 0 55px rgba(255,255,255,.018), 0 0 0 110px rgba(255,255,255,.014); }
+    .auth-screen::before, .auth-screen::after { position: absolute; width: min(60vw, 700px); aspect-ratio: 1; border: 1px solid rgba(113,102,83,.09); border-radius: 50%; content: ''; pointer-events: none; animation: auth-orbit 28s linear infinite; }
+    .auth-screen::before { top: -34%; left: -12%; box-shadow: 0 0 0 55px rgba(113,102,83,.025), 0 0 0 110px rgba(113,102,83,.018); }
     .auth-screen::after { right: -15%; bottom: -48%; width: min(65vw, 760px); animation-direction: reverse; }
-    .auth-glow { position: absolute; top: 50%; left: 50%; width: min(70vw, 780px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(182,79,63,.22), rgba(182,79,63,0) 68%); transform: translate(-50%, -50%); pointer-events: none; }
-    .auth-card { position: relative; z-index: 1; width: min(100%, 430px); padding: 42px; border: 1px solid rgba(255,255,255,.12); border-radius: 28px; background: rgba(31,30,27,.82); box-shadow: 0 32px 100px rgba(0,0,0,.4); backdrop-filter: blur(20px); animation: auth-rise .65s cubic-bezier(.2,.8,.2,1) both; }
-    .auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 38px; color: #f8f6f1; font-size: 14px; font-weight: 700; letter-spacing: -.3px; }
+    .auth-glow { position: absolute; top: 50%; left: 50%; width: min(70vw, 780px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(182,79,63,.09), rgba(182,79,63,0) 68%); transform: translate(-50%, -50%); pointer-events: none; }
+    .auth-card { position: relative; z-index: 1; width: min(100%, 430px); padding: 42px; border: 1px solid var(--line); border-radius: 28px; background: rgba(255,254,250,.91); box-shadow: 0 30px 80px -45px rgba(48,39,27,.4); backdrop-filter: blur(20px); animation: auth-rise .65s cubic-bezier(.2,.8,.2,1) both; }
+    .auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 38px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.3px; }
     .auth-brand-mark { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 13px; background: #b64f3f; color: white; font-size: 13px; letter-spacing: -1px; box-shadow: 0 7px 22px rgba(182,79,63,.3); }
-    .auth-kicker { color: #d78a78; font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+    .auth-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
     .auth-title { margin: 10px 0 9px; font-size: clamp(29px, 7vw, 36px); font-weight: 600; letter-spacing: -1.7px; }
-    .auth-copy { margin: 0 0 26px; color: #a9a69e; font-size: 13px; line-height: 1.6; }
+    .auth-copy { margin: 0 0 26px; color: var(--muted); font-size: 13px; line-height: 1.6; }
     .auth-field { display: grid; gap: 8px; margin-top: 16px; }
-    .auth-field label { color: #d0cdc5; font-size: 11px; font-weight: 600; }
-    .auth-field input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid rgba(255,255,255,.11); border-radius: 13px; outline: 0; background: rgba(255,255,255,.045); color: #fff; transition: border-color .2s, background .2s, box-shadow .2s; }
-    .auth-field input::placeholder { color: #77746e; }
-    .auth-field input:focus { border-color: rgba(215,138,120,.72); background: rgba(255,255,255,.07); box-shadow: 0 0 0 3px rgba(182,79,63,.14); }
+    .auth-field label { color: var(--ink); font-size: 11px; font-weight: 600; }
+    .auth-field input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 13px; outline: 0; background: var(--surface-soft); color: var(--ink); transition: border-color .2s, background .2s, box-shadow .2s; }
+    .auth-field input::placeholder { color: #a4a198; }
+    .auth-field input:focus { border-color: #d8b8aa; background: white; box-shadow: 0 0 0 3px rgba(182,79,63,.1); }
     #authCode { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; }
     .auth-submit { position: relative; display: flex; width: 100%; height: 49px; align-items: center; justify-content: center; gap: 9px; margin-top: 21px; overflow: hidden; border: 0; border-radius: 14px; background: #b64f3f; color: white; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .18s, background .18s, box-shadow .18s; box-shadow: 0 10px 25px rgba(182,79,63,.2); }
     .auth-submit:hover { transform: translateY(-2px); background: #c45c4b; box-shadow: 0 13px 30px rgba(182,79,63,.3); }
     .auth-submit:disabled { transform: none; cursor: wait; opacity: .7; }
     .auth-submit span { transition: transform .18s; }
     .auth-submit:hover span { transform: translateX(3px); }
-    .auth-error { min-height: 18px; margin: 12px 0 0; color: #f09284; font-size: 11px; line-height: 1.5; text-align: center; }
-    .auth-foot { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 23px; color: #817e76; font-size: 10px; }
+    .auth-error { min-height: 18px; margin: 12px 0 0; color: #b94a3f; font-size: 11px; line-height: 1.5; text-align: center; }
+    .auth-foot { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 23px; color: var(--muted); font-size: 10px; }
     .auth-foot-dot { width: 6px; height: 6px; border-radius: 50%; background: #7fac87; box-shadow: 0 0 10px rgba(127,172,135,.55); }
     .auth-hidden { display: none !important; }
     .account-avatar { display: grid; place-items: center; padding: 0; overflow: hidden; background: #e8d5c8; color: #765548; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -217,6 +275,13 @@
     @media (max-width: 760px) {
       .auth-card { padding: 33px 25px; border-radius: 24px; }
       .auth-brand { margin-bottom: 31px; }
+      .settings-overlay { padding: 0; }
+      .settings-dialog { width: 100%; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
+      .settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
+      .settings-nav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .settings-nav-button { min-height: 38px; gap: 6px; padding: 8px 10px; white-space: nowrap; }
+      .settings-nav-icon { font-size: 13px; }
+      .settings-content { padding: 20px 17px; }
       body { background: var(--surface); }
       .app { display: block; padding: 0; }
       .chats, .conversation { position: absolute; inset: 0; border: 0; border-radius: 0; box-shadow: none; }
@@ -240,7 +305,7 @@
   <main class="app" id="app">
     <section class="chats" aria-label="Список чатов">
       <header class="chats-head">
-        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">FernieX</div><h1 class="chats-title">Сообщения</h1></div></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title">Сообщения</h1></div></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
         <label class="search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Поиск по чатам" autocomplete="off"></label>
       </header>
       <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button></div>
@@ -250,7 +315,7 @@
     <section class="conversation" aria-label="Переписка">
       <header class="conversation-head">
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
-        <div class="person"><div class="avatar" id="headerAvatar">FX</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Messenger FernieX</div></div></div>
+        <div class="person"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></div>
         <div class="head-actions">
           <button class="icon-button" id="messageSearchButton" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
           <button class="icon-button" id="detailsToggle" aria-label="Показать информацию о чате" title="Информация о чате"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
@@ -264,7 +329,7 @@
 
     <aside class="details" aria-label="Информация о контакте">
       <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
-      <div class="profile"><div class="avatar" id="detailAvatar">FX</div><div class="profile-name" id="detailName">FernieX Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
+      <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
       <div class="detail-foot">Личные сообщения защищены</div>
@@ -282,12 +347,53 @@
       </div>
       <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты</button>
       <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль</button>
+      <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z"/></svg>Настройки</button>
       <div class="drawer-separator"></div>
       <button class="drawer-item" id="themeToggle" type="button"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>Ночной режим<span class="drawer-switch" id="themeState">Выкл.</span></button>
+      <button class="drawer-item drawer-product" id="drawerPlus" type="button"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>Fernie+</button>
+      <button class="drawer-item drawer-product" id="drawerCoins" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg>FernieCoins<span class="drawer-switch" id="coinsMenuBalance">—</span></button>
       <div class="drawer-spacer"></div>
       <button class="drawer-item" id="drawerLogout" type="button"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6"/></svg>Выйти из аккаунта</button>
     </aside>
   </div>
+
+  <section class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+    <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <header class="settings-header"><span class="settings-heading" id="settingsTitle">Настройки Qwant</span><button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button></header>
+      <div class="settings-body">
+        <nav class="settings-nav" aria-label="Разделы настроек">
+          <button class="settings-nav-button active" data-settings-page="notifications"><span class="settings-nav-icon">♧</span>Уведомления</button>
+          <button class="settings-nav-button" data-settings-page="devices"><span class="settings-nav-icon">▣</span>Устройства</button>
+          <button class="settings-nav-button" data-settings-page="privacy"><span class="settings-nav-icon">◈</span>Конфиденциальность</button>
+          <button class="settings-nav-button" data-settings-page="personalization"><span class="settings-nav-icon">✳</span>Персонализация</button>
+          <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon">✦</span>Fernie+</button>
+          <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon">◉</span>FernieCoins</button>
+        </nav>
+        <div class="settings-content">
+          <section class="settings-page active" data-settings-content="notifications"><h2 class="settings-page-title">Уведомления</h2><p class="settings-page-copy">Управляйте уведомлениями Qwant на этом устройстве и сообщениями в Telegram.</p>
+            <div class="setting-row"><div><div class="setting-label">Уведомления в браузере</div><div class="setting-description">Показывать уведомления о новых сообщениях, пока сайт открыт.</div></div><button class="setting-switch" id="browserNotifications" role="switch" aria-checked="true"></button></div>
+            <div class="telegram-card"><div class="telegram-head"><div><div class="setting-label">Уведомления в Telegram</div><div class="setting-description" id="telegramAccountLabel">Проверяем привязку…</div></div><button class="setting-switch" id="telegramNotifications" role="switch" aria-checked="false" disabled></button></div><div class="settings-status" id="telegramSettingsStatus"></div><button class="settings-button" id="linkTelegramButton" type="button" hidden>Привязать Telegram в FernieID</button></div>
+          </section>
+          <section class="settings-page" data-settings-content="devices"><h2 class="settings-page-title">Устройства</h2><p class="settings-page-copy">Завершайте сеансы на устройствах. Отключённый сеанс попросит войти при следующем открытии сайта.</p><div id="devicesList"></div><div class="settings-status" id="devicesStatus"></div></section>
+          <section class="settings-page" data-settings-content="privacy"><h2 class="settings-page-title">Конфиденциальность</h2><p class="settings-page-copy">Выберите, какую информацию и действия разрешить в Qwant.</p>
+            <div class="setting-row"><div><div class="setting-label">Показывать статус в сети</div><div class="setting-description">Скрывает ваш онлайн-статус и набор текста.</div></div><button class="setting-switch" data-setting="show_online_status" role="switch" aria-checked="true"></button></div>
+            <div class="setting-row"><div><div class="setting-label">Подтверждения прочтения</div><div class="setting-description">Если выключено, собеседник не увидит, что вы прочитали сообщения.</div></div><button class="setting-switch" data-setting="read_receipts" role="switch" aria-checked="true"></button></div>
+            <div class="setting-row"><div><div class="setting-label">Новые чаты</div><div class="setting-description">Разрешить открывать новые переписки через поиск пользователей.</div></div><button class="setting-switch" data-setting="allow_new_chats" role="switch" aria-checked="true"></button></div>
+          </section>
+          <section class="settings-page" data-settings-content="personalization"><h2 class="settings-page-title">Персонализация</h2><p class="settings-page-copy">Настройте внешний вид Messenger. Изменения сохраняются в аккаунте.</p>
+            <div class="setting-row"><div><div class="setting-label">Тема</div><div class="setting-description">Светлая или тёмная.</div></div><select class="settings-button" id="themeSelect"><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div>
+            <div class="setting-label" style="margin-top:18px">Цвет акцента</div><div class="color-options" id="accentOptions"><button class="color-option" data-color="#b64f3f" style="background:#b64f3f" aria-label="Терракотовый"></button><button class="color-option" data-color="#597a68" style="background:#597a68" aria-label="Зелёный"></button><button class="color-option" data-color="#6c73a8" style="background:#6c73a8" aria-label="Синий"></button><button class="color-option" data-color="#b57a45" style="background:#b57a45" aria-label="Золотой"></button></div>
+            <div class="setting-row"><div><div class="setting-label">Размер текста</div><div class="setting-description" id="fontScaleLabel">100%</div></div><input class="settings-range" id="fontScale" type="range" min="90" max="115" step="5" value="100"></div>
+          </section>
+          <section class="settings-page" data-settings-content="plus"><h2 class="settings-page-title">Fernie+</h2><p class="settings-page-copy">Статус подписки FernieID.</p><div class="product-card"><h3 class="product-title">✦ Fernie+</h3><div class="product-balance" id="plusStatus">Проверяем подписку…</div><p class="product-description">Подписка FernieID расширяет возможности экосистемы. Управление подпиской и условия доступны на сайте FernieID.</p><button class="settings-button" id="openFernieIdPlus" type="button">Открыть FernieID</button></div></section>
+          <section class="settings-page" data-settings-content="coins"><h2 class="settings-page-title">FernieCoins</h2><p class="settings-page-copy">Баланс валюты аккаунта FernieID.</p><div class="product-card"><h3 class="product-title">◉ FernieCoins</h3><div class="product-balance" id="coinsBalance">Загружаем баланс…</div><p class="product-description">Баланс показывается из аккаунта FernieID. Пополнение и операции доступны в экосистеме FernieID.</p><button class="settings-button" id="openFernieIdCoins" type="button">Открыть FernieID</button></div></section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="session-notice" id="sessionNotice" aria-hidden="true"><section class="session-notice-card"><h2>Сессия завершена</h2><p>Это устройство отключено от аккаунта. Войдите снова, чтобы продолжить.</p><button class="settings-button" id="sessionNoticeOk" type="button">Понятно</button></section></div>
+  <div class="page-loader" id="pageLoader"><div class="page-loader-card"><div class="page-loader-mark">Q</div><span>Открываем Qwant Messenger</span><span class="page-loader-line"></span></div></div>
 
   <div class="profile-modal" id="profileModal" aria-hidden="true">
     <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
@@ -296,13 +402,13 @@
     </section>
   </div>
 
-  <section class="auth-screen" id="authScreen" aria-label="Вход в FernieX Messenger">
+  <section class="auth-screen" id="authScreen" aria-label="Вход в Qwant Messenger">
     <div class="auth-glow"></div>
     <div class="auth-card">
-      <div class="auth-brand"><span class="auth-brand-mark">fx</span><span>FernieX Messenger</span></div>
+      <div class="auth-brand"><span class="auth-brand-mark">Q</span><span>Qwant Messenger</span></div>
       <div class="auth-kicker" id="authKicker">Ваше пространство для общения</div>
       <h1 class="auth-title" id="authTitle">Войдите в аккаунт</h1>
-      <p class="auth-copy" id="authCopy">Продолжите с FernieID — ваши существующие чаты уже ждут.</p>
+      <p class="auth-copy" id="authCopy">Продолжите с FernieID — ваши чаты уже ждут.</p>
       <form id="loginForm" autocomplete="on">
         <div class="auth-field"><label for="authUsername">Логин FernieID</label><input id="authUsername" name="username" type="text" placeholder="Ваш логин" autocomplete="username" required maxlength="64"></div>
         <div class="auth-field"><label for="authPassword">Пароль</label><input id="authPassword" name="password" type="password" placeholder="Ваш пароль FernieID" autocomplete="current-password" required maxlength="256"></div>
