@@ -178,6 +178,7 @@ function unlock(data) {
     pageLoader.classList.add('hidden');
     loadChats();
     loadSettings().then(loadProducts);
+    loadOwnProfile();
     startDeviceChecks();
   });
 }
@@ -642,6 +643,23 @@ function closeDrawer() {
   drawerBackdrop.setAttribute('aria-hidden', 'true');
 }
 
+async function loadOwnProfile() {
+  const userId = session?.userId;
+  if (!userId) return null;
+  try {
+    const result = await api(`/api/social/profile/${encodeURIComponent(userId)}?viewerId=${encodeURIComponent(userId)}`);
+    if (!result.user || !session || String(session.userId) !== String(userId)) return null;
+    session.avatar_url = result.user.avatar_url || null;
+    session.banner_url = result.user.banner_url || null;
+    session.displayName = result.user.display_name || session.displayName || session.username;
+    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    updateAccountMenu();
+    return result.user;
+  } catch {
+    return null;
+  }
+}
+
 async function openProfile(person = null) {
   const userId = person?.id || session?.userId;
   currentProfile = { ...(person || {}), id: userId, username: person?.username || session?.username, display_name: person?.display_name || session?.displayName };
@@ -651,13 +669,12 @@ async function openProfile(person = null) {
   renderProfile(currentProfile, !person);
   if (!userId || currentProfile.is_deleted) return;
   try {
-    const result = await api(`/api/social/profile/${encodeURIComponent(userId)}?viewerId=${encodeURIComponent(session?.userId || '')}`);
+    const result = person
+      ? await api(`/api/social/profile/${encodeURIComponent(userId)}?viewerId=${encodeURIComponent(session?.userId || '')}`)
+      : { user: await loadOwnProfile() };
     if (result.user && String(currentProfile.id) === String(userId)) {
       currentProfile = { ...currentProfile, ...result.user };
       if (!person) {
-        session.avatar_url = currentProfile.avatar_url || null;
-        session.banner_url = currentProfile.banner_url || null;
-        localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
         updateAccountMenu();
       }
       renderProfile(currentProfile, !person);
@@ -1863,6 +1880,9 @@ document.getElementById('profileOpenButton').addEventListener('click', () => {
 });
 document.getElementById('profileMessageButton').addEventListener('click', () => messageInput.focus());
 document.getElementById('profileClose').addEventListener('click', closeProfile);
+profileScreen.addEventListener('click', event => {
+  if (event.target === profileScreen) closeProfile();
+});
 document.getElementById('accountDisplayNameForm').addEventListener('submit', async event => {
   event.preventDefault();
   const input = document.getElementById('accountDisplayNameInput');
@@ -2189,7 +2209,7 @@ async function bootstrap() {
     else await checkDeviceSession();
     if (!session) return;
     startDeviceChecks();
-    await Promise.all([loadChats(), loadSettings()]);
+    await Promise.all([loadChats(), loadSettings(), loadOwnProfile()]);
     hidePageLoader();
     loadProducts();
   } catch (error) {
