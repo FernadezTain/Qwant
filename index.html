@@ -222,6 +222,42 @@
     .profile-card-meta { color: var(--muted); font-size: 12px; }
     .settings-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.34); opacity: 0; visibility: hidden; transition: .2s ease; }
     .settings-overlay.open { opacity: 1; visibility: visible; }
+    .bot-manager { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.4); opacity: 0; visibility: hidden; transition: .2s ease; }
+    .bot-manager.open { opacity: 1; visibility: visible; }
+    .bot-dialog { display: grid; grid-template-rows: auto auto auto auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 92dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); }
+    .bot-dialog-head, .bot-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .bot-dialog-title { font-size: 16px; font-weight: 700; }
+    .bot-create { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .bot-field { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .bot-field input, .bot-reply-input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+    .bot-create-button { height: 39px; padding: 0 15px; border: 0; border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; cursor: pointer; }
+    .bot-create-button:disabled { opacity: .55; cursor: wait; }
+    .bot-status { min-height: 0; padding: 0 18px; color: var(--muted); font-size: 10px; }
+    .bot-status:not(:empty) { padding-top: 9px; }
+    .bot-token { margin: 0 18px 10px; padding: 10px 12px; border: 1px solid #d5e6d7; border-radius: 11px; background: #edf6ee; color: #355d3d; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+    .bot-token[hidden] { display: none; }
+    .bot-workspace { display: grid; min-height: 0; grid-template-columns: 260px minmax(0,1fr); padding: 0 18px 18px; }
+    .bot-panel { min-height: 0; overflow: auto; }
+    .bot-panel.hidden { display: none !important; }
+    .bot-list-panel { grid-column: 1; grid-row: 1; }
+    .bot-panel-head { position: sticky; top: 0; z-index: 1; min-height: 48px; padding: 9px 10px; background: var(--surface); font-size: 11px; font-weight: 700; }
+    .bot-list-panel { border-right: 1px solid var(--line); }
+    .bot-list, .bot-inbox { display: grid; align-content: start; gap: 6px; padding: 9px; }
+    .bot-row, .bot-inbox-row { width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); color: var(--ink); text-align: left; cursor: pointer; }
+    .bot-row:hover, .bot-inbox-row:hover { border-color: var(--line); }
+    .bot-row strong, .bot-inbox-row strong { display: block; font-size: 11px; }
+    .bot-row small, .bot-inbox-row small { display: block; overflow: hidden; margin-top: 4px; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .bot-inbox-panel, .bot-thread-panel { display: none; min-width: 0; min-height: 0; }
+    .bot-inbox-panel, .bot-thread-panel { grid-column: 2; grid-row: 1; }
+    .bot-inbox-panel.active, .bot-thread-panel.active { display: grid; grid-template-rows: auto minmax(0,1fr); }
+    .bot-thread-panel.active { grid-template-rows: auto minmax(0,1fr) auto; }
+    .bot-thread-messages { display: flex; min-height: 0; flex-direction: column; gap: 8px; overflow: auto; padding: 12px; }
+    .bot-message { max-width: 82%; align-self: flex-start; padding: 8px 10px; border-radius: 12px 12px 12px 4px; background: var(--surface-soft); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .bot-message.own { align-self: flex-end; border-radius: 12px 12px 4px 12px; background: var(--accent-soft); }
+    .bot-message small { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; text-align: right; }
+    .bot-reply-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+    .bot-reply-input { flex: 1; }
+    .bot-empty { padding: 14px 8px; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: center; }
     .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
     .settings-overlay.open .settings-dialog { transform: none; }
     .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 21px; border-bottom: 1px solid var(--line); }
@@ -353,6 +389,17 @@
       .messages { padding: 18px 14px; }
       .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
       .bubble { max-width: 84%; font-size: 12px; }
+      .bot-manager { padding: 8px; }
+      .bot-dialog { max-height: 96dvh; }
+      .bot-create { grid-template-columns: 1fr 1fr; }
+      .bot-create-button { grid-column: 1 / -1; }
+      .bot-workspace { grid-template-columns: 1fr; padding: 0 10px 10px; }
+      .bot-list-panel { border-right: 0; }
+      .bot-list-panel.hidden { display: none; }
+      .bot-inbox-panel, .bot-thread-panel { grid-column: 1; }
+      .bot-inbox-panel.active { grid-row: 1; }
+      .bot-thread-panel.active { grid-row: 1; }
+      .bot-panel-head { padding-right: 4px; padding-left: 4px; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>
@@ -403,6 +450,7 @@
         <button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть меню">×</button>
       </div>
       <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты</button>
+      <button class="drawer-item" id="drawerBots" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></svg>Мои боты</button>
       <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль</button>
       <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z"/></svg>Настройки</button>
       <div class="drawer-separator"></div>
@@ -445,6 +493,24 @@
           <section class="settings-page" data-settings-content="plus"><h2 class="settings-page-title">Fernie+</h2><p class="settings-page-copy">Статус подписки FernieID.</p><div class="product-card"><h3 class="product-title">✦ Fernie+</h3><div class="product-balance" id="plusStatus">Проверяем подписку…</div><p class="product-description">Подписка FernieID расширяет возможности экосистемы. Управление подпиской и условия доступны на сайте FernieID.</p><button class="settings-button" id="openFernieIdPlus" type="button">Открыть FernieID</button></div></section>
           <section class="settings-page" data-settings-content="coins"><h2 class="settings-page-title">FernieCoins</h2><p class="settings-page-copy">Баланс валюты аккаунта FernieID.</p><div class="product-card"><h3 class="product-title">◉ FernieCoins</h3><div class="product-balance" id="coinsBalance">Загружаем баланс…</div><p class="product-description">Баланс показывается из аккаунта FernieID. Пополнение и операции доступны в экосистеме FernieID.</p><button class="settings-button" id="openFernieIdCoins" type="button">Открыть FernieID</button></div></section>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bot-manager" id="botManager" aria-hidden="true">
+    <div class="bot-dialog" role="dialog" aria-modal="true" aria-labelledby="botManagerTitle">
+      <header class="bot-dialog-head"><span class="bot-dialog-title" id="botManagerTitle">Мои боты</span><button class="icon-button" id="botManagerClose" type="button" aria-label="Закрыть">×</button></header>
+      <form class="bot-create" id="botCreateForm">
+        <label class="bot-field">Отображаемое имя<input id="botDisplayName" maxlength="60" required placeholder="Например, Qwant Helper"></label>
+        <label class="bot-field">Username<input id="botUsername" minlength="5" maxlength="32" pattern="[A-Za-z][A-Za-z0-9_]{4,31}" required placeholder="QwantHelperBot"></label>
+        <button class="bot-create-button" type="submit">Создать бота</button>
+      </form>
+      <div class="bot-token" id="botTokenNotice" hidden>Токен показывается один раз. Сохраните его в безопасном месте: <b id="botTokenValue"></b> <button class="settings-button" id="botTokenCopy" type="button">Копировать</button></div>
+      <div class="bot-status" id="botManagerStatus" role="status"></div>
+      <div class="bot-workspace">
+        <section class="bot-panel bot-list-panel" id="botListPanel"><header class="bot-panel-head">Профили ботов</header><div class="bot-list" id="botList"></div></section>
+        <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">← Боты</button><span id="botInboxTitle">Входящие</span><button class="settings-button" id="botInboxRefresh" type="button">Обновить</button></header><div class="bot-inbox" id="botInbox"></div></section>
+        <section class="bot-panel bot-thread-panel" id="botThreadPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToInbox" type="button">← Входящие</button><span id="botThreadTitle">Переписка</span><span></span></header><div class="bot-thread-messages" id="botThreadMessages"></div><form class="bot-reply-form" id="botReplyForm"><input class="bot-reply-input" id="botReplyInput" maxlength="4000" required placeholder="Ответить пользователю…"><button class="bot-create-button" type="submit">Ответить</button></form></section>
       </div>
     </div>
   </section>
