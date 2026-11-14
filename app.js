@@ -1,6 +1,9 @@
 const app = document.getElementById('app');
 const authScreen = document.getElementById('authScreen');
+const nicknameForm = document.getElementById('nicknameForm');
 const loginForm = document.getElementById('loginForm');
+const signupPasswordForm = document.getElementById('signupPasswordForm');
+const displayNameForm = document.getElementById('displayNameForm');
 const verifyForm = document.getElementById('verifyForm');
 const authError = document.getElementById('authError');
 const chatList = document.getElementById('chatList');
@@ -24,6 +27,8 @@ let activeFilter = 'all';
 let searchUsers = false;
 let searchTimer;
 let pendingChallenge = null;
+let authFlowUsername = '';
+let pendingSignupPassword = '';
 let refreshing = false;
 let chatsLoadedOnce = false;
 let typingTimer;
@@ -66,6 +71,7 @@ function saveSession(data) {
     sessionToken: data.sessionToken,
     userId: String(data.userId),
     username: data.username,
+    displayName: data.displayName || data.username,
     role: data.role || 'user',
     deviceId: session?.deviceId || crypto.randomUUID()
   };
@@ -93,13 +99,26 @@ function setAuthError(message = '') {
 function showAuth(message = '') {
   document.body.classList.add('auth-locked');
   authScreen.classList.remove('is-hidden');
-  loginForm.classList.remove('auth-hidden');
-  verifyForm.classList.add('auth-hidden');
-  document.getElementById('authTitle').textContent = 'Войдите в аккаунт';
-  document.getElementById('authKicker').textContent = 'Ваше пространство для общения';
-  document.getElementById('authCopy').textContent = 'Продолжите с FernieID — ваши существующие чаты уже ждут.';
+  authFlowUsername = '';
+  pendingSignupPassword = '';
+  pendingChallenge = null;
+  nicknameForm.reset();
+  loginForm.reset();
+  signupPasswordForm.reset();
+  displayNameForm.reset();
+  verifyForm.reset();
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
   setAuthError(message);
-  document.getElementById('authUsername').focus();
+}
+
+function showAuthStep(form, kicker, title, copy, focusId) {
+  document.querySelectorAll('.auth-step').forEach(step => step.classList.add('auth-hidden'));
+  form.classList.remove('auth-hidden');
+  document.getElementById('authKicker').textContent = kicker;
+  document.getElementById('authTitle').textContent = title;
+  document.getElementById('authCopy').textContent = copy;
+  setAuthError();
+  if (focusId) document.getElementById(focusId).focus();
 }
 
 function setBusy(form, busy, label) {
@@ -114,6 +133,9 @@ function unlock(data) {
   document.body.classList.remove('auth-locked');
   authScreen.classList.add('is-hidden');
   document.getElementById('authPassword').value = '';
+  document.getElementById('signupPassword').value = '';
+  document.getElementById('signupPasswordConfirm').value = '';
+  pendingSignupPassword = '';
   document.getElementById('authCode').value = '';
   updateAccountMenu();
   registerDevice().catch(() => {}).finally(() => {
@@ -125,12 +147,12 @@ function unlock(data) {
 }
 
 function updateAccountMenu() {
-  document.getElementById('drawerName').textContent = session?.username || 'FernieID';
-  document.getElementById('drawerHandle').textContent = session?.userId ? `ID ${session.userId}` : 'Ваш аккаунт';
-  document.getElementById('drawerAvatar').textContent = initials(session?.username);
-  document.getElementById('accountProfileName').textContent = session?.username || '—';
+  document.getElementById('drawerName').textContent = session?.displayName || session?.username || 'FernieID';
+  document.getElementById('drawerHandle').textContent = session?.username ? `@${session.username}` : 'Ваш аккаунт';
+  document.getElementById('drawerAvatar').textContent = initials(session?.displayName || session?.username);
+  document.getElementById('accountProfileName').textContent = session?.displayName || session?.username || '—';
   document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
-  document.getElementById('accountProfileAvatar').textContent = initials(session?.username);
+  document.getElementById('accountProfileAvatar').textContent = initials(session?.displayName || session?.username);
 }
 
 function hidePageLoader() {
@@ -506,7 +528,7 @@ async function loadManagedBotInbox() {
     const result = await api(`/api/qwant/bots/${encodeURIComponent(selectedManagedBot.id)}/inbox`);
     const inbox = document.getElementById('botInbox');
     inbox.innerHTML = result.chats.length ? result.chats.map(chat => `
-      <button class="bot-inbox-row" type="button" data-bot-chat="${escapeHtml(chat.id)}"><strong>${escapeHtml(chat.partner.username)}</strong><small>${escapeHtml(chat.lastMessage || 'Новое сообщение')}${chat.unreadCount ? ` · ${chat.unreadCount} новых` : ''}</small></button>`).join('') : '<div class="bot-empty">Сообщений пока нет. Пользователи могут найти бота по username и написать ему.</div>';
+      <button class="bot-inbox-row" type="button" data-bot-chat="${escapeHtml(chat.id)}"><strong>${escapeHtml(chat.partner.display_name || chat.partner.username)}</strong><small>@${escapeHtml(chat.partner.username)} · ${escapeHtml(chat.lastMessage || 'Новое сообщение')}${chat.unreadCount ? ` · ${chat.unreadCount} новых` : ''}</small></button>`).join('') : '<div class="bot-empty">Сообщений пока нет. Пользователи могут найти бота по username и написать ему.</div>';
     inbox.querySelectorAll('[data-bot-chat]').forEach(button => button.addEventListener('click', () => {
       const chat = result.chats.find(item => item.id === button.dataset.botChat);
       if (chat) openManagedBotChat(chat);
@@ -525,7 +547,7 @@ async function loadManagedBotInbox() {
 
 async function openManagedBotChat(chat) {
   selectedBotChat = chat;
-  document.getElementById('botThreadTitle').textContent = chat.partner.username;
+  document.getElementById('botThreadTitle').textContent = chat.partner.display_name || chat.partner.username;
   document.getElementById('botThreadPanel').classList.add('active');
   document.getElementById('botInboxPanel').classList.toggle('hidden', window.matchMedia('(max-width: 700px)').matches);
   await loadManagedBotMessages();
@@ -563,6 +585,10 @@ function openProfile(person = null) {
   const description = document.getElementById('accountProfileDescription');
   description.textContent = person?.description || '';
   description.hidden = !person?.description;
+  const displayNameForm = document.getElementById('accountDisplayNameForm');
+  displayNameForm.hidden = !!person;
+  document.getElementById('accountDisplayNameInput').value = session?.displayName || session?.username || '';
+  document.getElementById('accountDisplayNameStatus').textContent = '';
   setAvatar(document.getElementById('accountProfileAvatar'), { ...person, username, id: userId });
   profileModal.classList.add('open');
   profileModal.setAttribute('aria-hidden', 'false');
@@ -1051,30 +1077,76 @@ async function openChat(recipientId) {
   }
 }
 
+nicknameForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  setAuthError();
+  const username = document.getElementById('authUsername').value.trim();
+  setBusy(nicknameForm, true, 'Продолжить');
+  try {
+    const result = await api('/api/auth/check-username', { method:'POST', body:JSON.stringify({ username }) });
+    authFlowUsername = result.username || username;
+    if (result.exists) {
+      showAuthStep(loginForm, `NickName @${username}`, 'С возвращением', 'Введите пароль от аккаунта FernieID.', 'authPassword');
+    } else {
+      showAuthStep(signupPasswordForm, `NickName @${username}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
+    }
+  } catch (error) {
+    setAuthError(error.message);
+  } finally {
+    setBusy(nicknameForm, false, 'Продолжить');
+  }
+});
+
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   setAuthError();
-  setBusy(loginForm, true, 'Проверяем');
+  setBusy(loginForm, true, 'Входим');
   try {
     const result = await api('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: document.getElementById('authUsername').value.trim(), password: document.getElementById('authPassword').value })
+      body: JSON.stringify({ username:authFlowUsername, password:document.getElementById('authPassword').value })
     });
     if (result.require2fa) {
       pendingChallenge = result.challengeId;
-      loginForm.classList.add('auth-hidden');
-      verifyForm.classList.remove('auth-hidden');
-      document.getElementById('authTitle').textContent = 'Подтвердите вход';
-      document.getElementById('authKicker').textContent = 'Ещё один шаг для защиты аккаунта';
-      document.getElementById('authCopy').textContent = 'Мы отправили одноразовый код в Telegram, привязанный к FernieID.';
-      document.getElementById('authCode').focus();
+      showAuthStep(verifyForm, 'Защита аккаунта', 'Подтвердите вход', 'Введите одноразовый код из Telegram.', 'authCode');
     } else {
       unlock(result);
     }
   } catch (error) {
     setAuthError(error.message);
   } finally {
-    setBusy(loginForm, false, 'Продолжить');
+    setBusy(loginForm, false, 'Войти');
+  }
+});
+
+signupPasswordForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const password = document.getElementById('signupPassword').value;
+  const confirmation = document.getElementById('signupPasswordConfirm').value;
+  if (password.length < 8) return setAuthError('Пароль должен содержать не менее 8 символов.');
+  if (password !== confirmation) return setAuthError('Пароли не совпадают.');
+  pendingSignupPassword = password;
+  showAuthStep(displayNameForm, `NickName @${authFlowUsername}`, 'Почти готово', 'Выберите имя, которое будут видеть собеседники. Его можно изменить позже.', 'displayName');
+});
+
+displayNameForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  setAuthError();
+  setBusy(displayNameForm, true, 'Создаём аккаунт');
+  try {
+    const result = await api('/api/auth/register', {
+      method:'POST',
+      body:JSON.stringify({
+        username:authFlowUsername,
+        password:pendingSignupPassword,
+        displayName:document.getElementById('displayName').value.trim()
+      })
+    });
+    unlock(result);
+  } catch (error) {
+    setAuthError(error.message);
+  } finally {
+    setBusy(displayNameForm, false, 'Создать аккаунт');
   }
 });
 
@@ -1096,15 +1168,23 @@ verifyForm.addEventListener('submit', async event => {
   }
 });
 
-document.getElementById('backToLogin').addEventListener('click', () => {
+document.getElementById('backToNickname').addEventListener('click', () => {
   pendingChallenge = null;
-  verifyForm.classList.add('auth-hidden');
-  loginForm.classList.remove('auth-hidden');
-  document.getElementById('authTitle').textContent = 'Войдите в аккаунт';
-  document.getElementById('authKicker').textContent = 'Ваше пространство для общения';
-  document.getElementById('authCopy').textContent = 'Продолжите с FernieID — ваши существующие чаты уже ждут.';
   document.getElementById('authCode').value = '';
-  setAuthError();
+  document.getElementById('authPassword').value = '';
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+});
+document.getElementById('backFromLogin').addEventListener('click', () => {
+  document.getElementById('authPassword').value = '';
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+});
+document.getElementById('backFromSignupPassword').addEventListener('click', () => {
+  pendingSignupPassword = '';
+  signupPasswordForm.reset();
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+});
+document.getElementById('backFromDisplayName').addEventListener('click', () => {
+  showAuthStep(signupPasswordForm, `NickName @${authFlowUsername}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
 });
 
 function closeMessageMenu() {
@@ -1564,6 +1644,27 @@ document.getElementById('profileOpenButton').addEventListener('click', () => {
 });
 document.getElementById('profileMessageButton').addEventListener('click', () => messageInput.focus());
 document.getElementById('profileClose').addEventListener('click', closeProfile);
+document.getElementById('accountDisplayNameForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.getElementById('accountDisplayNameInput');
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  document.getElementById('accountDisplayNameStatus').textContent = 'Сохраняем имя…';
+  try {
+    const result = await api('/api/qwant/profile/display-name', {
+      method:'PATCH', body:JSON.stringify({ displayName:input.value.trim() })
+    });
+    session.displayName = result.displayName;
+    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    updateAccountMenu();
+    document.getElementById('accountProfileName').textContent = result.displayName;
+    document.getElementById('accountDisplayNameStatus').textContent = 'Отображаемое имя сохранено.';
+  } catch (error) {
+    document.getElementById('accountDisplayNameStatus').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
 profileModal.addEventListener('click', event => {
   if (event.target === profileModal) closeProfile();
 });
