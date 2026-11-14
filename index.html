@@ -27,8 +27,8 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    * { box-sizing: border-box; cursor: default; }
-    input, textarea { cursor: text; }
+    * { box-sizing: border-box; cursor: default; user-select: none; -webkit-user-select: none; }
+    input, textarea { cursor: text; user-select: text; -webkit-user-select: text; }
     select, select *, button, button *, a, a *, label[for] { cursor: pointer; }
     body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); zoom: var(--page-zoom, 1); }
     button, input { font: inherit; }
