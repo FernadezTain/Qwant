@@ -31,21 +31,16 @@
     body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
     button, input { font: inherit; }
     button { color: inherit; }
-    .app { display: grid; grid-template-columns: 68px 330px minmax(360px, 1fr) 286px; width: 100%; height: 100%; padding: 14px; gap: 10px; }
-    .rail, .chats, .conversation, .details { min-height: 0; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
-    .rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 13px 8px; border-radius: 22px; }
-    .brand { display: grid; width: 42px; height: 42px; place-items: center; margin-bottom: 15px; border-radius: 15px; background: var(--ink); color: white; font-size: 15px; font-weight: 700; letter-spacing: -.7px; }
-    .rail-button { position: relative; display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 15px; background: transparent; color: var(--muted); cursor: pointer; transition: .18s ease; }
-    .rail-button:hover { background: var(--surface-soft); color: var(--ink); }
-    .rail-button.active { background: var(--accent-soft); color: var(--accent); }
-    .rail-button svg, .icon-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .rail-spacer { flex: 1; }
-    .rail-avatar { width: 34px; height: 34px; border: 2px solid white; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
-    .badge { position: absolute; top: 3px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: white; font-size: 9px; font-weight: 700; line-height: 13px; }
+    .app { display: grid; grid-template-columns: 330px minmax(360px, 1fr) 286px; width: 100%; height: 100%; padding: 14px; gap: 10px; }
+    .chats, .conversation, .details { min-height: 0; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 
     .chats { display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
     .chats-head { padding: 20px 18px 13px; }
     .head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+    .head-brand { display: flex; align-items: center; gap: 11px; }
+    .menu-trigger { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
+    .menu-trigger:hover { color: var(--ink); background: var(--surface-soft); }
+    .menu-trigger svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
     .eyebrow { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; }
     .chats-title { margin: 4px 0 0; font-size: 23px; font-weight: 700; letter-spacing: -1px; }
     .icon-button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
@@ -63,7 +58,7 @@
     .chat-item:hover { background: var(--surface-soft); }
     .chat-item.active { background: #f4eee8; }
     .avatar-wrap { position: relative; flex: 0 0 auto; }
-    .avatar { display: grid; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 17px; background: #e8d5c8; color: #765548; font-size: 15px; font-weight: 700; object-fit: cover; }
+    .avatar { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 17px; background: #e8d5c8; color: #765548; font-size: 15px; font-weight: 700; line-height: 1; text-align: center; object-fit: cover; }
     .avatar.round { border-radius: 50%; }
     .online-dot { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border: 2px solid var(--surface); border-radius: 50%; background: #61a477; }
     .chat-copy { min-width: 0; flex: 1; }
@@ -86,7 +81,14 @@
     .date-pill { align-self: center; margin: 1px 0 5px; padding: 6px 12px; border: 1px solid rgba(232, 230, 224, .9); border-radius: 99px; background: rgba(255, 254, 250, .92); color: var(--muted); font-size: 10px; font-weight: 600; }
     .message-row { display: flex; align-items: flex-end; gap: 8px; }
     .message-row.own { justify-content: flex-end; }
-    .message-avatar { width: 27px; height: 27px; border-radius: 10px; object-fit: cover; }
+    .message-avatar { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 10px; background: #e8d5c8; color: #765548; font-size: 10px; font-weight: 700; line-height: 1; text-align: center; object-fit: cover; }
+    .messages-loading { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 12px; }
+    .loading-spinner { width: 27px; height: 27px; border: 2px solid rgba(182,79,63,.18); border-top-color: var(--accent); border-radius: 50%; animation: loading-spin .8s linear infinite; }
+    .loading-dots { display: inline-flex; gap: 4px; }
+    .loading-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: loading-pulse 1s ease-in-out infinite; }
+    .loading-dots i:nth-child(2) { animation-delay: .14s; }
+    .loading-dots i:nth-child(3) { animation-delay: .28s; }
+    .message-new { animation: message-enter .26s ease both; }
     .bubble { max-width: min(76%, 470px); padding: 11px 13px 8px; border: 1px solid rgba(233, 231, 224, .86); border-radius: 16px 16px 16px 5px; background: var(--surface); box-shadow: 0 4px 14px -12px rgba(35, 29, 21, .3); color: #383630; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
     .own .bubble { border-color: #ead4c9; border-radius: 16px 16px 5px 16px; background: #f8e9e1; }
     .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 4px; color: #9c9589; font-size: 9px; }
@@ -121,6 +123,46 @@
     .media-tile:nth-child(5) { background: linear-gradient(140deg, #c0c6d8, #717d9f); }
     .media-tile:nth-child(6) { background: linear-gradient(140deg, #e7d98f, #a89c52); }
     .shared-link { display: flex; gap: 10px; align-items: center; color: var(--ink); font-size: 11px; text-decoration: none; }
+    .shared-link + .shared-link { margin-top: 9px; }
+    .shared-links { display: grid; gap: 9px; }
+    .details-empty { color: var(--muted); font-size: 11px; }
+    .media-tile { position: relative; padding: 0; border: 0; cursor: pointer; }
+    .media-tile img { width: 100%; height: 100%; object-fit: cover; }
+    .details-hidden { grid-template-columns: 330px minmax(360px, 1fr); }
+    .details-hidden .details { display: none; }
+    .dark-theme { color-scheme: dark; --page: #101820; --surface: #17212b; --surface-soft: #202c38; --ink: #e7edf3; --muted: #91a0ad; --line: #293743; --accent-soft: #392b2c; --shadow: 0 24px 70px -38px rgba(0,0,0,.7); }
+    .dark-theme .messages { background-color: #111a22; background-image: radial-gradient(rgba(180,195,205,.08) .8px, transparent .8px); }
+    .dark-theme .conversation-head { background: rgba(23,33,43,.94); }
+    .dark-theme .bubble { background: #1b2833; border-color: #2a3945; color: #e4eaf0; }
+    .dark-theme .own .bubble { background: #283c48; border-color: #344d59; }
+    .dark-theme .composer { background: #1b2833; }
+    .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
+    .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
+    .drawer-backdrop.open { opacity: 1; visibility: visible; }
+    .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; padding: 0 12px 14px; overflow-y: auto; background: #18232d; color: #eaf0f5; box-shadow: 16px 0 45px rgba(0,0,0,.22); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+    .drawer-backdrop.open .drawer { transform: translateX(0); }
+    .drawer-cover { position: relative; display: flex; min-height: 145px; align-items: flex-end; justify-content: space-between; padding: 18px 12px; background: radial-gradient(circle at 20% 20%, #527168, transparent 56%), linear-gradient(140deg, #263d43, #253239); }
+    .drawer-profile { display: flex; width: 100%; align-items: center; gap: 12px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    .drawer-avatar { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; background: #b64f3f; color: white; font-weight: 700; }
+    .drawer-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .drawer-account { min-width: 0; }
+    .drawer-name { overflow: hidden; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .drawer-handle { margin-top: 4px; color: #a9bac5; font-size: 11px; }
+    .drawer-close { position: absolute; top: 12px; right: 12px; display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: white; cursor: pointer; }
+    .drawer-item { display: flex; min-height: 48px; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #e4eaf0; font-size: 13px; text-align: left; cursor: pointer; }
+    .drawer-item:hover { background: rgba(255,255,255,.07); }
+    .drawer-item svg { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .drawer-separator { height: 1px; margin: 8px 0; background: rgba(255,255,255,.09); }
+    .drawer-spacer { flex: 1; min-height: 35px; }
+    .drawer-switch { margin-left: auto; color: #8eb6d5; }
+    .profile-modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(10,15,20,.52); opacity: 0; visibility: hidden; transition: .2s; }
+    .profile-modal.open { opacity: 1; visibility: visible; }
+    .profile-card { width: min(100%, 360px); padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); transform: translateY(10px); transition: transform .2s; }
+    .profile-modal.open .profile-card { transform: translateY(0); }
+    .profile-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 16px; font-weight: 700; }
+    .profile-card-user { display: flex; align-items: center; gap: 13px; }
+    .profile-card-user .avatar { width: 58px; height: 58px; border-radius: 20px; }
+    .profile-card-meta { color: var(--muted); font-size: 12px; }
     .link-icon { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
     .link-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .detail-foot { margin-top: auto; padding: 13px 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
@@ -158,21 +200,25 @@
     .auth-hidden { display: none !important; }
     .account-avatar { display: grid; place-items: center; padding: 0; overflow: hidden; background: #e8d5c8; color: #765548; font-size: 12px; font-weight: 700; cursor: pointer; }
     .account-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar img, .message-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    .avatar img, .message-avatar img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
     .message-photo { display: block; max-width: min(100%, 320px); max-height: 280px; margin-bottom: 6px; border-radius: 10px; object-fit: cover; }
+    .bubble.search-highlight { outline: 2px solid var(--accent); outline-offset: 3px; }
     @keyframes auth-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes auth-orbit { to { transform: rotate(360deg); } }
+    @keyframes loading-spin { to { transform: rotate(360deg); } }
+    @keyframes loading-pulse { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+    @keyframes message-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
     @media (max-width: 1180px) {
-      .app { grid-template-columns: 62px 300px minmax(340px, 1fr); }
+      .app { grid-template-columns: 300px minmax(340px, 1fr); }
       .details { display: none; }
+      .app.show-details .details { position: fixed; z-index: 15; top: 14px; right: 14px; bottom: 14px; display: flex; width: min(330px, calc(100vw - 28px)); box-shadow: 0 20px 70px rgba(0,0,0,.28); }
     }
     @media (max-width: 760px) {
       .auth-card { padding: 33px 25px; border-radius: 24px; }
       .auth-brand { margin-bottom: 31px; }
       body { background: var(--surface); }
       .app { display: block; padding: 0; }
-      .rail { display: none; }
       .chats, .conversation { position: absolute; inset: 0; border: 0; border-radius: 0; box-shadow: none; }
       .chats { z-index: 2; }
       .conversation { z-index: 1; }
@@ -183,7 +229,6 @@
       .mobile-back { display: grid; width: 34px; height: 34px; margin-left: -5px; border: 0; border-radius: 11px; background: transparent; color: var(--accent); cursor: pointer; }
       .mobile-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
       .person { flex: 1; }
-      .head-actions .icon-button:nth-child(2), .head-actions .icon-button:nth-child(3) { display: none; }
       .messages { padding: 18px 14px; }
       .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
       .bubble { max-width: 84%; font-size: 12px; }
@@ -193,20 +238,9 @@
 </head>
 <body class="auth-locked">
   <main class="app" id="app">
-    <nav class="rail" aria-label="Главная навигация">
-      <div class="brand">fx</div>
-      <button class="rail-button active" aria-label="Сообщения" title="Сообщения"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg><span class="badge">3</span></button>
-      <button class="rail-button" aria-label="Контакты" title="Контакты"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4.1V20"/></svg></button>
-      <button class="rail-button" aria-label="Звонки" title="Звонки"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></button>
-      <button class="rail-button" aria-label="Избранное" title="Избранное"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></button>
-      <div class="rail-spacer"></div>
-      <button class="rail-button" aria-label="Настройки" title="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z" transform="translate(-1 -1)"/></svg></button>
-      <button class="rail-avatar account-avatar" id="accountButton" type="button" title="Выйти из аккаунта" aria-label="Выйти из аккаунта">FX</button>
-    </nav>
-
     <section class="chats" aria-label="Список чатов">
       <header class="chats-head">
-        <div class="head-row"><div><div class="eyebrow">FernieX</div><h1 class="chats-title">Сообщения</h1></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">FernieX</div><h1 class="chats-title">Сообщения</h1></div></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
         <label class="search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Поиск по чатам" autocomplete="off"></label>
       </header>
       <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button></div>
@@ -218,25 +252,49 @@
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
         <div class="person"><div class="avatar" id="headerAvatar">FX</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Messenger FernieX</div></div></div>
         <div class="head-actions">
-          <button class="icon-button" aria-label="Начать звонок" title="Звонок"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></button>
-          <button class="icon-button" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
-          <button class="icon-button" aria-label="Другие действия" title="Другие действия"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+          <button class="icon-button" id="messageSearchButton" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
+          <button class="icon-button" id="detailsToggle" aria-label="Показать информацию о чате" title="Информация о чате"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         </div>
       </header>
       <div class="messages" id="messages" aria-live="polite"></div>
       <form class="composer-wrap" id="messageForm">
-        <div class="composer"><button type="button" class="icon-button" aria-label="Прикрепить файл" title="Прикрепить файл"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
+        <div class="composer"><button type="button" class="icon-button" id="attachButton" aria-label="Прикрепить фото" title="Прикрепить фото"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="attachInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
       </form>
     </section>
 
     <aside class="details" aria-label="Информация о контакте">
-      <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
-      <div class="profile"><div class="avatar" id="detailAvatar">FX</div><div class="profile-name" id="detailName">FernieX Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></span>Звонок</button><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M12 21s-8-4.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.5-8 11-8 11Z"/></svg></span>Профиль</button><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span>Ещё</button></div></div>
-      <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span>12 ›</span></div><div class="media-grid"><div class="media-tile">✿</div><div class="media-tile">☼</div><div class="media-tile">✦</div><div class="media-tile">◌</div><div class="media-tile">❋</div><div class="media-tile">↗</div></div></div>
-      <div class="detail-section"><div class="section-label"><span>Ссылки</span><span>2 ›</span></div><a class="shared-link" href="#"><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>ferniex.com/design<br><small style="color:var(--muted)">сегодня, 12:08</small></span></a></div>
+      <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
+      <div class="profile"><div class="avatar" id="detailAvatar">FX</div><div class="profile-name" id="detailName">FernieX Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
+      <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
+      <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
       <div class="detail-foot">Личные сообщения защищены</div>
     </aside>
   </main>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true">
+    <aside class="drawer" aria-label="Главное меню">
+      <div class="drawer-cover">
+        <button class="drawer-profile" id="drawerProfileButton" type="button">
+          <span class="drawer-avatar" id="drawerAvatar">FX</span>
+          <span class="drawer-account"><span class="drawer-name" id="drawerName">FernieID</span><span class="drawer-handle" id="drawerHandle">Ваш аккаунт</span></span>
+        </button>
+        <button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть меню">×</button>
+      </div>
+      <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты</button>
+      <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль</button>
+      <div class="drawer-separator"></div>
+      <button class="drawer-item" id="themeToggle" type="button"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>Ночной режим<span class="drawer-switch" id="themeState">Выкл.</span></button>
+      <div class="drawer-spacer"></div>
+      <button class="drawer-item" id="drawerLogout" type="button"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6"/></svg>Выйти из аккаунта</button>
+    </aside>
+  </div>
+
+  <div class="profile-modal" id="profileModal" aria-hidden="true">
+    <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <div class="profile-card-head"><span id="profileTitle">Профиль FernieID</span><button class="icon-button" id="profileClose" type="button" aria-label="Закрыть профиль">×</button></div>
+      <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div></div></div>
+    </section>
+  </div>
 
   <section class="auth-screen" id="authScreen" aria-label="Вход в FernieX Messenger">
     <div class="auth-glow"></div>
