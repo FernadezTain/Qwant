@@ -45,6 +45,7 @@
     .chats-title { margin: 4px 0 0; font-size: 23px; font-weight: 700; letter-spacing: -1px; }
     .icon-button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
     .icon-button:hover { border-color: #d7cfc2; color: var(--ink); }
+    .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .search { display: flex; align-items: center; gap: 9px; padding: 0 12px; height: 42px; border: 1px solid transparent; border-radius: 13px; background: var(--surface-soft); color: var(--muted); }
     .search:focus-within { border-color: #d8b8aa; background: white; }
     .search svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; }
@@ -221,20 +222,40 @@
     .drawer-spacer { flex: 1; min-height: 35px; }
     .drawer-product { background: linear-gradient(110deg,rgba(255,255,255,.07),transparent); }
     .drawer-switch { margin-left: auto; color: #8eb6d5; }
-    .profile-modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(10,15,20,.52); opacity: 0; visibility: hidden; transition: .2s; }
-    .profile-modal.open { opacity: 1; visibility: visible; }
-    .profile-card { width: min(100%, 360px); padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); transform: translateY(10px); transition: transform .2s; }
-    .profile-modal.open .profile-card { transform: translateY(0); }
-    .profile-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 16px; font-weight: 700; }
-    .profile-card-user { display: flex; align-items: center; gap: 13px; }
-    .profile-card-user .avatar { width: 58px; height: 58px; border-radius: 20px; }
-    .profile-card-meta { color: var(--muted); font-size: 12px; }
+    .profile-screen { position: fixed; inset: 0; z-index: 45; overflow-y: auto; background: var(--page); color: var(--ink); opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity .2s, transform .2s, visibility .2s; }
+    .profile-screen.open { opacity: 1; visibility: visible; transform: none; }
+    .profile-screen-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: max(14px, env(safe-area-inset-top)) max(22px, calc((100vw - 880px) / 2)) 13px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(18px); }
+    .profile-screen-title { font-size: 15px; font-weight: 700; }
+    .profile-screen-body { width: min(820px, calc(100% - 32px)); margin: 24px auto 60px; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); }
+    .profile-banner { position: relative; height: clamp(150px, 28vw, 260px); overflow: hidden; background: radial-gradient(circle at 20% 30%, #e4c6b5, transparent 38%), linear-gradient(130deg, #dce5dc, #f1e7df 56%, #d8dced); }
+    .profile-banner.has-banner { background: #e7e5df; }
+    .profile-banner img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-main { position: relative; display: flex; align-items: flex-end; gap: 20px; padding: 0 30px 22px; }
+    .profile-main .avatar { width: 112px; height: 112px; flex: 0 0 auto; margin-top: -46px; border: 5px solid var(--surface); border-radius: 34px; font-size: 32px; }
+    .profile-main-copy { min-width: 0; padding: 9px 0 4px; }
+    .profile-screen .profile-name { margin: 0; font-size: clamp(21px, 4vw, 29px); font-weight: 750; letter-spacing: -.5px; }
+    .profile-username { margin-top: 5px; color: var(--muted); font-size: 13px; }
+    .profile-info { padding: 0 30px 26px; }
+    .profile-screen .profile-card-meta { color: var(--muted); font-size: 12px; }
+    .profile-screen .profile-description { margin-top: 15px; font-size: 13px; line-height: 1.65; }
     .profile-edit-form { margin-top: 16px; }
     .profile-edit-form[hidden] { display: none !important; }
-    .profile-edit-form label { display: grid; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 600; }
-    .profile-edit-form input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+    .profile-edit-form label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 600; }
+    .profile-edit-form input { width: 100%; height: 43px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; }
     .profile-edit-form .settings-button { margin-top: 10px; }
-    .profile-edit-status { min-height: 15px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .profile-edit-status { min-height: 15px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .app-dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(15,20,24,.48); opacity: 0; visibility: hidden; transition: .18s; }
+    .app-dialog.open { opacity: 1; visibility: visible; }
+    .app-dialog-card { width: min(100%, 390px); padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.24); transform: translateY(8px) scale(.98); transition: transform .18s; }
+    .app-dialog.open .app-dialog-card { transform: none; }
+    .app-dialog-title { margin: 0; font-size: 18px; font-weight: 750; }
+    .app-dialog-message { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .app-dialog-input { width: 100%; height: 43px; margin-top: 16px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; }
+    .app-dialog-input[hidden] { display: none; }
+    .app-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+    .app-dialog-actions button { min-height: 40px; padding: 0 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); color: var(--ink); font-size: 12px; font-weight: 650; cursor: pointer; }
+    .app-dialog-actions .settings-button { border-color: var(--ink); background: var(--ink); color: white; }
+    .app-dialog-actions .settings-button.danger { border-color: #b94a3f; background: #b94a3f; }
     .settings-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.34); opacity: 0; visibility: hidden; transition: .2s ease; }
     .settings-overlay.open { opacity: 1; visibility: visible; }
     .bot-manager { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.4); opacity: 0; visibility: hidden; transition: .2s ease; }
@@ -316,6 +337,7 @@
     .settings-nav-button:hover { background: var(--surface); color: var(--ink); }
     .settings-nav-button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); font-weight: 700; }
     .settings-nav-icon { width: 18px; text-align: center; font-size: 15px; }
+    .settings-nav-icon svg { width: 17px; height: 17px; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .settings-content { overflow: auto; padding: clamp(18px,4vw,32px); }
     .settings-page { display: none; max-width: 620px; animation: auth-rise .24s ease both; }
     .settings-page.active { display: block; }
@@ -463,6 +485,12 @@
       .bot-settings-content { padding: 16px; }
       .bot-token-row { align-items: stretch; }
       .bot-token-row .settings-button { flex: 0 0 auto; }
+      .profile-screen-head { padding-right: 16px; padding-left: 16px; }
+      .profile-screen-body { width: 100%; min-height: calc(100% - 62px); margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+      .profile-banner { height: 185px; }
+      .profile-main { gap: 14px; padding: 0 18px 18px; }
+      .profile-main .avatar { width: 88px; height: 88px; margin-top: -36px; border-width: 4px; border-radius: 28px; font-size: 25px; }
+      .profile-info { padding: 0 18px 24px; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>
@@ -531,12 +559,12 @@
       <header class="settings-header"><span class="settings-heading" id="settingsTitle">Настройки Qwant</span><button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button></header>
       <div class="settings-body">
         <nav class="settings-nav" aria-label="Разделы настроек">
-          <button class="settings-nav-button active" data-settings-page="notifications"><span class="settings-nav-icon">♧</span>Уведомления</button>
-          <button class="settings-nav-button" data-settings-page="devices"><span class="settings-nav-icon">▣</span>Устройства</button>
-          <button class="settings-nav-button" data-settings-page="privacy"><span class="settings-nav-icon">◈</span>Конфиденциальность</button>
-          <button class="settings-nav-button" data-settings-page="personalization"><span class="settings-nav-icon">✳</span>Персонализация</button>
-          <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon">✦</span>Fernie+</button>
-          <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon">◉</span>FernieCoins</button>
+          <button class="settings-nav-button active" data-settings-page="notifications"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>Уведомления</button>
+          <button class="settings-nav-button" data-settings-page="devices"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M10 18.5h4"/></svg></span>Устройства</button>
+          <button class="settings-nav-button" data-settings-page="privacy"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg></span>Конфиденциальность</button>
+          <button class="settings-nav-button" data-settings-page="personalization"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l1.5-1.2-1.5-2.7-1.8.6a7 7 0 0 0-2-1.2L14.8 4h-3.1l-.3 2.3a7 7 0 0 0-2 1.2l-1.8-.6-1.5 2.7 1.5 1.2a7 7 0 0 0 0 2.4l-1.5 1.2 1.5 2.7 1.8-.6a7 7 0 0 0 2 1.2l.3 2.3h3.1l.3-2.3a7 7 0 0 0 2-1.2l1.8.6 1.5-2.7-1.5-1.2A7 7 0 0 0 19 12Z"/></svg></span>Персонализация</button>
+          <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span>Fernie+</button>
+          <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg></span>FernieCoins</button>
         </nav>
         <div class="settings-content">
           <section class="settings-page active" data-settings-content="notifications"><h2 class="settings-page-title">Уведомления</h2><p class="settings-page-copy">Управляйте уведомлениями Qwant на этом устройстве и сообщениями в Telegram.</p>
@@ -618,12 +646,23 @@
   <div class="session-notice" id="sessionNotice" aria-hidden="true"><section class="session-notice-card"><h2>Сессия завершена</h2><p>Это устройство отключено от аккаунта. Войдите снова, чтобы продолжить.</p><button class="settings-button" id="sessionNoticeOk" type="button">Понятно</button></section></div>
   <div class="page-loader" id="pageLoader"><div class="page-loader-card"><div class="page-loader-mark">Q</div><span>Открываем Qwant Messenger</span><span class="page-loader-line"></span></div></div>
 
-  <div class="profile-modal" id="profileModal" aria-hidden="true">
-    <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
-      <div class="profile-card-head"><span id="profileTitle">Профиль FernieID</span><button class="icon-button" id="profileClose" type="button" aria-label="Закрыть профиль">×</button></div>
-      <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div></div></div>
-      <form class="profile-edit-form" id="accountDisplayNameForm" hidden><label for="accountDisplayNameInput">Отображаемое имя<input id="accountDisplayNameInput" maxlength="40" required></label><button class="settings-button" type="submit">Сохранить имя</button><div class="profile-edit-status" id="accountDisplayNameStatus" role="status"></div></form>
-    </section>
+  <section class="profile-screen" id="profileScreen" aria-hidden="true" aria-labelledby="profileTitle">
+    <header class="profile-screen-head"><button class="icon-button" id="profileClose" type="button" aria-label="Вернуться назад"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="profile-screen-title" id="profileTitle">Мой профиль</span></header>
+    <article class="profile-screen-body">
+      <div class="profile-banner" id="profileBanner"><img id="profileBannerImage" alt="" hidden></div>
+      <div class="profile-main"><div class="avatar" id="accountProfileAvatar">FX</div><div class="profile-main-copy"><h1 class="profile-name" id="accountProfileName">—</h1><div class="profile-username" id="profileUsername">—</div></div></div>
+      <div class="profile-info"><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div>
+        <form class="profile-edit-form" id="accountDisplayNameForm" hidden><label for="accountDisplayNameInput">Отображаемое имя<input id="accountDisplayNameInput" maxlength="40" required></label><button class="settings-button" type="submit">Сохранить имя</button><div class="profile-edit-status" id="accountDisplayNameStatus" role="status"></div></form>
+      </div>
+    </article>
+  </section>
+
+  <div class="app-dialog" id="appDialog" aria-hidden="true">
+    <form class="app-dialog-card" id="appDialogForm" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+      <h2 class="app-dialog-title" id="appDialogTitle"></h2><p class="app-dialog-message" id="appDialogMessage"></p>
+      <input class="app-dialog-input" id="appDialogInput" type="text" autocomplete="off" hidden>
+      <div class="app-dialog-actions"><button id="appDialogCancel" type="button">Отмена</button><button class="settings-button" id="appDialogConfirm" type="submit">Продолжить</button></div>
+    </form>
   </div>
 
   <div class="gift-modal" id="giftModal" aria-hidden="true">
