@@ -26,6 +26,10 @@ let pendingChallenge = null;
 let refreshing = false;
 let chatsLoadedOnce = false;
 let typingTimer;
+let replyToMessageId = null;
+let longPressTimer;
+let longPressStart = null;
+let suppressMessageClick = false;
 
 function readSession() {
   try {
@@ -396,6 +400,7 @@ function renderChats() {
 function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
+  const replyQuote = message.replyText ? `<div class="reply-quote"><b>${escapeHtml(message.replySender || 'Ответ')}</b>${escapeHtml(message.replyText)}</div>` : '';
   if (message.type === 'udg_gift') {
     const gift = message.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' };
     const image = safeImageUrl(gift.image_url);
@@ -404,6 +409,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
     return `${datePill}<div class="message-row ${message.own ? 'own' : ''} gift-message-row ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
       ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
       <article class="bubble gift-message-bubble">
+        ${replyQuote}
         <div class="gift-message-label">${message.own ? 'Вы передали подарок' : 'Вам передали подарок'}</div>
         <div class="gift-preview-card">
           <div class="gift-preview-art"${backgroundStyle}>${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(gift.model_name || 'Подарок UDG')}" loading="lazy">` : '<span class="gift-fallback">✧</span>'}<span class="gift-ribbon">ПОДАРОК</span></div>
@@ -422,7 +428,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   const text = message.text || (image ? ' ' : 'Сообщение без текста');
   return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
     ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-    <div class="bubble">${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>` : ''}</div></div>
+    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>` : ''}</div></div>
   </div>`;
 }
 
@@ -512,17 +518,26 @@ function openGiftPage() {
 }
 
 function mapMessages(rows) {
-  return rows.map(row => ({
+  const rowById = new Map(rows.map(row => [String(row.id), row]));
+  return rows.map(row => {
+    const replied = row.reply_to_message_id ? rowById.get(String(row.reply_to_message_id)) : null;
+    const repliedGift = replied?.message_type === 'udg_gift' ? replied.gift_payload?.model_name || 'Подарок UDG' : '';
+    const replyText = replied ? (replied.deleted_at ? 'Сообщение удалено' : repliedGift || replied.body || 'Фото') : '';
+    return {
     id: row.id,
     text: row.deleted_at ? 'Сообщение удалено' : row.body,
     imageUrl: row.deleted_at ? '' : row.image_url,
     type: row.deleted_at ? 'text' : row.message_type,
     gift: row.deleted_at ? null : row.gift_payload,
+    replyToMessageId: row.reply_to_message_id,
+    replyText,
+    replySender: replied ? (String(replied.sender_id) === String(session.userId) ? 'Вы' : 'Собеседник') : '',
     createdAt: row.created_at,
     time: formatTime(row.created_at),
     readAt: row.read_at,
     own: String(row.sender_id) === String(session.userId)
-  }));
+    };
+  });
 }
 
 function updateMessages(chat, latest) {
@@ -659,6 +674,8 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
+  if (activeId !== id) clearReply();
+  closeMessageMenu();
   activeId = id;
   chat.unread = 0;
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
@@ -786,19 +803,106 @@ document.getElementById('backToLogin').addEventListener('click', () => {
   setAuthError();
 });
 
+function closeMessageMenu() {
+  document.getElementById('messageContextMenu').classList.remove('open');
+  document.getElementById('messageContextMenu').replaceChildren();
+}
+
+function showMessageToast(text) {
+  const toast = document.getElementById('messageToast');
+  toast.textContent = text;
+  toast.classList.add('visible');
+  clearTimeout(showMessageToast.timer);
+  showMessageToast.timer = setTimeout(() => toast.classList.remove('visible'), 1800);
+}
+
+function messageCopyText(message) {
+  if (message.type === 'udg_gift' && message.gift) {
+    const gift = message.gift;
+    return [`Подарок: ${gift.model_name || gift.gift_id || 'UDG'}`, gift.collection_name, gift.uid ? giftPageUrl(gift) : ''].filter(Boolean).join('\n');
+  }
+  return message.text || message.imageUrl || '';
+}
+
+function openMessageMenu(messageId, x, y) {
+  const chat = chats.find(item => item.id === activeId);
+  const message = chat?.messages.find(item => String(item.id) === String(messageId));
+  if (!message) return;
+  const menu = document.getElementById('messageContextMenu');
+  const timestamp = formatDateTime(message.createdAt).replace(',', ' в');
+  menu.innerHTML = `
+    <div class="context-menu-date">${escapeHtml(timestamp)}${message.readAt && message.own ? '　✓✓' : ''}</div>
+    <div class="context-menu-divider"></div>
+    <button class="context-menu-action" type="button" data-message-action="reply"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v2"/></svg>Ответить</button>
+    <button class="context-menu-action" type="button" data-message-action="copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Скопировать сообщение</button>
+    ${message.own ? '<button class="context-menu-action danger" type="button" data-message-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить</button>' : ''}`;
+  menu.classList.add('open');
+  const bounds = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`;
+  menu.dataset.messageId = String(message.id);
+}
+
+function startReply(messageId) {
+  const chat = chats.find(item => item.id === activeId);
+  const message = chat?.messages.find(item => String(item.id) === String(messageId));
+  if (!message) return;
+  replyToMessageId = String(message.id);
+  document.getElementById('replyBarTitle').textContent = message.own ? 'Ответ на ваше сообщение' : `Ответ ${chat.name}`;
+  document.getElementById('replyBarText').textContent = message.type === 'udg_gift' ? `🎁 ${message.gift?.model_name || 'Подарок UDG'}` : message.text || (message.imageUrl ? 'Фото' : 'Сообщение');
+  document.getElementById('replyBar').hidden = false;
+  messageInput.focus();
+}
+
+function clearReply() {
+  replyToMessageId = null;
+  const bar = document.getElementById('replyBar');
+  if (bar) bar.hidden = true;
+}
+
+async function copyMessage(messageId) {
+  const chat = chats.find(item => item.id === activeId);
+  const message = chat?.messages.find(item => String(item.id) === String(messageId));
+  if (!message) return;
+  try {
+    await navigator.clipboard.writeText(messageCopyText(message));
+    showMessageToast('Сообщение скопировано');
+  } catch {
+    showMessageToast('Не удалось скопировать сообщение');
+  }
+}
+
+async function deleteMessage(messageId) {
+  const chat = chats.find(item => item.id === activeId);
+  const message = chat?.messages.find(item => String(item.id) === String(messageId));
+  if (!chat || !message?.own || !window.confirm('Удалить это сообщение?')) return;
+  try {
+    await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages/${encodeURIComponent(message.id)}`, { method: 'DELETE' });
+    await loadChatMessages(chat);
+    await loadChats();
+    showMessageToast('Сообщение удалено');
+  } catch (error) {
+    showMessageToast(error.message);
+  }
+}
+
 async function sendMessage(body, imageBase64 = '') {
   if (!activeId || (!body && !imageBase64)) return;
   try {
     await api(`/api/social/chats/${encodeURIComponent(activeId)}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}) })
+      body: JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}), ...(replyToMessageId ? { replyToMessageId } : {}) })
     });
     messageInput.value = '';
+    clearReply();
     await Promise.all([loadChats(), selectChat(activeId)]);
+    messageInput.focus();
+    return true;
   } catch (error) {
     messages.insertAdjacentHTML('beforeend', `<div class="empty-state">${escapeHtml(error.message)}</div>`);
+    messageInput.focus();
+    return false;
   }
-  messageInput.focus();
 }
 
 document.getElementById('messageForm').addEventListener('submit', async event => {
@@ -810,6 +914,8 @@ document.getElementById('messageForm').addEventListener('submit', async event =>
   await sendMessage(text);
   button.disabled = false;
 });
+
+document.getElementById('cancelReply').addEventListener('click', clearReply);
 
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
@@ -873,12 +979,64 @@ profileModal.addEventListener('click', event => {
   if (event.target === profileModal) closeProfile();
 });
 messages.addEventListener('click', event => {
+  if (suppressMessageClick) {
+    suppressMessageClick = false;
+    event.preventDefault();
+    return;
+  }
   const button = event.target.closest('[data-gift-open]');
   if (!button) return;
   const chat = chats.find(item => item.id === activeId);
   const giftMessage = chat?.messages.find(message => message.id === button.dataset.giftOpen && message.type === 'udg_gift');
   if (giftMessage) openGift(giftMessage.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' });
 });
+messages.addEventListener('contextmenu', event => {
+  const row = event.target.closest('.message-row[data-message-id]');
+  if (!row) return;
+  event.preventDefault();
+  openMessageMenu(row.dataset.messageId, event.clientX, event.clientY);
+});
+messages.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'touch') return;
+  const row = event.target.closest('.message-row[data-message-id]');
+  if (!row) return;
+  clearTimeout(longPressTimer);
+  longPressStart = { x: event.clientX, y: event.clientY, id: row.dataset.messageId };
+  longPressTimer = setTimeout(() => {
+    if (!longPressStart) return;
+    suppressMessageClick = true;
+    openMessageMenu(longPressStart.id, longPressStart.x, longPressStart.y);
+    longPressStart = null;
+    setTimeout(() => { suppressMessageClick = false; }, 900);
+  }, 520);
+});
+messages.addEventListener('pointermove', event => {
+  if (!longPressStart) return;
+  if (Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) > 12) {
+    clearTimeout(longPressTimer);
+    longPressStart = null;
+  }
+});
+for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
+  messages.addEventListener(eventName, () => {
+    clearTimeout(longPressTimer);
+    longPressStart = null;
+  });
+}
+document.getElementById('messageContextMenu').addEventListener('click', async event => {
+  const action = event.target.closest('[data-message-action]')?.dataset.messageAction;
+  if (!action) return;
+  const messageId = document.getElementById('messageContextMenu').dataset.messageId;
+  closeMessageMenu();
+  if (action === 'reply') startReply(messageId);
+  if (action === 'copy') await copyMessage(messageId);
+  if (action === 'delete') await deleteMessage(messageId);
+});
+document.addEventListener('pointerdown', event => {
+  const menu = document.getElementById('messageContextMenu');
+  if (menu.classList.contains('open') && !menu.contains(event.target)) closeMessageMenu();
+});
+messages.addEventListener('scroll', closeMessageMenu, { passive: true });
 document.getElementById('giftModalClose').addEventListener('click', closeGift);
 document.getElementById('giftModal').addEventListener('click', event => {
   if (event.target.id === 'giftModal') closeGift();
@@ -1024,6 +1182,7 @@ document.getElementById('sessionNoticeOk').addEventListener('click', () => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
+  if (event.key === 'Escape') closeMessageMenu();
 });
 
 async function bootstrap() {
