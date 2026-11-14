@@ -208,11 +208,36 @@
     .album-bubble { width: min(100%, 470px); max-width: min(76%, 470px); padding: 4px; overflow: hidden; }
     .album-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 3px; overflow: hidden; border-radius: 12px; }
     .album-grid.count-1 { grid-template-columns: 1fr; }
-    .album-tile { min-width: 0; aspect-ratio: 1.15; overflow: hidden; background: rgba(20,25,30,.08); }
+    .album-tile { min-width: 0; aspect-ratio: 1.15; overflow: hidden; background: rgba(20,25,30,.08); cursor: zoom-in; }
+    .album-tile:hover img, .message-photo:hover, .media-tile:hover img { filter: brightness(.9); }
     .album-grid.count-3 .album-tile:first-child { grid-column: 1 / -1; aspect-ratio: 2.2; }
     .album-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .album-caption { padding: 8px 8px 2px; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
     .album-bubble .bubble-meta { padding: 0 5px 3px; }
+    .photo-viewer { position: fixed; inset: 0; z-index: 115; display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: rgba(5,7,10,.97); color: #f5f7fa; opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility .2s ease; }
+    .photo-viewer.open { opacity: 1; visibility: visible; }
+    .photo-viewer-head { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 12px; padding: max(8px,env(safe-area-inset-top)) 16px 8px; background: linear-gradient(rgba(0,0,0,.42),transparent); }
+    .photo-viewer-count { min-width: 0; font-size: 13px; font-weight: 650; text-align: center; }
+    .photo-viewer-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+    .photo-viewer-button { display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: white; font-size: 21px; text-decoration: none; cursor: pointer; transition: background .16s, transform .16s; }
+    .photo-viewer-button:hover { transform: scale(1.05); background: rgba(255,255,255,.2); }
+    .photo-viewer-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .photo-viewer-stage { position: relative; display: grid; min-height: 0; place-items: center; overflow: hidden; touch-action: pan-y; }
+    .photo-viewer-image { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; user-select: none; -webkit-user-drag: none; animation: viewer-image-in .18s ease both; }
+    .photo-viewer-nav { position: absolute; top: 50%; z-index: 1; width: 46px; height: 56px; border: 0; border-radius: 12px; background: rgba(0,0,0,.35); color: white; font-size: 29px; cursor: pointer; transform: translateY(-50%); transition: background .16s, opacity .16s; }
+    .photo-viewer-nav:hover { background: rgba(0,0,0,.62); }
+    .photo-viewer-nav:disabled { opacity: 0; pointer-events: none; }
+    .photo-viewer-prev { left: 16px; }
+    .photo-viewer-next { right: 16px; }
+    .photo-viewer-foot { min-height: 46px; padding: 10px 18px max(10px,env(safe-area-inset-bottom)); background: linear-gradient(transparent,rgba(0,0,0,.38)); color: rgba(255,255,255,.8); font-size: 12px; text-align: center; }
+    @keyframes viewer-image-in { from { opacity: .65; transform: scale(.99); } to { opacity: 1; transform: scale(1); } }
+    @media (max-width: 760px) {
+      .photo-viewer-head { min-height: 54px; padding-right: 10px; padding-left: 10px; }
+      .photo-viewer-button { width: 38px; height: 38px; }
+      .photo-viewer-nav { width: 38px; height: 50px; background: rgba(0,0,0,.23); }
+      .photo-viewer-prev { left: 6px; }
+      .photo-viewer-next { right: 6px; }
+    }
 
     .details { display: flex; flex-direction: column; overflow-y: auto; border-radius: 22px; }
     .details-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 17px 12px; }
@@ -527,7 +552,7 @@
     .account-avatar { display: grid; place-items: center; padding: 0; overflow: hidden; background: #e8d5c8; color: #765548; font-size: 12px; font-weight: 700; cursor: pointer; }
     .account-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .avatar img, .message-avatar img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
-    .message-photo { display: block; max-width: min(100%, 320px); max-height: 280px; margin-bottom: 6px; border-radius: 10px; object-fit: cover; }
+    .message-photo { display: block; max-width: min(100%, 320px); max-height: 280px; margin-bottom: 6px; border-radius: 10px; object-fit: cover; cursor: zoom-in; transition: filter .16s ease; }
     .bubble.search-highlight { outline: 2px solid var(--accent); outline-offset: 3px; }
     @keyframes auth-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes auth-code-shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } 100% { transform: translateX(0); } }
@@ -781,6 +806,16 @@
       <div class="gift-modal-body" id="giftModalBody"></div>
     </section>
   </div>
+
+  <section class="photo-viewer" id="photoViewer" aria-hidden="true" aria-label="Просмотр фотографий">
+    <header class="photo-viewer-head">
+      <button class="photo-viewer-button" id="photoViewerClose" type="button" aria-label="Закрыть">‹</button>
+      <span class="photo-viewer-count" id="photoViewerCount"></span>
+      <div class="photo-viewer-actions"><a class="photo-viewer-button" id="photoViewerDownload" download aria-label="Скачать фото" title="Скачать фото"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg></a><button class="photo-viewer-button" id="photoViewerCloseTop" type="button" aria-label="Закрыть">×</button></div>
+    </header>
+    <div class="photo-viewer-stage" id="photoViewerStage"><button class="photo-viewer-nav photo-viewer-prev" id="photoViewerPrev" type="button" aria-label="Предыдущее фото">‹</button><img class="photo-viewer-image" id="photoViewerImage" alt="Фото из переписки"><button class="photo-viewer-nav photo-viewer-next" id="photoViewerNext" type="button" aria-label="Следующее фото">›</button></div>
+    <footer class="photo-viewer-foot" id="photoViewerCaption"></footer>
+  </section>
 
   <div class="photo-send-overlay" id="photoSendModal" aria-hidden="true">
     <form class="photo-send-dialog" id="photoSendForm" role="dialog" aria-modal="true" aria-labelledby="photoSendTitle">
