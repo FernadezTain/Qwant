@@ -824,17 +824,53 @@ function messageCopyText(message) {
   return message.text || message.imageUrl || '';
 }
 
+function messageImageUrl(message) {
+  return safeImageUrl(message.imageUrl || (message.type === 'udg_gift' ? message.gift?.image_url : ''));
+}
+
+async function copyImage(messageId) {
+  const chat = chats.find(item => item.id === activeId);
+  const message = chat?.messages.find(item => String(item.id) === String(messageId));
+  const imageUrl = message && messageImageUrl(message);
+  if (!imageUrl) return showMessageToast('В этом сообщении нет изображения');
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return showMessageToast('Копирование изображения не поддерживается браузером');
+  try {
+    const imagePromise = fetch(imageUrl, { mode: 'cors', credentials: 'omit' }).then(async response => {
+      if (!response.ok) throw new Error('Не удалось загрузить изображение');
+      const source = await response.blob();
+      if (source.type === 'image/png') return source;
+      const bitmap = await createImageBitmap(source);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        return await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Не удалось подготовить изображение')), 'image/png'));
+      } finally {
+        bitmap.close();
+      }
+    });
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': imagePromise })]);
+    showMessageToast('Изображение скопировано');
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось скопировать изображение');
+  }
+}
+
 function openMessageMenu(messageId, x, y) {
   const chat = chats.find(item => item.id === activeId);
   const message = chat?.messages.find(item => String(item.id) === String(messageId));
   if (!message) return;
   const menu = document.getElementById('messageContextMenu');
   const timestamp = formatDateTime(message.createdAt).replace(',', ' в');
+  const imageAction = messageImageUrl(message)
+    ? '<button class="context-menu-action" type="button" data-message-action="copy-image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>Копировать изображение</button>'
+    : '<button class="context-menu-action" type="button" data-message-action="copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Скопировать сообщение</button>';
   menu.innerHTML = `
     <div class="context-menu-date">${escapeHtml(timestamp)}${message.readAt && message.own ? '　✓✓' : ''}</div>
     <div class="context-menu-divider"></div>
     <button class="context-menu-action" type="button" data-message-action="reply"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v2"/></svg>Ответить</button>
-    <button class="context-menu-action" type="button" data-message-action="copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Скопировать сообщение</button>
+    ${imageAction}
     ${message.own ? '<button class="context-menu-action danger" type="button" data-message-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить</button>' : ''}`;
   menu.classList.add('open');
   const bounds = menu.getBoundingClientRect();
@@ -864,6 +900,7 @@ async function copyMessage(messageId) {
   const chat = chats.find(item => item.id === activeId);
   const message = chat?.messages.find(item => String(item.id) === String(messageId));
   if (!message) return;
+  if (messageImageUrl(message)) return copyImage(messageId);
   try {
     await navigator.clipboard.writeText(messageCopyText(message));
     showMessageToast('Сообщение скопировано');
@@ -1029,6 +1066,7 @@ document.getElementById('messageContextMenu').addEventListener('click', async ev
   const messageId = document.getElementById('messageContextMenu').dataset.messageId;
   closeMessageMenu();
   if (action === 'reply') startReply(messageId);
+  if (action === 'copy-image') await copyImage(messageId);
   if (action === 'copy') await copyMessage(messageId);
   if (action === 'delete') await deleteMessage(messageId);
 });
