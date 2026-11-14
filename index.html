@@ -601,8 +601,8 @@
       <div class="bot-status" id="botManagerStatus" role="status"></div>
       <div class="bot-workspace">
         <section class="bot-panel bot-list-panel" id="botListPanel"><header class="bot-panel-head">Профили ботов</header><div class="bot-list" id="botList"></div></section>
-        <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">← Боты</button><span id="botInboxTitle">Входящие</span><div class="head-actions"><button class="bot-icon-button" id="botInboxRefresh" type="button" aria-label="Обновить входящие" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.8-2L20 12M4 12l2.7 5a7 7 0 0 0 11.8-2"/></svg></button><button class="settings-button" id="botSettingsOpen" type="button">Настроить</button></div></header><div class="bot-inbox" id="botInbox"></div></section>
-        <section class="bot-panel bot-thread-panel" id="botThreadPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToInbox" type="button">← Входящие</button><span id="botThreadTitle">Переписка</span><span></span></header><div class="bot-thread-messages" id="botThreadMessages"></div><form class="bot-reply-form" id="botReplyForm"><input class="bot-reply-input" id="botReplyInput" maxlength="4000" required placeholder="Ответить пользователю…"><button class="bot-create-button" type="submit">Ответить</button></form></section>
+        <section class="bot-panel bot-inbox-panel" id="botInboxPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToList" type="button">Боты</button><span id="botInboxTitle">Входящие</span><div class="head-actions"><button class="bot-icon-button" id="botInboxRefresh" type="button" aria-label="Обновить входящие" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.8-2L20 12M4 12l2.7 5a7 7 0 0 0 11.8-2"/></svg></button><button class="settings-button" id="botSettingsOpen" type="button">Настроить</button></div></header><div class="bot-inbox" id="botInbox"></div></section>
+        <section class="bot-panel bot-thread-panel" id="botThreadPanel"><header class="bot-panel-head"><button class="settings-button" id="botBackToInbox" type="button">Входящие</button><span id="botThreadTitle">Переписка</span><span></span></header><div class="bot-thread-messages" id="botThreadMessages"></div><form class="bot-reply-form" id="botReplyForm"><input class="bot-reply-input" id="botReplyInput" maxlength="4000" required placeholder="Ответить пользователю…"><button class="bot-create-button" type="submit">Ответить</button></form></section>
       </div>
       <div class="bot-settings-overlay" id="botSettingsOverlay" aria-hidden="true">
         <section class="bot-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="botSettingsTitle">
@@ -685,28 +685,28 @@
       <p class="auth-copy" id="authCopy">Введите свой NickName, чтобы войти или создать аккаунт.</p>
       <form id="nicknameForm" class="auth-step" autocomplete="on">
         <div class="auth-field"><label for="authUsername">FernieID NickName</label><input id="authUsername" name="username" type="text" placeholder="Ваш NickName" autocomplete="username" required minlength="3" maxlength="20"></div>
-        <button class="auth-submit" type="submit">Продолжить <span>→</span></button>
+        <button class="auth-submit" type="submit">Продолжить</button>
       </form>
       <form id="loginForm" class="auth-step auth-hidden" autocomplete="on">
         <div class="auth-field"><label for="authPassword">Пароль</label><input id="authPassword" name="password" type="password" placeholder="Пароль FernieID" autocomplete="current-password" required maxlength="256"></div>
-        <button class="auth-submit" type="submit">Войти <span>→</span></button>
-        <button class="auth-back" id="backFromLogin" type="button">← Изменить NickName</button>
+        <button class="auth-submit" type="submit">Войти</button>
+        <button class="auth-back" id="backFromLogin" type="button">Изменить NickName</button>
       </form>
       <form id="signupPasswordForm" class="auth-step auth-hidden" autocomplete="new-password">
         <div class="auth-field"><label for="signupPassword">Придумайте пароль</label><input id="signupPassword" name="new-password" type="password" placeholder="Не менее 8 символов" autocomplete="new-password" required minlength="8" maxlength="256"></div>
         <div class="auth-field"><label for="signupPasswordConfirm">Повторите пароль</label><input id="signupPasswordConfirm" name="new-password-confirm" type="password" placeholder="Повторите пароль" autocomplete="new-password" required minlength="8" maxlength="256"></div>
-        <button class="auth-submit" type="submit">Далее <span>→</span></button>
-        <button class="auth-back" id="backFromSignupPassword" type="button">← Изменить NickName</button>
+        <button class="auth-submit" type="submit">Далее</button>
+        <button class="auth-back" id="backFromSignupPassword" type="button">Изменить NickName</button>
       </form>
       <form id="displayNameForm" class="auth-step auth-hidden" autocomplete="off">
         <div class="auth-field"><label for="displayName">Отображаемое имя</label><input id="displayName" name="display-name" type="text" placeholder="Как вас будут видеть собеседники" autocomplete="nickname" required maxlength="40"></div>
-        <button class="auth-submit" type="submit">Создать аккаунт <span>→</span></button>
-        <button class="auth-back" id="backFromDisplayName" type="button">← Назад к паролю</button>
+        <button class="auth-submit" type="submit">Создать аккаунт</button>
+        <button class="auth-back" id="backFromDisplayName" type="button">Назад к паролю</button>
       </form>
       <form id="verifyForm" class="auth-step auth-hidden" autocomplete="one-time-code">
         <div class="auth-field"><label for="authCode">Код из Telegram</label><input id="authCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="00000000" maxlength="8" pattern="[0-9]{8}" required></div>
-        <button class="auth-submit" type="submit">Подтвердить вход <span>→</span></button>
-        <button class="auth-back" id="backToNickname" type="button">← Назад</button>
+        <button class="auth-submit" type="submit">Подтвердить вход</button>
+        <button class="auth-back" id="backToNickname" type="button">Назад</button>
       </form>
       <p class="auth-error" id="authError" role="alert" aria-live="polite"></p>
       <div class="auth-foot"><span class="auth-foot-dot"></span>Безопасный вход через FernieID</div>
