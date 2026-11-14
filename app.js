@@ -11,7 +11,8 @@ const messages = document.getElementById('messages');
 const searchInput = document.getElementById('searchInput');
 const messageInput = document.getElementById('messageInput');
 const drawerBackdrop = document.getElementById('drawerBackdrop');
-const profileModal = document.getElementById('profileModal');
+const profileScreen = document.getElementById('profileScreen');
+const appDialog = document.getElementById('appDialog');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const pageLoader = document.getElementById('pageLoader');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
@@ -47,6 +48,8 @@ let pendingBotAvatarBase64 = '';
 let removeBotAvatar = false;
 let botRefreshTimer;
 let botRefreshing = false;
+let currentProfile = null;
+let dialogResolver = null;
 
 function readSession() {
   try {
@@ -149,10 +152,40 @@ function unlock(data) {
 function updateAccountMenu() {
   document.getElementById('drawerName').textContent = session?.displayName || session?.username || 'FernieID';
   document.getElementById('drawerHandle').textContent = session?.username ? `@${session.username}` : 'Ваш аккаунт';
-  document.getElementById('drawerAvatar').textContent = initials(session?.displayName || session?.username);
+  setAvatar(document.getElementById('drawerAvatar'), { ...session, display_name: session?.displayName });
   document.getElementById('accountProfileName').textContent = session?.displayName || session?.username || '—';
   document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
-  document.getElementById('accountProfileAvatar').textContent = initials(session?.displayName || session?.username);
+  setAvatar(document.getElementById('accountProfileAvatar'), { ...session, display_name: session?.displayName });
+}
+
+function showDialog({ title, message, input = false, value = '', confirmLabel = 'Продолжить', danger = false }) {
+  const inputElement = document.getElementById('appDialogInput');
+  document.getElementById('appDialogTitle').textContent = title;
+  document.getElementById('appDialogMessage').textContent = message;
+  document.getElementById('appDialogConfirm').textContent = confirmLabel;
+  document.getElementById('appDialogConfirm').classList.toggle('danger', danger);
+  inputElement.hidden = !input;
+  inputElement.value = value;
+  appDialog.classList.add('open');
+  appDialog.setAttribute('aria-hidden', 'false');
+  if (input) inputElement.focus();
+  return new Promise(resolve => { dialogResolver = resolve; });
+}
+
+function closeDialog(result = null) {
+  appDialog.classList.remove('open');
+  appDialog.setAttribute('aria-hidden', 'true');
+  const resolve = dialogResolver;
+  dialogResolver = null;
+  resolve?.(result);
+}
+
+function confirmAction(message, { title = 'Подтвердите действие', danger = false } = {}) {
+  return showDialog({ title, message, confirmLabel: 'Подтвердить', danger }).then(Boolean);
+}
+
+function promptAction(message, value = '') {
+  return showDialog({ title: 'Поиск в переписке', message, input: true, value, confirmLabel: 'Найти' });
 }
 
 function hidePageLoader() {
@@ -490,7 +523,7 @@ async function saveManagedBotAppearance(event) {
 
 async function deleteManagedBot() {
   if (!selectedManagedBot) return;
-  if (!window.confirm(`Удалить @${selectedManagedBot.username}? Это действие нельзя отменить.`)) return;
+  if (!await confirmAction(`Удалить @${selectedManagedBot.username}? Это действие нельзя отменить.`, { title: 'Удалить бота', danger: true })) return;
   const button = document.getElementById('botDeleteButton');
   button.disabled = true;
   document.getElementById('botDeleteStatus').textContent = 'Удаляем бота…';
@@ -576,27 +609,60 @@ function closeDrawer() {
   drawerBackdrop.setAttribute('aria-hidden', 'true');
 }
 
-function openProfile(person = null) {
-  const username = person?.display_name || person?.username || session?.username || 'FernieID';
+async function openProfile(person = null) {
   const userId = person?.id || session?.userId;
-  document.getElementById('profileTitle').textContent = person ? 'Профиль контакта' : 'Мой профиль';
-  document.getElementById('accountProfileName').textContent = username;
-  document.getElementById('accountProfileId').textContent = userId ? `ID ${userId}` : 'FernieID';
+  currentProfile = { ...(person || {}), id: userId, username: person?.username || session?.username, display_name: person?.display_name || session?.displayName };
+  profileScreen.classList.add('open');
+  profileScreen.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('profile-open');
+  renderProfile(currentProfile, !person);
+  if (!userId || currentProfile.is_deleted) return;
+  try {
+    const result = await api(`/api/social/profile/${encodeURIComponent(userId)}?viewerId=${encodeURIComponent(session?.userId || '')}`);
+    if (result.user && String(currentProfile.id) === String(userId)) {
+      currentProfile = { ...currentProfile, ...result.user };
+      if (!person) {
+        session.avatar_url = currentProfile.avatar_url || null;
+        session.banner_url = currentProfile.banner_url || null;
+        localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+        updateAccountMenu();
+      }
+      renderProfile(currentProfile, !person);
+    }
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось загрузить профиль FernieID');
+  }
+}
+
+function renderProfile(person, own) {
+  const displayName = person.display_name || person.username || 'FernieID';
+  document.getElementById('profileTitle').textContent = own ? 'Мой профиль' : 'Профиль';
+  document.getElementById('accountProfileName').textContent = displayName;
+  document.getElementById('accountProfileId').textContent = person.id ? `ID ${person.id}` : 'FernieID';
+  document.getElementById('profileUsername').textContent = person.username ? `@${person.username}` : (person.is_deleted ? 'Аккаунт удалён' : 'NickName не указан');
   const description = document.getElementById('accountProfileDescription');
-  description.textContent = person?.description || '';
-  description.hidden = !person?.description;
+  description.textContent = person.description || '';
+  description.hidden = !person.description;
+  const banner = document.getElementById('profileBannerImage');
+  const bannerUrl = safeImageUrl(person.banner_url || person.bannerUrl);
+  banner.src = bannerUrl;
+  banner.hidden = !bannerUrl;
+  banner.onerror = () => {
+    banner.hidden = true;
+    document.getElementById('profileBanner').classList.remove('has-banner');
+  };
+  document.getElementById('profileBanner').classList.toggle('has-banner', !!bannerUrl);
   const displayNameForm = document.getElementById('accountDisplayNameForm');
-  displayNameForm.hidden = !!person;
+  displayNameForm.hidden = !own;
   document.getElementById('accountDisplayNameInput').value = session?.displayName || session?.username || '';
   document.getElementById('accountDisplayNameStatus').textContent = '';
-  setAvatar(document.getElementById('accountProfileAvatar'), { ...person, username, id: userId });
-  profileModal.classList.add('open');
-  profileModal.setAttribute('aria-hidden', 'false');
+  setAvatar(document.getElementById('accountProfileAvatar'), person);
 }
 
 function closeProfile() {
-  profileModal.classList.remove('open');
-  profileModal.setAttribute('aria-hidden', 'true');
+  profileScreen.classList.remove('open');
+  profileScreen.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('profile-open');
 }
 
 function escapeHtml(value) {
@@ -631,9 +697,13 @@ function setAvatar(element, person) {
     const image = document.createElement('img');
     image.src = photo;
     image.alt = '';
+    image.onerror = () => {
+      element.replaceChildren();
+      element.textContent = initials(person.display_name || person.displayName || person.username);
+    };
     element.append(image);
   } else {
-    element.textContent = initials(person.username);
+    element.textContent = initials(person.display_name || person.displayName || person.username);
   }
 }
 
@@ -1206,7 +1276,6 @@ function openChatContextMenu(chatId, x, y) {
   menu.innerHTML = `
     <div class="context-menu-date">${escapeHtml(chat.name)}</div>
     <div class="context-menu-divider"></div>
-    <button class="context-menu-action" type="button" data-chat-action="new-window"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="13" height="13" rx="2"/><path d="M9 20h9a2 2 0 0 0 2-2V9"/></svg>Открыть в отдельном окне</button>
     <button class="context-menu-action" type="button" data-chat-action="pin"><svg viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4 2 2-2 2-4-4-5 5M8 8l2-2 2 2 4-4 1-4"/></svg>${chat.pinned ? 'Открепить' : 'Закрепить'}</button>
     <button class="context-menu-action" type="button" data-chat-action="unread"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></svg>Пометить как непрочитанное</button>
     <button class="context-menu-action danger" type="button" data-chat-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить чат</button>`;
@@ -1228,12 +1297,6 @@ function togglePinnedChat(chatId) {
   showMessageToast(chat.pinned ? 'Чат закреплён' : 'Чат откреплён');
 }
 
-function openChatInNewWindow(chatId) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('chatId', chatId);
-  window.open(url.toString(), `qwant-chat-${chatId}`, 'popup,width=1100,height=800,noopener,noreferrer');
-}
-
 async function markChatUnread(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
   if (!chat) return;
@@ -1253,7 +1316,7 @@ async function markChatUnread(chatId) {
 
 async function hideChatFromList(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || !window.confirm(`Удалить чат «${chat.name}» из вашего списка?`)) return;
+  if (!chat || !await confirmAction(`Удалить чат «${chat.name}» из вашего списка?`, { title: 'Удалить чат', danger: true })) return;
   try {
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/hide`, { method:'POST' });
     chats = chats.filter(item => String(item.id) !== String(chat.id));
@@ -1275,7 +1338,6 @@ async function hideChatFromList(chatId) {
 
 async function handleChatMenuAction(action, chatId) {
   closeChatContextMenu();
-  if (action === 'new-window') openChatInNewWindow(chatId);
   if (action === 'pin') togglePinnedChat(chatId);
   if (action === 'unread') await markChatUnread(chatId);
   if (action === 'delete') await hideChatFromList(chatId);
@@ -1386,7 +1448,7 @@ async function copyMessage(messageId) {
 async function deleteMessage(messageId) {
   const chat = chats.find(item => item.id === activeId);
   const message = chat?.messages.find(item => String(item.id) === String(messageId));
-  if (!chat || !message?.own || !window.confirm('Удалить это сообщение?')) return;
+  if (!chat || !message?.own || !await confirmAction('Удалить это сообщение?', { title: 'Удалить сообщение', danger: true })) return;
   try {
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages/${encodeURIComponent(message.id)}`, { method: 'DELETE' });
     await loadChatMessages(chat);
@@ -1418,7 +1480,7 @@ async function sendMessage(body, imageBase64 = '') {
 
 async function deleteDeletedAccountChat() {
   const chat = chats.find(item => item.id === activeId);
-  if (!chat?.partner.is_deleted || !window.confirm(`Удалить чат с «${chat.name}»? Все сообщения в этой переписке будут удалены.`)) return;
+  if (!chat?.partner.is_deleted || !await confirmAction(`Удалить чат с «${chat.name}»? Все сообщения в этой переписке будут удалены.`, { title: 'Удалить переписку', danger: true })) return;
   const button = document.getElementById('deleteDeletedChat');
   const status = document.getElementById('deleteDeletedChatStatus');
   button.disabled = true;
@@ -1657,7 +1719,8 @@ document.getElementById('accountDisplayNameForm').addEventListener('submit', asy
     session.displayName = result.displayName;
     localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
     updateAccountMenu();
-    document.getElementById('accountProfileName').textContent = result.displayName;
+    currentProfile = { ...currentProfile, display_name: result.displayName };
+    renderProfile(currentProfile, true);
     document.getElementById('accountDisplayNameStatus').textContent = 'Отображаемое имя сохранено.';
   } catch (error) {
     document.getElementById('accountDisplayNameStatus').textContent = error.message;
@@ -1665,8 +1728,19 @@ document.getElementById('accountDisplayNameForm').addEventListener('submit', asy
     button.disabled = false;
   }
 });
-profileModal.addEventListener('click', event => {
-  if (event.target === profileModal) closeProfile();
+document.getElementById('appDialogCancel').addEventListener('click', () => closeDialog(null));
+document.getElementById('appDialog').addEventListener('click', event => {
+  if (event.target === appDialog) closeDialog(null);
+});
+document.getElementById('appDialogForm').addEventListener('submit', event => {
+  event.preventDefault();
+  closeDialog(document.getElementById('appDialogInput').hidden ? true : document.getElementById('appDialogInput').value);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeDialog(null);
+    closeProfile();
+  }
 });
 messages.addEventListener('click', event => {
   if (suppressMessageClick) {
@@ -1789,12 +1863,12 @@ document.getElementById('detailsClose').addEventListener('click', () => {
   if (window.matchMedia('(max-width: 1180px)').matches) app.classList.remove('show-details');
   else app.classList.add('details-hidden');
 });
-document.getElementById('messageSearchButton').addEventListener('click', () => {
-  const query = window.prompt('Поиск в текущей переписке');
+document.getElementById('messageSearchButton').addEventListener('click', async () => {
+  const query = await promptAction('Введите текст для поиска в текущей переписке.');
   if (!query?.trim()) return;
   const target = [...messages.querySelectorAll('.bubble')].find(bubble => bubble.textContent.toLocaleLowerCase('ru').includes(query.trim().toLocaleLowerCase('ru')));
   messages.querySelectorAll('.search-highlight').forEach(bubble => bubble.classList.remove('search-highlight'));
-  if (!target) return window.alert('Сообщение не найдено');
+  if (!target) return showMessageToast('Сообщение не найдено');
   target.classList.add('search-highlight');
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
@@ -1803,11 +1877,11 @@ document.getElementById('attachInput').addEventListener('change', event => {
   const file = event.target.files?.[0];
   event.target.value = '';
   if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return window.alert('Можно прикрепить JPG, PNG или WEBP.');
-  if (file.size > 8 * 1024 * 1024) return window.alert('Размер фото не должен превышать 8 МБ.');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showMessageToast('Можно прикрепить JPG, PNG или WEBP.');
+  if (file.size > 8 * 1024 * 1024) return showMessageToast('Размер фото не должен превышать 8 МБ.');
   const reader = new FileReader();
   reader.onload = () => sendMessage('', String(reader.result));
-  reader.onerror = () => window.alert('Не удалось прочитать файл.');
+  reader.onerror = () => showMessageToast('Не удалось прочитать файл.');
   reader.readAsDataURL(file);
 });
 document.getElementById('emojiButton').addEventListener('click', () => {
@@ -1822,8 +1896,8 @@ messageInput.addEventListener('input', () => {
     if (activeId) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'POST', body: JSON.stringify({ typing: false }) }).catch(() => {});
   }, 1600);
 });
-function logout() {
-  if (!confirm('Выйти из Qwant Messenger?')) return;
+async function logout() {
+  if (!await confirmAction('Выйти из Qwant Messenger?', { title: 'Выйти из аккаунта' })) return;
   const finishLogout = () => {
     localStorage.removeItem('ferniex_messenger_session');
     session = null;
