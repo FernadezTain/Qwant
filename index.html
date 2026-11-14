@@ -89,6 +89,41 @@
     .loading-dots i:nth-child(2) { animation-delay: .14s; }
     .loading-dots i:nth-child(3) { animation-delay: .28s; }
     .message-new { animation: message-enter .26s ease both; }
+    .message-row.gift-message-row { align-items: flex-end; }
+    .gift-message-bubble { width: min(100%, 300px); max-width: min(82vw, 300px); padding: 0; overflow: hidden; border-radius: 17px; background: var(--surface); }
+    .gift-message-label { padding: 10px 13px 0; color: var(--muted); font-size: 10px; font-weight: 700; text-align: center; }
+    .gift-preview-card { margin: 8px 10px 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .gift-preview-art { position: relative; display: grid; width: 100%; aspect-ratio: 1.05; place-items: center; overflow: hidden; background: linear-gradient(145deg,#eac4a8,#bc7355); }
+    .gift-preview-art::before { position: absolute; inset: 0; background-position: center; background-size: cover; content: ''; opacity: .8; }
+    .gift-preview-art img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+    .gift-fallback { position: relative; z-index: 1; color: rgba(255,255,255,.92); font-size: 48px; text-shadow: 0 4px 18px rgba(79,45,33,.25); }
+    .gift-ribbon { position: absolute; top: 13px; right: -25px; z-index: 2; width: 100px; padding: 4px 0; transform: rotate(45deg); background: rgba(255,250,242,.92); color: #96644d; font-size: 9px; font-weight: 800; text-align: center; }
+    .gift-preview-copy { padding: 10px 12px 11px; text-align: center; }
+    .gift-preview-name { overflow: hidden; font-size: 13px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .gift-preview-collection { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .gift-preview-specs { display: grid; gap: 5px; margin-top: 9px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 10px; text-align: left; }
+    .gift-preview-spec { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 9px; }
+    .gift-preview-spec b { overflow: hidden; color: var(--ink); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .gift-open-button { width: min(100%, 150px); min-height: 32px; margin-top: 8px; border: 0; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 10px; font-weight: 700; cursor: pointer; transition: transform .16s, background .16s; }
+    .gift-open-button:hover { transform: translateY(-1px); background: var(--accent); }
+    .gift-modal { position: fixed; inset: 0; z-index: 65; display: none; place-items: center; padding: 18px; background: rgba(36,35,32,.42); opacity: 0; transition: opacity .2s; }
+    .gift-modal.open { display: grid; opacity: 1; }
+    .gift-modal-card { width: min(100%, 380px); max-height: min(88dvh, 760px); overflow: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); transform: translateY(10px) scale(.99); transition: transform .2s; }
+    .gift-modal.open .gift-modal-card { transform: none; }
+    .gift-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; }
+    .gift-modal-body { padding: 16px; }
+    .gift-modal-art { position: relative; display: grid; width: min(100%, 240px); aspect-ratio: 1; place-items: center; overflow: hidden; margin: 0 auto 13px; border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg,#eac4a8,#bc7355); }
+    .gift-modal-art img { width: 100%; height: 100%; object-fit: cover; }
+    .gift-modal-title { margin: 0; font-size: 18px; font-weight: 800; text-align: center; }
+    .gift-modal-subtitle { margin: 4px 0 13px; color: var(--muted); font-size: 11px; text-align: center; }
+    .gift-detail-table { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .gift-detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 9px 11px; border-bottom: 1px solid var(--line); font-size: 10px; }
+    .gift-detail-row:last-child { border-bottom: 0; }
+    .gift-detail-row span { color: var(--muted); }
+    .gift-detail-row b { max-width: 62%; overflow-wrap: anywhere; text-align: right; }
+    .gift-modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .gift-modal-actions .settings-button { flex: 1; }
+    .gift-market-note { margin: 10px 2px 0; color: var(--muted); font-size: 9px; line-height: 1.5; text-align: center; }
     .bubble { max-width: min(76%, 470px); padding: 11px 13px 8px; border: 1px solid rgba(233, 231, 224, .86); border-radius: 16px 16px 16px 5px; background: var(--surface); box-shadow: 0 4px 14px -12px rgba(35, 29, 21, .3); color: #383630; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
     .own .bubble { border-color: #ead4c9; border-radius: 16px 16px 5px 16px; background: #f8e9e1; }
     .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 4px; color: #9c9589; font-size: 9px; }
@@ -135,6 +170,8 @@
     .dark-theme .conversation-head { background: rgba(23,33,43,.94); }
     .dark-theme .bubble { background: #1b2833; border-color: #2a3945; color: #e4eaf0; }
     .dark-theme .own .bubble { background: #283c48; border-color: #344d59; }
+    .dark-theme .gift-preview-card, .dark-theme .gift-modal-card { background: var(--surface); }
+    .dark-theme .gift-preview-specs, .dark-theme .gift-detail-table { border-color: var(--line); }
     .dark-theme .composer { background: #1b2833; }
     .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
@@ -399,6 +436,13 @@
     <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="profile-card-head"><span id="profileTitle">Профиль FernieID</span><button class="icon-button" id="profileClose" type="button" aria-label="Закрыть профиль">×</button></div>
       <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div></div></div>
+    </section>
+  </div>
+
+  <div class="gift-modal" id="giftModal" aria-hidden="true">
+    <section class="gift-modal-card" role="dialog" aria-modal="true" aria-labelledby="giftModalTitle">
+      <header class="gift-modal-head"><span>Подарок UDG</span><button class="icon-button" id="giftModalClose" type="button" aria-label="Закрыть подарок">×</button></header>
+      <div class="gift-modal-body" id="giftModalBody"></div>
     </section>
   </div>
 
