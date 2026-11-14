@@ -247,11 +247,11 @@
     .drawer-spacer { flex: 1; min-height: 35px; }
     .drawer-product { background: linear-gradient(110deg,rgba(255,255,255,.07),transparent); }
     .drawer-switch { margin-left: auto; color: #8eb6d5; }
-    .profile-screen { position: fixed; inset: 0; z-index: 45; overflow-y: auto; background: var(--page); color: var(--ink); opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity .2s, transform .2s, visibility .2s; }
+    .profile-screen { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; padding: 24px; background: rgba(15,18,24,.46); color: var(--ink); opacity: 0; visibility: hidden; transform: translateY(12px); backdrop-filter: blur(7px); transition: opacity .2s, transform .2s, visibility .2s; }
     .profile-screen.open { opacity: 1; visibility: visible; transform: none; }
-    .profile-screen-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: max(14px, env(safe-area-inset-top)) max(22px, calc((100vw - 880px) / 2)) 13px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(18px); }
+    .profile-screen-head { position: relative; z-index: 2; display: flex; width: min(820px, 100%); min-height: 58px; flex: 0 0 auto; align-items: center; gap: 12px; padding: 10px 18px; border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0; background: var(--surface); }
     .profile-screen-title { font-size: 15px; font-weight: 700; }
-    .profile-screen-body { width: min(820px, calc(100% - 32px)); margin: 24px auto 60px; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); }
+    .profile-screen-body { width: min(820px, 100%); max-height: calc(90dvh - 58px); flex: 0 1 auto; margin: 0; overflow-x: hidden; overflow-y: auto; border: 1px solid var(--line); border-radius: 0 0 22px 22px; background: var(--surface); box-shadow: var(--shadow); }
     .profile-banner { position: relative; height: clamp(150px, 28vw, 260px); overflow: hidden; background: radial-gradient(circle at 20% 30%, #e4c6b5, transparent 38%), linear-gradient(130deg, #dce5dc, #f1e7df 56%, #d8dced); }
     .profile-banner.has-banner { background: #e7e5df; }
     .profile-banner img { width: 100%; height: 100%; object-fit: cover; }
@@ -477,6 +477,9 @@
     @media (max-width: 760px) {
       .auth-screen { padding: 18px; }
       .auth-card { padding: 0; }
+      .profile-screen { display: block; padding: 0; overflow-y: auto; background: var(--page); backdrop-filter: none; }
+      .profile-screen-head { position: sticky; top: 0; width: 100%; min-height: 0; padding: max(14px, env(safe-area-inset-top)) 16px 13px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(18px); }
+      .profile-screen-body { width: 100%; max-height: none; min-height: calc(100% - 62px); margin: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
       .settings-overlay { padding: 0; }
       .settings-dialog { width: 100%; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
       .settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
@@ -519,8 +522,6 @@
       .bot-settings-content { padding: 16px; }
       .bot-token-row { align-items: stretch; }
       .bot-token-row .settings-button { flex: 0 0 auto; }
-      .profile-screen-head { padding-right: 16px; padding-left: 16px; }
-      .profile-screen-body { width: 100%; min-height: calc(100% - 62px); margin: 0; border: 0; border-radius: 0; box-shadow: none; }
       .profile-banner { height: 185px; }
       .profile-main { gap: 14px; padding: 0 18px 18px; }
       .profile-main .avatar { width: 88px; height: 88px; margin-top: -36px; border-width: 4px; border-radius: 28px; font-size: 25px; }
