@@ -130,7 +130,11 @@ async function registerDevice() {
   if (!session?.sessionToken) return;
   session.deviceId ||= createDeviceId();
   localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
-  await api('/api/qwant/devices/register', { method: 'POST', body: JSON.stringify({ deviceId: session.deviceId }) });
+  let deviceModel = '';
+  try {
+    deviceModel = (await navigator.userAgentData?.getHighEntropyValues(['model']))?.model || '';
+  } catch {}
+  await api('/api/qwant/devices/register', { method: 'POST', body: JSON.stringify({ deviceId: session.deviceId, deviceModel }) });
 }
 
 function endRevokedSession() {
@@ -215,7 +219,7 @@ async function loadDevices() {
   try {
     const result = await api('/api/qwant/devices');
     list.innerHTML = result.devices.length ? result.devices.map(device => `
-      <article class="device-card"><div class="device-head"><div><div class="device-title">${escapeHtml(device.device_name)}</div><div class="device-meta">${device.device_id === session.deviceId ? '<span class="device-current">Это устройство</span><br>' : ''}Последняя активность: ${escapeHtml(formatDateTime(device.last_seen_at))}</div></div>${device.device_id === session.deviceId ? '' : `<button class="settings-button danger" data-revoke-device="${escapeHtml(device.device_id)}" type="button">Завершить</button>`}</div></article>`).join('') : '<div class="settings-note">Активных устройств не найдено.</div>';
+      <article class="device-card"><div class="device-head"><div><div class="device-title">${escapeHtml(device.device_name || 'Устройство')}</div>${device.browser_name ? `<div class="device-meta">${escapeHtml(device.browser_name)}</div>` : ''}<div class="device-meta device-location">${escapeHtml([device.city, device.country].filter(Boolean).join(', ') || 'Местоположение недоступно')}</div><div class="device-meta">${device.device_id === session.deviceId ? '<span class="device-current">Это устройство</span><br>' : ''}Последняя активность: ${escapeHtml(formatDateTime(device.last_seen_at))}</div></div>${device.device_id === session.deviceId ? '' : `<button class="settings-button danger" data-revoke-device="${escapeHtml(device.device_id)}" type="button">Завершить</button>`}</div></article>`).join('') : '<div class="settings-note">Активных устройств не найдено.</div>';
     list.querySelectorAll('[data-revoke-device]').forEach(button => button.addEventListener('click', () => revokeDevice(button.dataset.revokeDevice, button)));
     status.textContent = '';
   } catch (error) {
