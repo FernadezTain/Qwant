@@ -89,8 +89,29 @@ app.use('/api/social', async (req, res) => {
   }
 });
 
+app.use('/api/qwant', async (req, res) => {
+  try {
+    const response = await fetch(`${fernieIdUrl}${req.originalUrl}`, {
+      method: req.method,
+      headers: {
+        ...(req.get('authorization') ? { authorization: req.get('authorization') } : {}),
+        ...(req.body && Object.keys(req.body).length ? { 'content-type': 'application/json' } : {})
+      },
+      ...(req.method === 'GET' || req.method === 'HEAD' ? {} : { body: JSON.stringify(req.body ?? {}) }),
+      signal: AbortSignal.timeout(15000)
+    });
+    const contentType = response.headers.get('content-type');
+    res.status(response.status);
+    if (contentType) res.type(contentType);
+    res.send(await response.text());
+  } catch (error) {
+    console.error('Qwant API request failed:', error.message);
+    res.status(502).json({ success: false, error: 'Сервис временно недоступен. Попробуйте ещё раз.' });
+  }
+});
+
 app.get('/health', (_req, res) => res.json({ success: true }));
 app.use(express.static(root, { index: 'index.html' }));
 app.get('*', (_req, res) => res.sendFile(path.join(root, 'index.html')));
 
-app.listen(port, () => console.log(`FernieX Messenger listening on port ${port}`));
+app.listen(port, () => console.log(`Qwant Messenger listening on port ${port}`));
