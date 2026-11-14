@@ -20,6 +20,12 @@ const settingsOverlay = document.getElementById('settingsOverlay');
 const photoSendModal = document.getElementById('photoSendModal');
 const photoSendPreview = document.getElementById('photoSendPreview');
 const photoSendCaption = document.getElementById('photoSendCaption');
+const photoViewer = document.getElementById('photoViewer');
+const photoViewerImage = document.getElementById('photoViewerImage');
+const photoViewerCount = document.getElementById('photoViewerCount');
+const photoViewerCaption = document.getElementById('photoViewerCaption');
+const photoViewerDownload = document.getElementById('photoViewerDownload');
+const photoViewerStage = document.getElementById('photoViewerStage');
 const emojiButton = document.getElementById('emojiButton');
 const emojiPicker = document.getElementById('emojiPicker');
 const emojiPickerWrap = document.getElementById('emojiPickerWrap');
@@ -44,6 +50,9 @@ let accountSettings = null;
 let telegramId = null;
 let deviceCheckTimer;
 let activeGift = null;
+let photoViewerItems = [];
+let photoViewerIndex = 0;
+let photoViewerTouchStart = null;
 let pendingPhotos = [];
 let pendingPhotoConversationId = null;
 let chats = [];
@@ -922,7 +931,7 @@ function photoAlbumMarkup(chat, album, previousDate = '', animate = false) {
   const replyQuote = first.replyText ? `<div class="reply-quote"><b>${escapeHtml(first.replySender || 'Ответ')}</b>${escapeHtml(first.replyText)}</div>` : '';
   const tiles = album.map(message => {
     const image = message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl);
-    return `<div class="album-tile" data-message-id="${escapeHtml(message.id)}"><img src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy"></div>`;
+    return `<div class="album-tile" data-message-id="${escapeHtml(message.id)}" role="button" tabindex="0" aria-label="Открыть фото"><img src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy"></div>`;
   }).join('');
   const statusMessage = album.find(message => message.sendStatus === 'failed') || album.find(message => message.sendStatus === 'sending') || latest;
   return `${datePill}<div class="message-row ${first.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(first.id)}">
@@ -962,7 +971,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   const text = message.text || (image ? ' ' : 'Сообщение без текста');
   return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
     ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div></div>
+    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" data-view-photo="${escapeHtml(message.id)}" src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div></div>
   </div>`;
 }
 
@@ -984,6 +993,63 @@ function renderMessages(chat) {
   }
   messages.innerHTML = markup.join('');
   messages.scrollTop = messages.scrollHeight;
+}
+
+function conversationPhotos(chat) {
+  return chat.messages.filter(message => message.imageUrl).map(message => ({
+    id:String(message.id),
+    url:message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl),
+    caption:message.text || '',
+    time:message.time || ''
+  })).filter(photo => photo.url);
+}
+
+function renderPhotoViewer() {
+  const photo = photoViewerItems[photoViewerIndex];
+  if (!photo) return closePhotoViewer();
+  photoViewerImage.src = photo.url;
+  photoViewerImage.alt = photo.caption || 'Фото из переписки';
+  photoViewerCount.textContent = `${photoViewerIndex + 1} из ${photoViewerItems.length}`;
+  photoViewerCaption.textContent = photo.caption || photo.time;
+  photoViewerCaption.hidden = !photo.caption && !photo.time;
+  photoViewerDownload.href = photo.url;
+  photoViewerDownload.download = `qwant-photo-${photoViewerIndex + 1}`;
+  document.getElementById('photoViewerPrev').disabled = photoViewerItems.length < 2;
+  document.getElementById('photoViewerNext').disabled = photoViewerItems.length < 2;
+  photoViewerImage.style.animation = 'none';
+  requestAnimationFrame(() => { photoViewerImage.style.animation = ''; });
+  const next = photoViewerItems[(photoViewerIndex + 1) % photoViewerItems.length];
+  if (next && photoViewerItems.length > 1) {
+    const preload = new Image();
+    preload.src = next.url;
+  }
+}
+
+function openPhotoViewer(messageId) {
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (!chat) return;
+  photoViewerItems = conversationPhotos(chat);
+  photoViewerIndex = photoViewerItems.findIndex(photo => photo.id === String(messageId));
+  if (photoViewerIndex < 0) return;
+  photoViewer.classList.add('open');
+  photoViewer.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('photo-viewer-open');
+  renderPhotoViewer();
+}
+
+function movePhotoViewer(direction) {
+  if (photoViewerItems.length < 2) return;
+  photoViewerIndex = (photoViewerIndex + direction + photoViewerItems.length) % photoViewerItems.length;
+  renderPhotoViewer();
+}
+
+function closePhotoViewer() {
+  photoViewer.classList.remove('open');
+  photoViewer.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('photo-viewer-open');
+  photoViewerImage.removeAttribute('src');
+  photoViewerItems = [];
+  photoViewerIndex = 0;
 }
 
 function giftDetailRow(label, value) {
@@ -1313,7 +1379,7 @@ function renderSharedDetails(chat) {
     }
   });
   document.getElementById('mediaCount').textContent = media.length;
-  document.getElementById('mediaGrid').innerHTML = media.slice(0, 9).map(item => `<a class="media-tile" href="${escapeHtml(safeImageUrl(item.imageUrl))}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(safeImageUrl(item.imageUrl))}" alt="Фото из переписки" loading="lazy"></a>`).join('');
+  document.getElementById('mediaGrid').innerHTML = media.slice(0, 9).map(item => `<button class="media-tile" type="button" data-view-photo="${escapeHtml(item.id)}" aria-label="Открыть фото"><img src="${escapeHtml(safeImageUrl(item.imageUrl))}" alt="Фото из переписки" loading="lazy"></button>`).join('');
   document.getElementById('mediaEmpty').hidden = media.length > 0;
   document.getElementById('linkCount').textContent = links.length;
   document.getElementById('sharedLinks').innerHTML = links.slice(0, 12).map(link => `<a class="shared-link" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer"><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>${escapeHtml(new URL(link.href).hostname)}<br><small style="color:var(--muted)">${escapeHtml(formatTime(link.createdAt))}</small></span></a>`).join('');
@@ -2191,11 +2257,27 @@ messages.addEventListener('click', event => {
     if (failedMessage) sendMessage(failedMessage.text, failedMessage.localImage ? failedMessage.imageUrl : '', failedMessage, false);
     return;
   }
+  const photo = event.target.closest('[data-view-photo], .album-tile[data-message-id]');
+  if (photo) {
+    openPhotoViewer(photo.dataset.viewPhoto || photo.dataset.messageId);
+    return;
+  }
   const button = event.target.closest('[data-gift-open]');
   if (!button) return;
   const chat = chats.find(item => item.id === activeId);
   const giftMessage = chat?.messages.find(message => message.id === button.dataset.giftOpen && message.type === 'udg_gift');
   if (giftMessage) openGift(giftMessage.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' });
+});
+messages.addEventListener('keydown', event => {
+  if (!['Enter', ' '].includes(event.key)) return;
+  const tile = event.target.closest('.album-tile[role="button"]');
+  if (!tile) return;
+  event.preventDefault();
+  openPhotoViewer(tile.dataset.messageId);
+});
+document.getElementById('mediaGrid').addEventListener('click', event => {
+  const photo = event.target.closest('[data-view-photo]');
+  if (photo) openPhotoViewer(photo.dataset.viewPhoto);
 });
 messages.addEventListener('contextmenu', event => {
   const target = event.target.closest('.album-tile[data-message-id], .message-row[data-message-id]');
@@ -2291,6 +2373,24 @@ document.getElementById('giftModalClose').addEventListener('click', closeGift);
 document.getElementById('giftModal').addEventListener('click', event => {
   if (event.target.id === 'giftModal') closeGift();
 });
+document.getElementById('photoViewerClose').addEventListener('click', closePhotoViewer);
+document.getElementById('photoViewerCloseTop').addEventListener('click', closePhotoViewer);
+document.getElementById('photoViewerPrev').addEventListener('click', () => movePhotoViewer(-1));
+document.getElementById('photoViewerNext').addEventListener('click', () => movePhotoViewer(1));
+photoViewer.addEventListener('click', event => {
+  if (event.target === photoViewer) closePhotoViewer();
+});
+photoViewerStage.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'touch') photoViewerTouchStart = { x:event.clientX, y:event.clientY };
+});
+photoViewerStage.addEventListener('pointerup', event => {
+  if (!photoViewerTouchStart) return;
+  const deltaX = event.clientX - photoViewerTouchStart.x;
+  const deltaY = event.clientY - photoViewerTouchStart.y;
+  photoViewerTouchStart = null;
+  if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) movePhotoViewer(deltaX < 0 ? 1 : -1);
+});
+photoViewerStage.addEventListener('pointercancel', () => { photoViewerTouchStart = null; });
 document.getElementById('photoSendClose').addEventListener('click', closePhotoSend);
 document.getElementById('photoSendCancel').addEventListener('click', closePhotoSend);
 document.getElementById('photoSendChoose').addEventListener('click', () => document.getElementById('attachInput').click());
@@ -2462,6 +2562,12 @@ document.getElementById('sessionNoticeOk').addEventListener('click', () => {
   showAuth('Сессия завершена. Войдите снова.');
 });
 document.addEventListener('keydown', event => {
+  if (photoViewer.classList.contains('open')) {
+    if (event.key === 'Escape') closePhotoViewer();
+    if (event.key === 'ArrowLeft') movePhotoViewer(-1);
+    if (event.key === 'ArrowRight') movePhotoViewer(1);
+    return;
+  }
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
   if (event.key === 'Escape') closePhotoSend();
