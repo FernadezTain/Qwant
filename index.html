@@ -125,6 +125,7 @@
     .gift-modal-actions .settings-button { flex: 1; }
     .gift-market-note { margin: 10px 2px 0; color: var(--muted); font-size: 9px; line-height: 1.5; text-align: center; }
     .message-context-menu { position: fixed; z-index: 90; display: none; width: 190px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 16px 42px rgba(34,29,23,.22); }
+    .chat-context-menu { width: 238px; }
     .message-context-menu.open { display: block; animation: context-menu-in .12s ease both; }
     .context-menu-date { padding: 8px 10px; color: var(--muted); font-size: 10px; font-weight: 600; }
     .context-menu-divider { height: 1px; margin: 3px 4px; background: var(--line); }
@@ -619,6 +620,7 @@
     </section>
   </div>
 
+  <div class="message-context-menu chat-context-menu" id="chatContextMenu" role="menu" aria-label="Действия с чатом"></div>
   <div class="message-context-menu" id="messageContextMenu" role="menu" aria-label="Действия с сообщением"></div>
   <div class="message-toast" id="messageToast" role="status" aria-live="polite"></div>
 
