@@ -17,6 +17,9 @@ const drawerBackdrop = document.getElementById('drawerBackdrop');
 const profileScreen = document.getElementById('profileScreen');
 const appDialog = document.getElementById('appDialog');
 const settingsOverlay = document.getElementById('settingsOverlay');
+const photoSendModal = document.getElementById('photoSendModal');
+const photoSendPreview = document.getElementById('photoSendPreview');
+const photoSendCaption = document.getElementById('photoSendCaption');
 const pageLoader = document.getElementById('pageLoader');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 let session = readSession();
@@ -25,6 +28,7 @@ let accountSettings = null;
 let telegramId = null;
 let deviceCheckTimer;
 let activeGift = null;
+let pendingPhotoBase64 = '';
 let chats = [];
 let activeId = null;
 let activeFilter = 'all';
@@ -814,6 +818,13 @@ function renderChats() {
   }));
 }
 
+function messageStatusMarkup(message) {
+  if (!message.own) return '';
+  if (message.sendStatus === 'sending') return '<span class="message-send-status sending" title="Отправляется" aria-label="Отправляется"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>';
+  if (message.sendStatus === 'failed') return `<button class="message-send-status failed" type="button" data-retry-message="${escapeHtml(message.id)}" title="Не отправлено. Нажмите, чтобы повторить" aria-label="Повторить отправку"><svg viewBox="0 0 24 24"><path d="M12 8v5"></path><path d="M12 17h.01"></path></svg></button>`;
+  return `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>`;
+}
+
 function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
@@ -837,15 +848,15 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
             <button class="gift-open-button" type="button" data-gift-open="${escapeHtml(message.id)}">Посмотреть подарок</button>
           </div>
         </div>
-        <div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>` : ''}</div>
+        <div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div>
       </article>
     </div>`;
   }
-  const image = safeImageUrl(message.imageUrl);
+  const image = message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl);
   const text = message.text || (image ? ' ' : 'Сообщение без текста');
   return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
     ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${message.own ? `<span class="checks">${message.readAt ? '✓✓' : '✓'}</span>` : ''}</div></div>
+    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" src="${escapeHtml(image)}" alt="Фото из сообщения">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div></div>
   </div>`;
 }
 
@@ -934,6 +945,23 @@ function openGiftPage() {
   if (activeGift?.uid) window.open(giftPageUrl(activeGift), '_blank', 'noopener,noreferrer');
 }
 
+function openPhotoSend(imageBase64) {
+  const isOpen = photoSendModal.classList.contains('open');
+  pendingPhotoBase64 = imageBase64;
+  photoSendPreview.src = imageBase64;
+  if (!isOpen) photoSendCaption.value = '';
+  photoSendModal.classList.add('open');
+  photoSendModal.setAttribute('aria-hidden', 'false');
+}
+
+function closePhotoSend() {
+  photoSendModal.classList.remove('open');
+  photoSendModal.setAttribute('aria-hidden', 'true');
+  photoSendPreview.removeAttribute('src');
+  photoSendCaption.value = '';
+  pendingPhotoBase64 = '';
+}
+
 function mapMessages(rows) {
   const rowById = new Map(rows.map(row => [String(row.id), row]));
   return rows.map(row => {
@@ -957,8 +985,36 @@ function mapMessages(rows) {
   });
 }
 
+function mergeLocalMessages(chat, latest) {
+  const localMessages = chat.messages.filter(message => message.localMessage && ['sending', 'failed'].includes(message.sendStatus));
+  const matched = new Set();
+  const remaining = localMessages.filter(local => {
+    const index = latest.findIndex((message, itemIndex) => !matched.has(itemIndex)
+      && message.own
+      && message.text === local.text
+      && Boolean(message.imageUrl) === Boolean(local.imageUrl)
+      && Math.abs(Date.parse(message.createdAt) - Date.parse(local.createdAt)) < 120000);
+    if (index < 0) return true;
+    matched.add(index);
+    return false;
+  });
+  return [...latest, ...remaining].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+}
+
+function sameMessage(left, right) {
+  return left.id === right.id
+    && left.text === right.text
+    && left.imageUrl === right.imageUrl
+    && left.type === right.type
+    && JSON.stringify(left.gift) === JSON.stringify(right.gift)
+    && left.readAt === right.readAt
+    && left.sendStatus === right.sendStatus
+    && left.localImage === right.localImage;
+}
+
 function updateMessages(chat, latest) {
   const oldMessages = chat.messages;
+  latest = mergeLocalMessages(chat, latest);
   if (!chat.messagesLoaded) {
     chat.messages = latest;
     chat.messagesLoaded = true;
@@ -967,7 +1023,7 @@ function updateMessages(chat, latest) {
   }
   const canAppend = oldMessages.length > 0 && oldMessages.every((message, index) => {
     const next = latest[index];
-    return next && message.id === next.id && message.text === next.text && message.imageUrl === next.imageUrl && message.type === next.type && JSON.stringify(message.gift) === JSON.stringify(next.gift) && message.readAt === next.readAt;
+    return next && sameMessage(message, next);
   });
   if (canAppend && latest.length > oldMessages.length) {
     let previousDate = dateLabel(oldMessages[oldMessages.length - 1].createdAt);
@@ -981,7 +1037,7 @@ function updateMessages(chat, latest) {
     return true;
   } else if (oldMessages.length !== latest.length || oldMessages.some((message, index) => {
     const next = latest[index];
-    return !next || message.id !== next.id || message.text !== next.text || message.imageUrl !== next.imageUrl || message.type !== next.type || JSON.stringify(message.gift) !== JSON.stringify(next.gift) || message.readAt !== next.readAt;
+    return !next || !sameMessage(message, next);
   })) {
     chat.messages = latest;
     renderMessages(chat);
@@ -1511,21 +1567,73 @@ async function deleteMessage(messageId) {
   }
 }
 
-async function sendMessage(body, imageBase64 = '') {
-  if (!activeId || (!body && !imageBase64)) return;
+async function sendMessage(body, imageBase64 = '', existingMessage = null, focusComposer = true) {
+  const conversationId = activeId;
+  const chat = chats.find(item => item.id === conversationId);
+  body = String(body || '').trim();
+  if (!chat || (!body && !imageBase64)) return false;
+  const createdAt = existingMessage?.createdAt || new Date().toISOString();
+  const replied = !existingMessage && replyToMessageId
+    ? chat.messages.find(message => String(message.id) === String(replyToMessageId))
+    : null;
+  const pendingMessage = existingMessage || {
+    id: `local-${crypto.randomUUID()}`,
+    localMessage: true,
+    text: body,
+    imageUrl: imageBase64,
+    localImage: Boolean(imageBase64),
+    type: 'text',
+    gift: null,
+    replyToMessageId,
+    replyText: replied ? (replied.deletedAt ? 'Сообщение удалено' : replied.type === 'udg_gift' ? replied.gift?.model_name || 'Подарок UDG' : replied.text || (replied.imageUrl ? 'Фото' : 'Сообщение')) : '',
+    replySender: replied ? (replied.own ? 'Вы' : 'Собеседник') : '',
+    createdAt,
+    time: formatTime(createdAt),
+    readAt: null,
+    own: true
+  };
+  pendingMessage.sendStatus = 'sending';
+  chat.messages = chat.messages.filter(message => message.id !== pendingMessage.id);
+  chat.messages.push(pendingMessage);
+  chat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+  chat.messagesLoaded = true;
+  chat.preview = body || (imageBase64 ? '📷 Фото' : 'Начните переписку');
+  chat.lastMessageAt = createdAt;
+  chat.time = formatTime(createdAt);
+  if (!existingMessage && !imageBase64) messageInput.value = '';
+  if (!existingMessage) clearReply();
+  if (activeId === conversationId) renderMessages(chat);
+  renderChats();
   try {
-    await api(`/api/social/chats/${encodeURIComponent(activeId)}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}), ...(replyToMessageId ? { replyToMessageId } : {}) })
+    const result = await api(`/api/social/chats/${encodeURIComponent(conversationId)}/messages`, {
+      method:'POST',
+      body:JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}), ...(pendingMessage.replyToMessageId ? { replyToMessageId:pendingMessage.replyToMessageId } : {}) })
     });
-    messageInput.value = '';
-    clearReply();
-    await Promise.all([loadChats(), selectChat(activeId)]);
-    messageInput.focus();
+    const sentMessage = mapMessages([result.message])[0];
+    sentMessage.replyText = pendingMessage.replyText;
+    sentMessage.replySender = pendingMessage.replySender;
+    sentMessage.sendStatus = 'sent';
+    const currentChat = chats.find(item => item.id === conversationId) || chat;
+    currentChat.messages = currentChat.messages.filter(message => message.id !== pendingMessage.id && String(message.id) !== String(sentMessage.id));
+    currentChat.messages.push(sentMessage);
+    currentChat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+    currentChat.preview = body || (sentMessage.imageUrl ? '📷 Фото' : currentChat.preview);
+    currentChat.lastMessageAt = sentMessage.createdAt;
+    currentChat.time = formatTime(sentMessage.createdAt);
+    if (activeId === conversationId) {
+      renderMessages(currentChat);
+      renderSharedDetails(currentChat);
+    }
+    renderChats();
+    loadChats();
+    if (focusComposer && activeId === conversationId) messageInput.focus();
     return true;
   } catch (error) {
-    messages.insertAdjacentHTML('beforeend', `<div class="empty-state">${escapeHtml(error.message)}</div>`);
-    messageInput.focus();
+    const currentChat = chats.find(item => item.id === conversationId) || chat;
+    const currentMessage = currentChat.messages.find(message => message.id === pendingMessage.id);
+    if (currentMessage) currentMessage.sendStatus = 'failed';
+    if (activeId === conversationId) renderMessages(currentChat);
+    showMessageToast(error.message || 'Не удалось отправить сообщение');
     return false;
   }
 }
@@ -1564,12 +1672,9 @@ async function deleteDeletedAccountChat() {
 
 document.getElementById('messageForm').addEventListener('submit', async event => {
   event.preventDefault();
-  const button = event.currentTarget.querySelector('.send-button');
   const text = messageInput.value.trim();
   if (!text || !activeId) return;
-  button.disabled = true;
-  await sendMessage(text);
-  button.disabled = false;
+  sendMessage(text);
 });
 
 document.getElementById('deleteDeletedChat').addEventListener('click', deleteDeletedAccountChat);
@@ -1800,6 +1905,13 @@ messages.addEventListener('click', event => {
     event.preventDefault();
     return;
   }
+  const retryButton = event.target.closest('[data-retry-message]');
+  if (retryButton) {
+    const chat = chats.find(item => item.id === activeId);
+    const failedMessage = chat?.messages.find(message => String(message.id) === retryButton.dataset.retryMessage && message.sendStatus === 'failed');
+    if (failedMessage) sendMessage(failedMessage.text, failedMessage.localImage ? failedMessage.imageUrl : '', failedMessage, false);
+    return;
+  }
   const button = event.target.closest('[data-gift-open]');
   if (!button) return;
   const chat = chats.find(item => item.id === activeId);
@@ -1899,6 +2011,21 @@ document.getElementById('giftModalClose').addEventListener('click', closeGift);
 document.getElementById('giftModal').addEventListener('click', event => {
   if (event.target.id === 'giftModal') closeGift();
 });
+document.getElementById('photoSendClose').addEventListener('click', closePhotoSend);
+document.getElementById('photoSendCancel').addEventListener('click', closePhotoSend);
+document.getElementById('photoSendChoose').addEventListener('click', () => document.getElementById('attachInput').click());
+document.getElementById('photoSendReplace').addEventListener('click', () => document.getElementById('attachInput').click());
+photoSendModal.addEventListener('click', event => {
+  if (event.target === photoSendModal) closePhotoSend();
+});
+document.getElementById('photoSendForm').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!pendingPhotoBase64) return;
+  const imageBase64 = pendingPhotoBase64;
+  const caption = photoSendCaption.value.trim();
+  closePhotoSend();
+  sendMessage(caption, imageBase64, null, false);
+});
 document.getElementById('themeToggle').addEventListener('click', () => {
   const enabled = !document.body.classList.contains('dark-theme');
   const button = document.getElementById('themeToggle');
@@ -1932,7 +2059,7 @@ document.getElementById('attachInput').addEventListener('change', event => {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showMessageToast('Можно прикрепить JPG, PNG или WEBP.');
   if (file.size > 8 * 1024 * 1024) return showMessageToast('Размер фото не должен превышать 8 МБ.');
   const reader = new FileReader();
-  reader.onload = () => sendMessage('', String(reader.result));
+  reader.onload = () => openPhotoSend(String(reader.result));
   reader.onerror = () => showMessageToast('Не удалось прочитать файл.');
   reader.readAsDataURL(file);
 });
@@ -2043,6 +2170,7 @@ document.getElementById('sessionNoticeOk').addEventListener('click', () => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
+  if (event.key === 'Escape') closePhotoSend();
   if (event.key === 'Escape') closeMessageMenu();
   if (event.key === 'Escape') closeChatContextMenu();
 });
