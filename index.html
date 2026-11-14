@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f6f5f1">
+  <title>Messenger — FernieX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f3f2ee;
+      --surface: #fffefa;
+      --surface-soft: #f8f7f3;
+      --ink: #242320;
+      --muted: #89877f;
+      --line: #e9e7e0;
+      --accent: #b64f3f;
+      --accent-soft: #f7e9e4;
+      --green: #458365;
+      --shadow: 0 24px 70px -38px rgba(48, 39, 27, .32);
+      font-family: 'Instrument Sans', sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    * { box-sizing: border-box; }
+    body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app { display: grid; grid-template-columns: 68px 330px minmax(360px, 1fr) 286px; width: 100%; height: 100%; padding: 14px; gap: 10px; }
+    .rail, .chats, .conversation, .details { min-height: 0; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 13px 8px; border-radius: 22px; }
+    .brand { display: grid; width: 42px; height: 42px; place-items: center; margin-bottom: 15px; border-radius: 15px; background: var(--ink); color: white; font-size: 15px; font-weight: 700; letter-spacing: -.7px; }
+    .rail-button { position: relative; display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 15px; background: transparent; color: var(--muted); cursor: pointer; transition: .18s ease; }
+    .rail-button:hover { background: var(--surface-soft); color: var(--ink); }
+    .rail-button.active { background: var(--accent-soft); color: var(--accent); }
+    .rail-button svg, .icon-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .rail-spacer { flex: 1; }
+    .rail-avatar { width: 34px; height: 34px; border: 2px solid white; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
+    .badge { position: absolute; top: 3px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: white; font-size: 9px; font-weight: 700; line-height: 13px; }
+
+    .chats { display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
+    .chats-head { padding: 20px 18px 13px; }
+    .head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+    .eyebrow { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; }
+    .chats-title { margin: 4px 0 0; font-size: 23px; font-weight: 700; letter-spacing: -1px; }
+    .icon-button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
+    .icon-button:hover { border-color: #d7cfc2; color: var(--ink); }
+    .search { display: flex; align-items: center; gap: 9px; padding: 0 12px; height: 42px; border: 1px solid transparent; border-radius: 13px; background: var(--surface-soft); color: var(--muted); }
+    .search:focus-within { border-color: #d8b8aa; background: white; }
+    .search svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+    .search input::placeholder { color: #a4a198; }
+    .filter-row { display: flex; gap: 7px; overflow-x: auto; padding: 0 18px 12px; scrollbar-width: none; }
+    .filter { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .filter.active { border-color: var(--ink); background: var(--ink); color: white; }
+    .chat-list { flex: 1; overflow-y: auto; padding: 2px 9px 10px; }
+    .chat-item { display: flex; width: 100%; align-items: center; gap: 11px; padding: 11px 10px; border: 0; border-radius: 15px; background: transparent; text-align: left; cursor: pointer; transition: background .16s ease; }
+    .chat-item:hover { background: var(--surface-soft); }
+    .chat-item.active { background: #f4eee8; }
+    .avatar-wrap { position: relative; flex: 0 0 auto; }
+    .avatar { display: grid; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 17px; background: #e8d5c8; color: #765548; font-size: 15px; font-weight: 700; object-fit: cover; }
+    .avatar.round { border-radius: 50%; }
+    .online-dot { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border: 2px solid var(--surface); border-radius: 50%; background: #61a477; }
+    .chat-copy { min-width: 0; flex: 1; }
+    .chat-top, .chat-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .chat-name { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-time { flex: 0 0 auto; color: var(--muted); font-size: 10px; }
+    .chat-preview { overflow: hidden; margin-top: 5px; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .unread { display: grid; min-width: 19px; height: 19px; place-items: center; padding: 0 5px; border-radius: 10px; background: var(--accent); color: white; font-size: 10px; font-weight: 700; }
+    .pin { color: #a9a49a; font-size: 11px; }
+
+    .conversation { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
+    .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: rgba(255, 254, 250, .94); }
+    .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
+    .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
+    .person-name { font-size: 14px; font-weight: 700; }
+    .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
+    .head-actions { display: flex; gap: 7px; }
+    .head-actions .icon-button { width: 35px; height: 35px; border: 0; }
+    .messages { display: flex; flex: 1; flex-direction: column; gap: 13px; overflow-y: auto; padding: 22px clamp(16px, 5vw, 65px); background-color: #f7f6f2; background-image: radial-gradient(rgba(140, 125, 102, .095) .8px, transparent .8px); background-size: 19px 19px; }
+    .date-pill { align-self: center; margin: 1px 0 5px; padding: 6px 12px; border: 1px solid rgba(232, 230, 224, .9); border-radius: 99px; background: rgba(255, 254, 250, .92); color: var(--muted); font-size: 10px; font-weight: 600; }
+    .message-row { display: flex; align-items: flex-end; gap: 8px; }
+    .message-row.own { justify-content: flex-end; }
+    .message-avatar { width: 27px; height: 27px; border-radius: 10px; object-fit: cover; }
+    .bubble { max-width: min(76%, 470px); padding: 11px 13px 8px; border: 1px solid rgba(233, 231, 224, .86); border-radius: 16px 16px 16px 5px; background: var(--surface); box-shadow: 0 4px 14px -12px rgba(35, 29, 21, .3); color: #383630; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .own .bubble { border-color: #ead4c9; border-radius: 16px 16px 5px 16px; background: #f8e9e1; }
+    .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 4px; color: #9c9589; font-size: 9px; }
+    .checks { color: #5593a0; font-size: 12px; letter-spacing: -4px; padding-right: 3px; }
+    .composer-wrap { padding: 12px 18px 17px; border-top: 1px solid var(--line); background: var(--surface); }
+    .composer { display: flex; min-height: 48px; align-items: center; gap: 8px; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: 16px; background: #fbfaf7; }
+    .composer .icon-button { width: 34px; height: 34px; border: 0; background: transparent; }
+    .composer input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+    .composer input::placeholder { color: #a4a198; }
+    .send-button { display: grid; width: 37px; height: 37px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 12px; background: var(--ink); color: white; cursor: pointer; transition: transform .15s, background .15s; }
+    .send-button:hover { transform: translateY(-1px); background: var(--accent); }
+    .send-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .details { display: flex; flex-direction: column; overflow-y: auto; border-radius: 22px; }
+    .details-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 17px 12px; }
+    .details-title { font-size: 13px; font-weight: 700; }
+    .profile { display: flex; flex-direction: column; align-items: center; padding: 9px 15px 20px; text-align: center; }
+    .profile .avatar { width: 80px; height: 80px; border-radius: 28px; font-size: 24px; }
+    .profile-name { margin-top: 12px; font-size: 16px; font-weight: 700; }
+    .profile-handle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .profile-status { margin-top: 11px; padding: 5px 9px; border-radius: 99px; background: #eaf3eb; color: var(--green); font-size: 10px; font-weight: 600; }
+    .profile-actions { display: flex; gap: 12px; margin-top: 16px; }
+    .profile-action { display: grid; justify-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
+    .profile-action .icon-button { width: 38px; height: 38px; background: var(--surface-soft); }
+    .detail-section { padding: 15px 17px; border-top: 1px solid var(--line); }
+    .section-label { display: flex; justify-content: space-between; margin-bottom: 11px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+    .media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .media-tile { display: grid; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 10px; background: linear-gradient(140deg, #edc9a9, #b97865); color: rgba(255,255,255,.9); font-size: 22px; }
+    .media-tile:nth-child(2) { background: linear-gradient(140deg, #b5c8b0, #6e8f74); }
+    .media-tile:nth-child(3) { background: linear-gradient(140deg, #e1ba95, #bd8f5a); }
+    .media-tile:nth-child(4) { background: linear-gradient(140deg, #d4b8c2, #947584); }
+    .media-tile:nth-child(5) { background: linear-gradient(140deg, #c0c6d8, #717d9f); }
+    .media-tile:nth-child(6) { background: linear-gradient(140deg, #e7d98f, #a89c52); }
+    .shared-link { display: flex; gap: 10px; align-items: center; color: var(--ink); font-size: 11px; text-decoration: none; }
+    .link-icon { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+    .link-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .detail-foot { margin-top: auto; padding: 13px 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .mobile-back { display: none; }
+    .empty-state { margin: auto; color: var(--muted); font-size: 13px; text-align: center; }
+
+    body.auth-locked .app { opacity: .24; filter: blur(7px); pointer-events: none; transform: scale(.99); }
+    .app { transition: opacity .45s ease, filter .45s ease, transform .45s ease; }
+    .auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; padding: 24px; background: #181714; color: #f7f3eb; transition: opacity .4s ease, visibility .4s ease; }
+    .auth-screen.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+    .auth-screen::before, .auth-screen::after { position: absolute; width: min(60vw, 700px); aspect-ratio: 1; border: 1px solid rgba(255,255,255,.07); border-radius: 50%; content: ''; pointer-events: none; animation: auth-orbit 28s linear infinite; }
+    .auth-screen::before { top: -34%; left: -12%; box-shadow: 0 0 0 55px rgba(255,255,255,.018), 0 0 0 110px rgba(255,255,255,.014); }
+    .auth-screen::after { right: -15%; bottom: -48%; width: min(65vw, 760px); animation-direction: reverse; }
+    .auth-glow { position: absolute; top: 50%; left: 50%; width: min(70vw, 780px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(182,79,63,.22), rgba(182,79,63,0) 68%); transform: translate(-50%, -50%); pointer-events: none; }
+    .auth-card { position: relative; z-index: 1; width: min(100%, 430px); padding: 42px; border: 1px solid rgba(255,255,255,.12); border-radius: 28px; background: rgba(31,30,27,.82); box-shadow: 0 32px 100px rgba(0,0,0,.4); backdrop-filter: blur(20px); animation: auth-rise .65s cubic-bezier(.2,.8,.2,1) both; }
+    .auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 38px; color: #f8f6f1; font-size: 14px; font-weight: 700; letter-spacing: -.3px; }
+    .auth-brand-mark { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 13px; background: #b64f3f; color: white; font-size: 13px; letter-spacing: -1px; box-shadow: 0 7px 22px rgba(182,79,63,.3); }
+    .auth-kicker { color: #d78a78; font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+    .auth-title { margin: 10px 0 9px; font-size: clamp(29px, 7vw, 36px); font-weight: 600; letter-spacing: -1.7px; }
+    .auth-copy { margin: 0 0 26px; color: #a9a69e; font-size: 13px; line-height: 1.6; }
+    .auth-field { display: grid; gap: 8px; margin-top: 16px; }
+    .auth-field label { color: #d0cdc5; font-size: 11px; font-weight: 600; }
+    .auth-field input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid rgba(255,255,255,.11); border-radius: 13px; outline: 0; background: rgba(255,255,255,.045); color: #fff; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .auth-field input::placeholder { color: #77746e; }
+    .auth-field input:focus { border-color: rgba(215,138,120,.72); background: rgba(255,255,255,.07); box-shadow: 0 0 0 3px rgba(182,79,63,.14); }
+    #authCode { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; }
+    .auth-submit { position: relative; display: flex; width: 100%; height: 49px; align-items: center; justify-content: center; gap: 9px; margin-top: 21px; overflow: hidden; border: 0; border-radius: 14px; background: #b64f3f; color: white; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .18s, background .18s, box-shadow .18s; box-shadow: 0 10px 25px rgba(182,79,63,.2); }
+    .auth-submit:hover { transform: translateY(-2px); background: #c45c4b; box-shadow: 0 13px 30px rgba(182,79,63,.3); }
+    .auth-submit:disabled { transform: none; cursor: wait; opacity: .7; }
+    .auth-submit span { transition: transform .18s; }
+    .auth-submit:hover span { transform: translateX(3px); }
+    .auth-error { min-height: 18px; margin: 12px 0 0; color: #f09284; font-size: 11px; line-height: 1.5; text-align: center; }
+    .auth-foot { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 23px; color: #817e76; font-size: 10px; }
+    .auth-foot-dot { width: 6px; height: 6px; border-radius: 50%; background: #7fac87; box-shadow: 0 0 10px rgba(127,172,135,.55); }
+    .auth-hidden { display: none !important; }
+    .account-avatar { display: grid; place-items: center; padding: 0; overflow: hidden; background: #e8d5c8; color: #765548; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar img, .message-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    .message-photo { display: block; max-width: min(100%, 320px); max-height: 280px; margin-bottom: 6px; border-radius: 10px; object-fit: cover; }
+    @keyframes auth-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes auth-orbit { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 62px 300px minmax(340px, 1fr); }
+      .details { display: none; }
+    }
+    @media (max-width: 760px) {
+      .auth-card { padding: 33px 25px; border-radius: 24px; }
+      .auth-brand { margin-bottom: 31px; }
+      body { background: var(--surface); }
+      .app { display: block; padding: 0; }
+      .rail { display: none; }
+      .chats, .conversation { position: absolute; inset: 0; border: 0; border-radius: 0; box-shadow: none; }
+      .chats { z-index: 2; }
+      .conversation { z-index: 1; }
+      .app.show-conversation .chats { display: none; }
+      .app.show-conversation .conversation { z-index: 3; }
+      .chats-head { padding: max(18px, env(safe-area-inset-top)) 18px 13px; }
+      .conversation-head { min-height: 69px; padding-top: max(10px, env(safe-area-inset-top)); }
+      .mobile-back { display: grid; width: 34px; height: 34px; margin-left: -5px; border: 0; border-radius: 11px; background: transparent; color: var(--accent); cursor: pointer; }
+      .mobile-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+      .person { flex: 1; }
+      .head-actions .icon-button:nth-child(2), .head-actions .icon-button:nth-child(3) { display: none; }
+      .messages { padding: 18px 14px; }
+      .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+      .bubble { max-width: 84%; font-size: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body class="auth-locked">
+  <main class="app" id="app">
+    <nav class="rail" aria-label="Главная навигация">
+      <div class="brand">fx</div>
+      <button class="rail-button active" aria-label="Сообщения" title="Сообщения"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg><span class="badge">3</span></button>
+      <button class="rail-button" aria-label="Контакты" title="Контакты"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4.1V20"/></svg></button>
+      <button class="rail-button" aria-label="Звонки" title="Звонки"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></button>
+      <button class="rail-button" aria-label="Избранное" title="Избранное"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></button>
+      <div class="rail-spacer"></div>
+      <button class="rail-button" aria-label="Настройки" title="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z" transform="translate(-1 -1)"/></svg></button>
+      <button class="rail-avatar account-avatar" id="accountButton" type="button" title="Выйти из аккаунта" aria-label="Выйти из аккаунта">FX</button>
+    </nav>
+
+    <section class="chats" aria-label="Список чатов">
+      <header class="chats-head">
+        <div class="head-row"><div><div class="eyebrow">FernieX</div><h1 class="chats-title">Сообщения</h1></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <label class="search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Поиск по чатам" autocomplete="off"></label>
+      </header>
+      <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button></div>
+      <div class="chat-list" id="chatList"></div>
+    </section>
+
+    <section class="conversation" aria-label="Переписка">
+      <header class="conversation-head">
+        <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+        <div class="person"><div class="avatar" id="headerAvatar">FX</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Messenger FernieX</div></div></div>
+        <div class="head-actions">
+          <button class="icon-button" aria-label="Начать звонок" title="Звонок"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></button>
+          <button class="icon-button" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
+          <button class="icon-button" aria-label="Другие действия" title="Другие действия"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+        </div>
+      </header>
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <form class="composer-wrap" id="messageForm">
+        <div class="composer"><button type="button" class="icon-button" aria-label="Прикрепить файл" title="Прикрепить файл"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
+      </form>
+    </section>
+
+    <aside class="details" aria-label="Информация о контакте">
+      <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
+      <div class="profile"><div class="avatar" id="detailAvatar">FX</div><div class="profile-name" id="detailName">FernieX Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-8-8l2-2Z"/></svg></span>Звонок</button><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M12 21s-8-4.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.5-8 11-8 11Z"/></svg></span>Профиль</button><button class="profile-action"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span>Ещё</button></div></div>
+      <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span>12 ›</span></div><div class="media-grid"><div class="media-tile">✿</div><div class="media-tile">☼</div><div class="media-tile">✦</div><div class="media-tile">◌</div><div class="media-tile">❋</div><div class="media-tile">↗</div></div></div>
+      <div class="detail-section"><div class="section-label"><span>Ссылки</span><span>2 ›</span></div><a class="shared-link" href="#"><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>ferniex.com/design<br><small style="color:var(--muted)">сегодня, 12:08</small></span></a></div>
+      <div class="detail-foot">Личные сообщения защищены</div>
+    </aside>
+  </main>
+
+  <section class="auth-screen" id="authScreen" aria-label="Вход в FernieX Messenger">
+    <div class="auth-glow"></div>
+    <div class="auth-card">
+      <div class="auth-brand"><span class="auth-brand-mark">fx</span><span>FernieX Messenger</span></div>
+      <div class="auth-kicker" id="authKicker">Ваше пространство для общения</div>
+      <h1 class="auth-title" id="authTitle">Войдите в аккаунт</h1>
+      <p class="auth-copy" id="authCopy">Продолжите с FernieID — ваши существующие чаты уже ждут.</p>
+      <form id="loginForm" autocomplete="on">
+        <div class="auth-field"><label for="authUsername">Логин FernieID</label><input id="authUsername" name="username" type="text" placeholder="Ваш логин" autocomplete="username" required maxlength="64"></div>
+        <div class="auth-field"><label for="authPassword">Пароль</label><input id="authPassword" name="password" type="password" placeholder="Ваш пароль FernieID" autocomplete="current-password" required maxlength="256"></div>
+        <button class="auth-submit" id="loginSubmit" type="submit">Продолжить <span>→</span></button>
+      </form>
+      <form id="verifyForm" class="auth-hidden" autocomplete="one-time-code">
+        <div class="auth-field"><label for="authCode">Код из Telegram</label><input id="authCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="00000000" maxlength="8" pattern="[0-9]{8}" required></div>
+        <button class="auth-submit" id="verifySubmit" type="submit">Подтвердить вход <span>→</span></button>
+        <button class="auth-submit" id="backToLogin" type="button" style="margin-top:9px;background:rgba(255,255,255,.07);box-shadow:none">Назад к входу</button>
+      </form>
+      <p class="auth-error" id="authError" role="alert" aria-live="polite"></p>
+      <div class="auth-foot"><span class="auth-foot-dot"></span>Безопасный вход через FernieID</div>
+    </div>
+  </section>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
