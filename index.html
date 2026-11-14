@@ -229,6 +229,12 @@
     .profile-card-user { display: flex; align-items: center; gap: 13px; }
     .profile-card-user .avatar { width: 58px; height: 58px; border-radius: 20px; }
     .profile-card-meta { color: var(--muted); font-size: 12px; }
+    .profile-edit-form { margin-top: 16px; }
+    .profile-edit-form[hidden] { display: none !important; }
+    .profile-edit-form label { display: grid; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .profile-edit-form input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+    .profile-edit-form .settings-button { margin-top: 10px; }
+    .profile-edit-status { min-height: 15px; margin-top: 8px; color: var(--muted); font-size: 10px; }
     .settings-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.34); opacity: 0; visibility: hidden; transition: .2s ease; }
     .settings-overlay.open { opacity: 1; visibility: visible; }
     .bot-manager { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.4); opacity: 0; visibility: hidden; transition: .2s ease; }
@@ -363,32 +369,36 @@
 
     body.auth-locked .app { opacity: .24; filter: blur(7px); pointer-events: none; transform: scale(.99); }
     .app { transition: opacity .45s ease, filter .45s ease, transform .45s ease; }
-    .auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; padding: 24px; background: var(--page); color: var(--ink); transition: opacity .4s ease, visibility .4s ease; }
+    .auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; padding: 24px; background: radial-gradient(ellipse at 18% 24%,rgba(95,65,167,.3),transparent 42%),radial-gradient(ellipse at 82% 78%,rgba(33,91,139,.24),transparent 45%),linear-gradient(130deg,#17112b,#090810 68%); color: #f5f2ff; transition: opacity .4s ease, visibility .4s ease; }
     .auth-screen.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
-    .auth-screen::before, .auth-screen::after { position: absolute; width: min(60vw, 700px); aspect-ratio: 1; border: 1px solid rgba(113,102,83,.09); border-radius: 50%; content: ''; pointer-events: none; animation: auth-orbit 28s linear infinite; }
-    .auth-screen::before { top: -34%; left: -12%; box-shadow: 0 0 0 55px rgba(113,102,83,.025), 0 0 0 110px rgba(113,102,83,.018); }
-    .auth-screen::after { right: -15%; bottom: -48%; width: min(65vw, 760px); animation-direction: reverse; }
-    .auth-glow { position: absolute; top: 50%; left: 50%; width: min(70vw, 780px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(182,79,63,.09), rgba(182,79,63,0) 68%); transform: translate(-50%, -50%); pointer-events: none; }
-    .auth-card { position: relative; z-index: 1; width: min(100%, 430px); padding: 42px; border: 1px solid var(--line); border-radius: 28px; background: rgba(255,254,250,.91); box-shadow: 0 30px 80px -45px rgba(48,39,27,.4); backdrop-filter: blur(20px); animation: auth-rise .65s cubic-bezier(.2,.8,.2,1) both; }
-    .auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 38px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.3px; }
-    .auth-brand-mark { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 13px; background: #b64f3f; color: white; font-size: 13px; letter-spacing: -1px; box-shadow: 0 7px 22px rgba(182,79,63,.3); }
-    .auth-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
-    .auth-title { margin: 10px 0 9px; font-size: clamp(29px, 7vw, 36px); font-weight: 600; letter-spacing: -1.7px; }
-    .auth-copy { margin: 0 0 26px; color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .auth-field { display: grid; gap: 8px; margin-top: 16px; }
-    .auth-field label { color: var(--ink); font-size: 11px; font-weight: 600; }
-    .auth-field input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 13px; outline: 0; background: var(--surface-soft); color: var(--ink); transition: border-color .2s, background .2s, box-shadow .2s; }
-    .auth-field input::placeholder { color: #a4a198; }
-    .auth-field input:focus { border-color: #d8b8aa; background: white; box-shadow: 0 0 0 3px rgba(182,79,63,.1); }
-    #authCode { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; }
-    .auth-submit { position: relative; display: flex; width: 100%; height: 49px; align-items: center; justify-content: center; gap: 9px; margin-top: 21px; overflow: hidden; border: 0; border-radius: 14px; background: #b64f3f; color: white; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .18s, background .18s, box-shadow .18s; box-shadow: 0 10px 25px rgba(182,79,63,.2); }
-    .auth-submit:hover { transform: translateY(-2px); background: #c45c4b; box-shadow: 0 13px 30px rgba(182,79,63,.3); }
-    .auth-submit:disabled { transform: none; cursor: wait; opacity: .7; }
+    .auth-screen::before, .auth-screen::after { position: absolute; width: min(62vw, 720px); aspect-ratio: 1; border: 1px solid rgba(164,138,255,.11); border-radius: 50%; content: ''; pointer-events: none; animation: auth-orbit 38s linear infinite; }
+    .auth-screen::before { top: -38%; left: -17%; box-shadow: 0 0 0 62px rgba(140,113,220,.035),0 0 0 124px rgba(140,113,220,.025); }
+    .auth-screen::after { right: -20%; bottom: -54%; width: min(70vw, 820px); border-color: rgba(86,207,238,.1); animation-direction: reverse; }
+    .auth-glow { position: absolute; top: 50%; left: 50%; width: min(65vw, 700px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle,rgba(102,79,192,.23),rgba(67,125,179,.08) 36%,transparent 69%); transform: translate(-50%,-50%); pointer-events: none; animation: auth-glow 7s ease-in-out infinite; }
+    .auth-card { position: relative; z-index: 1; width: min(100%, 440px); padding: 37px 39px 28px; border: 1px solid rgba(222,214,255,.14); border-radius: 27px; background: linear-gradient(145deg,rgba(32,26,49,.92),rgba(15,13,25,.92)); box-shadow: 0 34px 100px rgba(0,0,0,.42),0 0 60px rgba(112,91,202,.12); backdrop-filter: blur(24px); animation: auth-rise .65s cubic-bezier(.2,.8,.2,1) both; }
+    .auth-brand { display: grid; justify-items: center; gap: 12px; margin-bottom: 26px; color: #f5f2ff; text-align: center; }
+    .auth-brand-mark { display: grid; width: 62px; height: 62px; place-items: center; border: 1px solid rgba(203,246,255,.45); border-radius: 21px; background: linear-gradient(145deg,#e1ffff 0%,#65dff4 40%,#8177ff 100%); color: #17142a; font-size: 30px; font-weight: 800; letter-spacing: -2px; box-shadow: 0 0 28px rgba(99,222,244,.28),inset 0 1px 5px rgba(255,255,255,.8); animation: auth-mark 4s ease-in-out infinite; }
+    .auth-brand-name { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+    .auth-brand-caption { margin-top: 3px; color: #837b9c; font-size: 8px; font-weight: 700; letter-spacing: 2px; }
+    .auth-kicker { color: #9d8aff; font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-align: center; text-transform: uppercase; }
+    .auth-title { margin: 9px 0 8px; color: #f5f2ff; font-size: clamp(26px, 6vw, 32px); font-weight: 700; letter-spacing: -1.1px; text-align: center; }
+    .auth-copy { min-height: 38px; margin: 0 0 19px; color: #9992aa; font-size: 11px; line-height: 1.6; text-align: center; }
+    .auth-field { display: grid; gap: 7px; margin-top: 13px; }
+    .auth-field label { color: #bbb4cb; font-size: 10px; font-weight: 600; }
+    .auth-field input { width: 100%; height: 45px; padding: 0 13px; border: 1px solid rgba(200,190,224,.13); border-radius: 12px; outline: 0; background: rgba(255,255,255,.055); color: #f5f2ff; font-size: 12px; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .auth-field input::placeholder { color: #746d81; }
+    .auth-field input:focus { border-color: rgba(124,211,243,.65); background: rgba(255,255,255,.08); box-shadow: 0 0 0 3px rgba(99,193,237,.11); }
+    #authCode { text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 8px; }
+    .auth-submit { position: relative; display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: center; gap: 9px; margin-top: 17px; overflow: hidden; border: 1px solid rgba(189,228,255,.17); border-radius: 12px; background: linear-gradient(100deg,#67d9ec,#8b7bff); color: #161327; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform .18s, filter .18s, box-shadow .18s; box-shadow: 0 10px 28px rgba(91,113,217,.2); }
+    .auth-submit:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 14px 34px rgba(91,113,217,.3); }
+    .auth-submit:disabled { transform: none; cursor: wait; opacity: .68; }
     .auth-submit span { transition: transform .18s; }
     .auth-submit:hover span { transform: translateX(3px); }
-    .auth-error { min-height: 18px; margin: 12px 0 0; color: #b94a3f; font-size: 11px; line-height: 1.5; text-align: center; }
-    .auth-foot { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 23px; color: var(--muted); font-size: 10px; }
-    .auth-foot-dot { width: 6px; height: 6px; border-radius: 50%; background: #7fac87; box-shadow: 0 0 10px rgba(127,172,135,.55); }
+    .auth-back { display: block; margin: 12px auto 0; padding: 5px 9px; border: 0; background: transparent; color: #a99af3; font-size: 10px; font-weight: 600; cursor: pointer; }
+    .auth-back:hover { color: #d4ccff; }
+    .auth-error { min-height: 17px; margin: 11px 0 0; color: #ff9aab; font-size: 10px; line-height: 1.5; text-align: center; }
+    .auth-foot { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 16px; color: #716b7f; font-size: 9px; }
+    .auth-foot-dot { width: 6px; height: 6px; border-radius: 50%; background: #71d7bb; box-shadow: 0 0 10px rgba(113,215,187,.55); }
     .auth-hidden { display: none !important; }
     .account-avatar { display: grid; place-items: center; padding: 0; overflow: hidden; background: #e8d5c8; color: #765548; font-size: 12px; font-weight: 700; cursor: pointer; }
     .account-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -397,6 +407,8 @@
     .bubble.search-highlight { outline: 2px solid var(--accent); outline-offset: 3px; }
     @keyframes auth-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes auth-orbit { to { transform: rotate(360deg); } }
+    @keyframes auth-glow { 50% { opacity: .62; transform: translate(-50%,-50%) scale(1.08); } }
+    @keyframes auth-mark { 50% { transform: translateY(-3px); box-shadow: 0 0 38px rgba(99,222,244,.4),inset 0 1px 5px rgba(255,255,255,.8); } }
     @keyframes loading-spin { to { transform: rotate(360deg); } }
     @keyframes loading-pulse { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
     @keyframes message-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -407,8 +419,8 @@
       .app.show-details .details { position: fixed; z-index: 15; top: 14px; right: 14px; bottom: 14px; display: flex; width: min(330px, calc(100vw - 28px)); box-shadow: 0 20px 70px rgba(0,0,0,.28); }
     }
     @media (max-width: 760px) {
-      .auth-card { padding: 33px 25px; border-radius: 24px; }
-      .auth-brand { margin-bottom: 31px; }
+      .auth-screen { padding: 18px; }
+      .auth-card { padding: 30px 23px 23px; border-radius: 22px; }
       .settings-overlay { padding: 0; }
       .settings-dialog { width: 100%; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
       .settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
@@ -610,6 +622,7 @@
     <section class="profile-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="profile-card-head"><span id="profileTitle">Профиль FernieID</span><button class="icon-button" id="profileClose" type="button" aria-label="Закрыть профиль">×</button></div>
       <div class="profile-card-user"><div class="avatar" id="accountProfileAvatar">FX</div><div><div class="profile-name" id="accountProfileName">—</div><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div></div></div>
+      <form class="profile-edit-form" id="accountDisplayNameForm" hidden><label for="accountDisplayNameInput">Отображаемое имя<input id="accountDisplayNameInput" maxlength="40" required></label><button class="settings-button" type="submit">Сохранить имя</button><div class="profile-edit-status" id="accountDisplayNameStatus" role="status"></div></form>
     </section>
   </div>
 
@@ -627,19 +640,34 @@
   <section class="auth-screen" id="authScreen" aria-label="Вход в Qwant Messenger">
     <div class="auth-glow"></div>
     <div class="auth-card">
-      <div class="auth-brand"><span class="auth-brand-mark">Q</span><span>Qwant Messenger</span></div>
+      <div class="auth-brand"><span class="auth-brand-mark">Q</span><div><div class="auth-brand-name">Qwant Messenger</div><div class="auth-brand-caption">FERNIEID ACCOUNT</div></div></div>
       <div class="auth-kicker" id="authKicker">Ваше пространство для общения</div>
-      <h1 class="auth-title" id="authTitle">Войдите в аккаунт</h1>
-      <p class="auth-copy" id="authCopy">Продолжите с FernieID — ваши чаты уже ждут.</p>
-      <form id="loginForm" autocomplete="on">
-        <div class="auth-field"><label for="authUsername">Логин FernieID</label><input id="authUsername" name="username" type="text" placeholder="Ваш логин" autocomplete="username" required maxlength="64"></div>
-        <div class="auth-field"><label for="authPassword">Пароль</label><input id="authPassword" name="password" type="password" placeholder="Ваш пароль FernieID" autocomplete="current-password" required maxlength="256"></div>
-        <button class="auth-submit" id="loginSubmit" type="submit">Продолжить <span>→</span></button>
+      <h1 class="auth-title" id="authTitle">FernieID NickName</h1>
+      <p class="auth-copy" id="authCopy">Введите свой NickName, чтобы войти или создать аккаунт.</p>
+      <form id="nicknameForm" class="auth-step" autocomplete="on">
+        <div class="auth-field"><label for="authUsername">FernieID NickName</label><input id="authUsername" name="username" type="text" placeholder="Ваш NickName" autocomplete="username" required minlength="3" maxlength="20"></div>
+        <button class="auth-submit" type="submit">Продолжить <span>→</span></button>
       </form>
-      <form id="verifyForm" class="auth-hidden" autocomplete="one-time-code">
+      <form id="loginForm" class="auth-step auth-hidden" autocomplete="on">
+        <div class="auth-field"><label for="authPassword">Пароль</label><input id="authPassword" name="password" type="password" placeholder="Пароль FernieID" autocomplete="current-password" required maxlength="256"></div>
+        <button class="auth-submit" type="submit">Войти <span>→</span></button>
+        <button class="auth-back" id="backFromLogin" type="button">← Изменить NickName</button>
+      </form>
+      <form id="signupPasswordForm" class="auth-step auth-hidden" autocomplete="new-password">
+        <div class="auth-field"><label for="signupPassword">Придумайте пароль</label><input id="signupPassword" name="new-password" type="password" placeholder="Не менее 8 символов" autocomplete="new-password" required minlength="8" maxlength="256"></div>
+        <div class="auth-field"><label for="signupPasswordConfirm">Повторите пароль</label><input id="signupPasswordConfirm" name="new-password-confirm" type="password" placeholder="Повторите пароль" autocomplete="new-password" required minlength="8" maxlength="256"></div>
+        <button class="auth-submit" type="submit">Далее <span>→</span></button>
+        <button class="auth-back" id="backFromSignupPassword" type="button">← Изменить NickName</button>
+      </form>
+      <form id="displayNameForm" class="auth-step auth-hidden" autocomplete="off">
+        <div class="auth-field"><label for="displayName">Отображаемое имя</label><input id="displayName" name="display-name" type="text" placeholder="Как вас будут видеть собеседники" autocomplete="nickname" required maxlength="40"></div>
+        <button class="auth-submit" type="submit">Создать аккаунт <span>→</span></button>
+        <button class="auth-back" id="backFromDisplayName" type="button">← Назад к паролю</button>
+      </form>
+      <form id="verifyForm" class="auth-step auth-hidden" autocomplete="one-time-code">
         <div class="auth-field"><label for="authCode">Код из Telegram</label><input id="authCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="00000000" maxlength="8" pattern="[0-9]{8}" required></div>
-        <button class="auth-submit" id="verifySubmit" type="submit">Подтвердить вход <span>→</span></button>
-        <button class="auth-submit" id="backToLogin" type="button" style="margin-top:9px;background:rgba(255,255,255,.07);box-shadow:none">Назад к входу</button>
+        <button class="auth-submit" type="submit">Подтвердить вход <span>→</span></button>
+        <button class="auth-back" id="backToNickname" type="button">← Назад</button>
       </form>
       <p class="auth-error" id="authError" role="alert" aria-live="polite"></p>
       <div class="auth-foot"><span class="auth-foot-dot"></span>Безопасный вход через FernieID</div>
