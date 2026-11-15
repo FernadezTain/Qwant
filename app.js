@@ -2188,12 +2188,16 @@ function setCallDialog({ name, status, incoming = false, connecting = false }) {
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
   callStatus.textContent = status;
   document.getElementById('callAvatar').textContent = initials(name || 'FX');
+  document.getElementById('callDockTitle').textContent = name || 'Аудиозвонок';
+  document.getElementById('callDockStatus').textContent = status;
   document.getElementById('callAccept').hidden = !incoming;
   document.getElementById('callDecline').hidden = !incoming;
   document.getElementById('callMute').hidden = !connecting;
   document.getElementById('callEnd').hidden = incoming;
-  callOverlay.hidden = false;
-  callOverlay.setAttribute('aria-hidden', 'false');
+  const minimized = activeCall?.minimized === true;
+  callOverlay.hidden = minimized;
+  callOverlay.setAttribute('aria-hidden', String(minimized));
+  document.getElementById('callDock').hidden = !minimized;
 }
 
 async function sendCallSignal(type, payload = {}, call = activeCall) {
@@ -2207,6 +2211,7 @@ async function sendCallSignal(type, payload = {}, call = activeCall) {
 function closeCallDialog() {
   callOverlay.hidden = true;
   callOverlay.setAttribute('aria-hidden', 'true');
+  document.getElementById('callDock').hidden = true;
   document.getElementById('callAccept').hidden = true;
   document.getElementById('callDecline').hidden = true;
   document.getElementById('callMute').hidden = true;
@@ -2219,6 +2224,7 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   if (!call) return;
   activeCall = null;
   clearTimeout(callTimeoutTimer);
+  clearTimeout(call.disconnectTimer);
   call.pendingCandidates = [];
   if (notify) sendCallSignal('hangup', {}).catch(() => {});
   call.peer?.close();
@@ -2229,10 +2235,10 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   if (status) showMessageToast(status);
 }
 
-async function createCallPeer(call) {
+function createCallPeer(call, stream) {
   const peer = new RTCPeerConnection({ iceServers:callIceServers });
   call.peer = peer;
-  call.stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+  call.stream = stream;
   if (activeCall !== call) {
     call.stream.getTracks().forEach(track => track.stop());
     throw new Error('Звонок завершён');
@@ -2250,12 +2256,56 @@ async function createCallPeer(call) {
   };
   peer.onconnectionstatechange = () => {
     if (activeCall !== call) return;
-    if (['failed', 'disconnected', 'closed'].includes(peer.connectionState)) {
-      finishAudioCall({ notify:peer.connectionState !== 'closed', status:'Звонок завершён: соединение потеряно.' });
+    if (peer.connectionState === 'disconnected') {
+      clearTimeout(call.disconnectTimer);
+      call.disconnectTimer = setTimeout(() => {
+        if (activeCall === call && peer.connectionState === 'disconnected') {
+          callStatus.textContent = 'Связь нестабильна, пытаемся восстановить…';
+          if (call.initiator && !call.iceRestarted) {
+            call.iceRestarted = true;
+            call.peer.createOffer({ iceRestart:true }).then(async offer => {
+              if (activeCall !== call) return;
+              await call.peer.setLocalDescription(offer);
+              await sendCallSignal('offer', call.peer.localDescription.toJSON(), call);
+            }).catch(() => finishAudioCall({ status:'Не удалось восстановить соединение.' }));
+          }
+          call.recoveryTimer = setTimeout(() => {
+            if (activeCall === call && ['disconnected', 'failed'].includes(peer.connectionState)) {
+              finishAudioCall({ status:'Связь не восстановилась. Попробуйте ещё раз или подключите TURN.' });
+            }
+          }, 25000);
+        }
+      }, 10000);
+      return;
+    }
+    if (peer.connectionState === 'failed') {
+      if (call.initiator && !call.iceRestarted) {
+        call.iceRestarted = true;
+        callStatus.textContent = 'Пытаемся восстановить соединение…';
+        call.peer.createOffer({ iceRestart:true }).then(async offer => {
+          if (activeCall !== call) return;
+          await call.peer.setLocalDescription(offer);
+          await sendCallSignal('offer', call.peer.localDescription.toJSON(), call);
+          call.recoveryTimer = setTimeout(() => {
+            if (activeCall === call && peer.connectionState === 'failed') finishAudioCall({ status:'Связь не восстановилась. Подключите TURN и попробуйте ещё раз.' });
+          }, 25000);
+        }).catch(() => finishAudioCall({ status:'Не удалось восстановить соединение.' }));
+        return;
+      }
+      if (!call.initiator && !call.iceRestarted) {
+        call.iceRestarted = true;
+        call.recoveryTimer = setTimeout(() => {
+          if (activeCall === call && peer.connectionState === 'failed') finishAudioCall({ status:'Связь не восстановилась. Попробуйте ещё раз.' });
+        }, 30000);
+        return;
+      }
+      finishAudioCall({ notify:false, status:'Звонок завершён: соединение потеряно.' });
       return;
     }
     if (peer.connectionState === 'connected') {
       clearTimeout(callTimeoutTimer);
+      clearTimeout(call.disconnectTimer);
+      clearTimeout(call.recoveryTimer);
       setCallDialog({ name:call.name, status:'На связи', connecting:true });
     }
   };
@@ -2275,15 +2325,21 @@ async function startAudioCall() {
     return showMessageToast('Браузер не поддерживает аудиозвонки.');
   }
   if (!window.isSecureContext) return showMessageToast('Для звонков откройте Messenger через HTTPS.');
-  const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false };
+  const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
   activeCall = call;
   updateCallControls();
   setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
   try {
-    const config = await api('/api/social/calls/config');
-    if (activeCall !== call) return;
+    const [stream, config] = await Promise.all([
+      navigator.mediaDevices.getUserMedia({ audio:true, video:false }),
+      api('/api/social/calls/config')
+    ]);
+    if (activeCall !== call) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
     callIceServers = config.iceServers || callIceServers;
-    await createCallPeer(call);
+    createCallPeer(call, stream);
     await sendCallSignal('invite');
     call.signalingReady = true;
     flushLocalCallCandidates(call);
@@ -2300,10 +2356,19 @@ async function acceptAudioCall() {
   if (!call || call.initiator) return;
   document.getElementById('callAccept').disabled = true;
   try {
-    callIceServers = (await api('/api/social/calls/config')).iceServers || callIceServers;
-    await createCallPeer(call);
+    const [stream, config] = await Promise.all([
+      navigator.mediaDevices.getUserMedia({ audio:true, video:false }),
+      api('/api/social/calls/config')
+    ]);
+    if (activeCall !== call) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    callIceServers = config.iceServers || callIceServers;
+    createCallPeer(call, stream);
     await sendCallSignal('accepted');
     clearTimeout(callTimeoutTimer);
+    callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Не удалось соединиться. Проверьте TURN-сервер и попробуйте ещё раз.' }), 35000);
     call.signalingReady = true;
     flushLocalCallCandidates(call);
     setCallDialog({ name:call.name, status:'Подключаем…', connecting:true });
@@ -2329,7 +2394,7 @@ async function processCallSignal(signal) {
         }).catch(() => {});
         return;
       }
-      call = { id:signal.callId, conversationId:String(signal.conversationId), name:chat.name, initiator:false, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false };
+      call = { id:signal.callId, conversationId:String(signal.conversationId), name:chat.name, initiator:false, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
       activeCall = call;
       updateCallControls();
       setCallDialog({ name:call.name, status:'Входящий аудиозвонок', incoming:true });
@@ -2348,6 +2413,7 @@ async function processCallSignal(signal) {
   }
   if (signal.type === 'accepted' && call.initiator) {
     clearTimeout(callTimeoutTimer);
+    callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Не удалось соединиться. Проверьте TURN-сервер и попробуйте ещё раз.' }), 35000);
     setCallDialog({ name:call.name, status:'Подключаем…', connecting:true });
     try {
       const offer = await call.peer.createOffer();
@@ -2396,7 +2462,10 @@ async function pollCallSignals() {
     const result = await api('/api/social/calls/signals');
     for (const signal of result.signals || []) await processCallSignal(signal);
   } catch {
-    if (activeCall) callStatus.textContent = 'Проблема со связью…';
+    if (activeCall) {
+      callStatus.textContent = 'Проблема со связью…';
+      document.getElementById('callDockStatus').textContent = callStatus.textContent;
+    }
   } finally {
     callSignalsPolling = false;
   }
@@ -2759,6 +2828,21 @@ startAudioCallButton.addEventListener('click', startAudioCall);
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
 document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
+document.getElementById('callMinimize').addEventListener('click', () => {
+  if (!activeCall) return;
+  activeCall.minimized = true;
+  callOverlay.hidden = true;
+  callOverlay.setAttribute('aria-hidden', 'true');
+  document.getElementById('callDock').hidden = false;
+});
+document.getElementById('callRestore').addEventListener('click', () => {
+  if (!activeCall) return;
+  activeCall.minimized = false;
+  callOverlay.hidden = false;
+  callOverlay.setAttribute('aria-hidden', 'false');
+  document.getElementById('callDock').hidden = true;
+});
+document.getElementById('callDockEnd').addEventListener('click', () => finishAudioCall());
 document.getElementById('callMute').addEventListener('click', event => {
   const track = activeCall?.stream?.getAudioTracks()[0];
   if (!track) return;
