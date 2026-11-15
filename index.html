@@ -114,6 +114,7 @@
     .head-actions { display: flex; gap: 7px; }
     .head-actions .icon-button { width: 35px; height: 35px; border: 0; }
     .head-actions .call-start { color: var(--green); }
+    .head-actions .group-members-toggle[hidden], .head-actions .call-start[hidden] { display: none !important; }
     .call-overlay { position: fixed; inset: 0; z-index: 105; display: grid; place-items: center; padding: 18px; background: rgba(8,10,14,.62); backdrop-filter: blur(8px); }
     .call-overlay[hidden] { display: none; }
     .call-card { position: relative; display: flex; width: min(720px,calc(100vw - 40px)); height: min(540px,calc(100dvh - 40px)); min-height: 390px; flex-direction: column; padding: 14px 22px 22px; border: 1px solid #34383e; border-radius: 13px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 28px 90px rgba(0,0,0,.52); text-align: center; }
@@ -733,6 +734,8 @@
     .settings-nav-button:hover { background: var(--surface); color: var(--ink); }
     .settings-nav-button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); font-weight: 700; }
     .settings-nav-button[hidden] { display: none !important; }
+    .settings-about { display: grid; gap: 4px; margin-top: auto; padding: 14px 12px 2px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .settings-about strong { color: var(--ink); font-size: 11px; font-weight: 700; }
     .settings-nav-icon { display: inline-grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; }
     .settings-nav-icon svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .settings-content { overflow: auto; padding: clamp(18px,4vw,32px); }
@@ -1018,6 +1021,7 @@
       .settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
       .settings-nav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
       .settings-nav-button { min-height: 38px; gap: 6px; padding: 8px 10px; white-space: nowrap; }
+      .settings-about { display: none; }
       .settings-nav-icon { font-size: 13px; }
       .settings-content { padding: 20px 17px; }
       body { background: var(--surface); }
@@ -1211,6 +1215,7 @@
         <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат <span class="verified-mark" id="headerVerificationBadge" aria-label="Верифицированный аккаунт" hidden>Q</span></div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
         <div class="head-actions">
           <button class="icon-button group-members-toggle" id="showGroupMembers" aria-label="Участники чата" title="Участники чата" type="button" hidden><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/></svg></button>
+          <button class="icon-button call-start" id="headerStartAudioCall" aria-label="Начать аудиозвонок" title="Аудиозвонок" type="button" hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
           <button class="icon-button" id="messageSearchButton" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
           <button class="icon-button" id="detailsToggle" aria-label="Показать информацию о чате" title="Информация о чате"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         </div>
@@ -1364,6 +1369,7 @@
           <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span>Fernie+</button>
           <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg></span>FernieCoins</button>
           <button class="settings-nav-button" id="settingsAdminNav" data-settings-page="admin" type="button" hidden><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>Администрирование</button>
+          <div class="settings-about"><strong>Qwant Messenger</strong><span>Версия 1.0.0</span><span>Приложение FernieX</span></div>
         </nav>
         <div class="settings-content" id="settingsContent">
           <section class="settings-page active" data-settings-content="notifications"><h2 class="settings-page-title">Уведомления</h2><p class="settings-page-copy">Управляйте уведомлениями Qwant на этом устройстве и сообщениями в Telegram.</p>
