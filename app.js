@@ -566,8 +566,18 @@ async function loadProducts() {
     ]);
     if (requestId !== coinsTransactionsRequestId) return;
     const plus = data.ferniePlus;
-    const expires = plus?.end_time ? formatDateTime(Number(plus.end_time) * 1000) : '';
-    document.getElementById('plusStatus').textContent = plus?.active ? `Подписка активна${expires ? ` до ${expires}` : ''}` : 'Подписка не активна';
+    const pro = data.ferniePlusPro;
+    const isPro = Boolean(pro?.active);
+    const isPlus = Boolean(plus?.active);
+    const activeTier = isPro ? 'Fernie+ Pro' : 'Fernie+';
+    const activeSubscription = isPro ? pro : plus;
+    const expires = activeSubscription?.end_time ? formatDateTime(Number(activeSubscription.end_time) * 1000) : '';
+    document.getElementById('plusTierTitle').textContent = activeTier;
+    document.querySelector('.premium-hero').classList.toggle('tier-pro', isPro);
+    document.querySelector('.premium-hero').classList.toggle('tier-plus', !isPro && isPlus);
+    document.getElementById('plusStatus').textContent = isPro || isPlus
+      ? `${activeTier} активна${expires ? ` до ${expires}` : ''}`
+      : 'Подписка не активна';
     const coins = data.fernieCoins;
     document.getElementById('coinsBalance').textContent = coins === null || coins === undefined ? 'Баланс недоступен' : `${new Intl.NumberFormat('ru-RU').format(coins)} FernieCoins`;
     document.getElementById('coinsMenuBalance').textContent = coins === null || coins === undefined ? '—' : new Intl.NumberFormat('ru-RU').format(coins);
@@ -939,19 +949,7 @@ function closeDrawer() {
 
 function setMobileTabActive(tab) {
   const nav = document.getElementById('mobileTabBar');
-  const buttons = [...nav.querySelectorAll('[data-mobile-tab]')];
-  const nextIndex = buttons.indexOf(tab);
-  if (nextIndex < 0) return;
-  const currentIndex = Number(nav.dataset.activeIndex ?? 1);
-  nav.style.setProperty('--tab-offset', `${nextIndex * 100}%`);
-  nav.dataset.activeIndex = nextIndex;
-  nav.classList.remove('slide-left', 'slide-right');
-  if (nextIndex !== currentIndex) {
-    nav.classList.add(nextIndex < currentIndex ? 'slide-left' : 'slide-right');
-    clearTimeout(nav.animationTimer);
-    nav.animationTimer = setTimeout(() => nav.classList.remove('slide-left', 'slide-right'), 380);
-  }
-  buttons.forEach(button => button.classList.toggle('active', button === tab));
+  nav.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button === tab));
 }
 
 async function loadOwnProfile() {
