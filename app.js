@@ -574,6 +574,7 @@ async function openSettings(page = 'notifications') {
   settingsOverlay.classList.add('open');
   settingsOverlay.setAttribute('aria-hidden', 'false');
   showSettingsPage(page);
+  document.getElementById('settingsContent').scrollTop = 0;
   await loadSettings();
   if (page === 'devices') loadDevices();
   if (page === 'plus' || page === 'coins') loadProducts();
@@ -583,7 +584,7 @@ function showSettingsPage(page) {
   document.querySelectorAll('[data-settings-page]').forEach(button => button.classList.toggle('active', button.dataset.settingsPage === page));
   document.querySelectorAll('[data-settings-content]').forEach(section => section.classList.toggle('active', section.dataset.settingsContent === page));
   const label = document.querySelector(`[data-settings-page="${page}"]`)?.textContent.replace(/[♧▣◈✳✦◉]/g, '').trim() || 'Настройки';
-  document.getElementById('settingsTitle').textContent = `Настройки Qwant · ${label}`;
+  document.getElementById('settingsTitle').textContent = window.matchMedia('(max-width: 760px)').matches ? label : `Настройки Qwant · ${label}`;
 }
 
 function closeSettings() {
@@ -2788,6 +2789,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('settingsBack').addEventListener('click', () => {
+  closeSettings();
+  if (window.matchMedia('(max-width: 760px)').matches) openDrawer();
+});
 settingsOverlay.addEventListener('click', event => {
   if (event.target === settingsOverlay) closeSettings();
 });
