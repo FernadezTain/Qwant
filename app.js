@@ -65,6 +65,9 @@ let authFlowUsername = '';
 let pendingSignupPassword = '';
 let refreshing = false;
 let chatsLoadedOnce = false;
+let chatListRevision = 0;
+let chatListRequestId = 0;
+const chatHistoryVersions = new Map();
 let typingTimer;
 let replyToMessageId = null;
 let longPressTimer;
@@ -1521,12 +1524,13 @@ function isConversationVisible() {
 }
 
 async function loadChatMessages(chat, showLoader = false) {
+  const historyVersion = chatHistoryVersions.get(String(chat.id)) || 0;
   if (showLoader && !chat.messagesLoaded) {
     messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
   }
   try {
     const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages`);
-    if (activeId !== chat.id) return;
+    if (activeId !== chat.id || historyVersion !== (chatHistoryVersions.get(String(chat.id)) || 0)) return;
     const changed = updateMessages(chat, mapMessages(result.messages));
     if (changed) renderSharedDetails(chat);
     const presence = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`).catch(() => null);
@@ -1567,8 +1571,11 @@ function renderSharedDetails(chat) {
 
 async function loadChats() {
   if (!session?.sessionToken) return;
+  const requestId = ++chatListRequestId;
+  const revision = chatListRevision;
   try {
     const result = await api('/api/social/chats');
+    if (requestId !== chatListRequestId || revision !== chatListRevision) return;
     const previousChats = new Map(chats.map(chat => [chat.id, chat]));
     const nextChats = result.chats.map(row => {
       const chat = mapChat(row);
@@ -1606,6 +1613,7 @@ async function loadChats() {
     }
     if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
   } catch (error) {
+    if (requestId !== chatListRequestId || revision !== chatListRevision) return;
     if (error.status === 401) {
       localStorage.removeItem('ferniex_messenger_session');
       session = null;
@@ -1623,6 +1631,9 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
+  chatListRevision += 1;
+  await api(`/api/social/chats/${encodeURIComponent(chat.id)}/unhide`, { method: 'POST' }).catch(() => {});
+  chatListRevision += 1;
   if (activeId !== id) clearReply();
   closeMessageMenu();
   activeId = id;
@@ -1861,6 +1872,7 @@ function openChatContextMenu(chatId, x, y) {
     <div class="context-menu-divider"></div>
     <button class="context-menu-action" type="button" data-chat-action="pin"><svg viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4 2 2-2 2-4-4-5 5M8 8l2-2 2 2 4-4 1-4"/></svg>${chat.pinned ? 'Открепить' : 'Закрепить'}</button>
     <button class="context-menu-action" type="button" data-chat-action="unread"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></svg>Пометить как непрочитанное</button>
+    <button class="context-menu-action" type="button" data-chat-action="clear"><svg viewBox="0 0 24 24"><path d="m4 16 8-8 4 4-8 8H4zM13 7l2-2 4 4-2 2M4 20h16"/></svg>Очистить историю</button>
     <button class="context-menu-action danger" type="button" data-chat-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить чат</button>`;
   menu.dataset.chatId = String(chat.id);
   menu.classList.add('open');
@@ -1901,9 +1913,13 @@ async function markChatUnread(chatId) {
 
 async function hideChatFromList(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || !await confirmAction(`Удалить чат «${chat.name}» из вашего списка?`, { title: 'Удалить чат', danger: true })) return;
+  if (!chat || !await confirmAction(`Удалить чат «${chat.name}» из списка и очистить переписку?`, { title: 'Удалить чат', danger: true })) return;
+  chatListRevision += 1;
+  chatHistoryVersions.set(String(chat.id), (chatHistoryVersions.get(String(chat.id)) || 0) + 1);
   try {
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/hide`, { method:'POST' });
+    chatListRevision += 1;
+    chatHistoryVersions.set(String(chat.id), (chatHistoryVersions.get(String(chat.id)) || 0) + 1);
     chats = chats.filter(item => String(item.id) !== String(chat.id));
     pinnedChatIds.delete(String(chat.id));
     if (session?.userId) localStorage.setItem(`ferniex_messenger_pins_${session.userId}`, JSON.stringify([...pinnedChatIds]));
@@ -1923,10 +1939,39 @@ async function hideChatFromList(chatId) {
   }
 }
 
+async function clearChatHistory(chatId) {
+  const chat = chats.find(item => String(item.id) === String(chatId));
+  if (!chat || !await confirmAction(`Удалить все сообщения в переписке с «${chat.name}»? Чат останется в списке.`, { title: 'Очистить историю' })) return;
+  chatListRevision += 1;
+  chatHistoryVersions.set(String(chat.id), (chatHistoryVersions.get(String(chat.id)) || 0) + 1);
+  try {
+    await api(`/api/social/chats/${encodeURIComponent(chat.id)}/clear`, { method: 'POST' });
+    chatListRevision += 1;
+    chatHistoryVersions.set(String(chat.id), (chatHistoryVersions.get(String(chat.id)) || 0) + 1);
+    chat.messages = [];
+    chat.messagesLoaded = true;
+    chat.lastMessageAt = null;
+    chat.preview = 'Начните переписку';
+    chat.time = '';
+    chat.unread = 0;
+    if (activeId === chat.id) {
+      clearReply();
+      renderMessages(chat);
+      renderSharedDetails(chat);
+    }
+    renderChats();
+    showMessageToast('История переписки очищена');
+    loadChats();
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось очистить историю');
+  }
+}
+
 async function handleChatMenuAction(action, chatId) {
   closeChatContextMenu();
   if (action === 'pin') togglePinnedChat(chatId);
   if (action === 'unread') await markChatUnread(chatId);
+  if (action === 'clear') await clearChatHistory(chatId);
   if (action === 'delete') await hideChatFromList(chatId);
 }
 
