@@ -360,6 +360,7 @@
     .app-dialog-actions .settings-button.danger { border-color: #b94a3f; background: #b94a3f; }
     .settings-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.34); opacity: 0; visibility: hidden; transition: .2s ease; }
     .settings-overlay.open { opacity: 1; visibility: visible; }
+    .settings-back { display: none; }
     .bot-manager { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 18px; background: rgba(36,35,32,.4); opacity: 0; visibility: hidden; backdrop-filter: blur(0); transition: opacity .24s ease, visibility .24s ease, backdrop-filter .24s ease; }
     .bot-manager.open { opacity: 1; visibility: visible; backdrop-filter: blur(5px); }
     .bot-dialog { display: grid; grid-template-rows: auto auto auto auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 92dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); opacity: .9; transform: translateY(18px) scale(.975); transition: opacity .24s ease, transform .3s cubic-bezier(.2,.8,.2,1); }
@@ -510,6 +511,26 @@
     .product-title { margin: 0; font-size: 24px; letter-spacing: -1px; }
     .product-balance { margin: 12px 0 18px; color: #8d6044; font-size: 14px; font-weight: 700; }
     .product-description { color: #62574e; font-size: 12px; line-height: 1.65; }
+    .product-hero { position: relative; display: grid; justify-items: center; gap: 12px; margin: 0 0 18px; padding: 32px 24px 25px; overflow: hidden; border-radius: 22px; background: linear-gradient(155deg,#5b35bd,#33206f 68%,#211744); color: white; text-align: center; }
+    .coins-hero { background: linear-gradient(155deg,#db9a20,#a96c0d 68%,#764b12); }
+    .product-hero-symbol { display: grid; width: 82px; height: 82px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 25px; background: linear-gradient(145deg,rgba(255,255,255,.32),rgba(255,255,255,.08)); color: #fff3bd; font-size: 54px; line-height: 1; }
+    .product-hero-title { margin: 0; font-size: 28px; font-weight: 750; }
+    .product-hero-copy { max-width: 430px; margin: 0; color: rgba(255,255,255,.82); font-size: 13px; line-height: 1.5; }
+    .product-status-card { width: min(100%, 430px); padding: 14px; border-radius: 15px; background: var(--surface); color: var(--ink); text-align: center; }
+    .product-status-label { color: var(--muted); font-size: 11px; }
+    .product-status-value { margin-top: 5px; font-size: 16px; font-weight: 750; }
+    .product-hero .settings-button { min-height: 39px; border: 0; border-radius: 999px; background: white; color: #47318d; font-weight: 700; }
+    .coins-hero .settings-button { color: #98600b; }
+    .coins-balance-card { display: grid; justify-items: center; gap: 5px; margin: 0 0 14px; padding: 20px; border-radius: 17px; background: var(--surface); text-align: center; }
+    .coins-balance-mark { color: #e6a51c; font-size: 40px; line-height: 1; }
+    .coins-balance-value { font-size: 30px; font-weight: 750; }
+    .coins-balance-label { color: var(--muted); font-size: 12px; }
+    .product-feature-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+    .product-feature { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .product-feature-icon { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: #f0e9ff; color: #805de0; font-size: 18px; }
+    .product-feature strong { display: block; font-size: 12px; }
+    .product-feature span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .product-note { margin: 12px 4px; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
     .settings-status { min-height: 18px; margin-top: 12px; color: var(--muted); font-size: 10px; }
     .session-notice { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(36,35,32,.42); opacity: 0; visibility: hidden; transition: .2s; }
     .session-notice.open { opacity: 1; visibility: visible; }
@@ -627,17 +648,17 @@
       #menuToggle { display: none; }
       .drawer-backdrop { inset: 0 0 calc(76px + env(safe-area-inset-bottom)); }
       .drawer-backdrop { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
-      .drawer { inset: 0; width: 100%; max-height: none; padding: max(9px, env(safe-area-inset-top)) 16px 18px; background: transparent; box-shadow: none; transform: translateX(16px); }
+      .drawer { inset: 0; width: 100%; height: 100%; max-height: none; padding: max(9px, env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom)); background: transparent; box-shadow: none; transform: translateX(16px); }
       .drawer-backdrop.open .drawer { transform: translateX(0); }
-      .drawer-cover { min-height: 185px; margin: -9px -16px 18px; padding: 22px 24px; border-radius: 0 0 28px 28px; background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 58%), linear-gradient(145deg, color-mix(in srgb, var(--surface-soft) 82%, #647387), var(--surface-soft)); }
+      .drawer-cover { min-height: 165px; flex: 0 0 165px; margin: -9px -16px 16px; padding: 20px 24px; border-radius: 0 0 26px 26px; background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 58%), linear-gradient(145deg, color-mix(in srgb, var(--surface-soft) 82%, #647387), var(--surface-soft)); }
       .drawer-avatar { width: 78px; height: 78px; border: 3px solid color-mix(in srgb, var(--surface) 55%, transparent); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
       .drawer-account { display: grid; gap: 5px; }
-      .drawer-name { font-size: 23px; letter-spacing: -.5px; }
+      .drawer-name { font-size: 24px; letter-spacing: -.5px; }
       .drawer-handle { margin-top: 0; font-size: 14px; }
       .drawer-close { top: max(14px, env(safe-area-inset-top)); width: 38px; height: 38px; border-color: color-mix(in srgb, var(--line) 50%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 60%, transparent); backdrop-filter: blur(12px); }
-      .drawer-item { min-height: 58px; gap: 14px; padding: 0 15px; border-radius: 13px; font-size: 15px; }
-      .drawer-group { margin: 0 0 15px; padding: 0 10px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 75%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 5px 17px rgba(0,0,0,.045); }
-      .drawer-group .drawer-item { min-height: 57px; padding: 0 2px; border-radius: 0; }
+      .drawer-item { min-height: 56px; gap: 13px; padding: 0 14px; border-radius: 13px; font-size: 14px; }
+      .drawer-group { flex: 0 0 auto; margin: 0 0 13px; padding: 0 10px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 75%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 5px 17px rgba(0,0,0,.045); }
+      .drawer-group .drawer-item { min-height: 53px; padding: 0 2px; border-radius: 0; }
       .drawer-group .drawer-item + .drawer-item { border-top: 1px solid color-mix(in srgb, var(--line) 76%, transparent); }
       .drawer-item svg { width: 34px; height: 34px; padding: 7px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 15%, var(--surface-soft)); color: var(--accent); }
       .account-links .drawer-item:nth-child(2) svg { background: #e4f2ff; color: #3698ed; }
@@ -653,23 +674,63 @@
       .drawer-group .drawer-switch { color: var(--muted); font-size: 13px; }
       .drawer-item:hover { background: color-mix(in srgb, var(--surface-soft) 75%, transparent); }
       .drawer-separator { height: 1px; margin: 13px 10px; background: color-mix(in srgb, var(--line) 80%, transparent); }
-      .drawer-spacer { min-height: 12px; }
+      .drawer-spacer { flex: 0 0 4px; min-height: 4px; }
       .drawer-product { background: color-mix(in srgb, var(--surface-soft) 55%, transparent); }
       .drawer-backdrop.open .drawer > .drawer-item, .drawer-backdrop.open .drawer > .drawer-separator { animation: bot-content-in .24s both; }
       .drawer-backdrop.open .drawer > .drawer-item:nth-of-type(2) { animation-delay: .025s; }
       .drawer-backdrop.open .drawer > .drawer-item:nth-of-type(3) { animation-delay: .05s; }
-      .settings-overlay { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); }
-      .settings-dialog { background: var(--page); }
-      .settings-header { min-height: 58px; padding: max(12px, env(safe-area-inset-top)) 16px 12px; background: color-mix(in srgb, var(--surface) 90%, transparent); }
-      .settings-heading { font-size: 17px; }
-      .settings-body { background: var(--page); }
-      .settings-nav { gap: 5px; padding: 10px 12px; background: transparent; }
-      .settings-nav-button { min-height: 39px; border-radius: 13px; background: color-mix(in srgb, var(--surface) 78%, transparent); }
-      .settings-nav-button.active { background: var(--accent-soft); }
-      .settings-content { padding: 20px 16px max(24px, env(safe-area-inset-bottom)); }
-      .settings-page-title { font-size: 24px; }
-      .setting-row { min-height: 64px; }
-      .telegram-card, .device-card, .product-card { border: 0; border-radius: 17px; background: var(--surface); }
+      .settings-overlay { display: block; padding: 0; background: var(--page); backdrop-filter: none; }
+      .settings-dialog { display: flex; width: 100%; height: 100%; max-height: none; flex-direction: column; border: 0; border-radius: 0; background: var(--page); box-shadow: none; }
+      .settings-header { position: sticky; top: 0; z-index: 2; min-height: calc(58px + env(safe-area-inset-top)); flex: 0 0 auto; justify-content: flex-start; gap: 14px; padding: max(10px, env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(18px); }
+      .settings-back { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--surface-soft); color: var(--accent); font-size: 24px; line-height: 1; }
+      #settingsClose { display: none; }
+      .settings-heading { min-width: 0; overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+      .settings-body { display: block; min-height: 0; flex: 1; overflow: hidden; background: var(--page); }
+      .settings-nav { display: none; }
+      .settings-content { width: 100%; height: 100%; overflow: auto; padding: 20px 16px max(28px, env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+      .settings-page { max-width: none; }
+      .settings-page > .settings-page-title { display: none; }
+      .settings-page-copy { margin: 0 0 18px; font-size: 14px; line-height: 1.5; }
+      .setting-row { min-height: 65px; gap: 12px; padding: 12px 0; }
+      .setting-label { font-size: 15px; }
+      .setting-description { font-size: 12px; line-height: 1.4; }
+      .settings-status { font-size: 12px; }
+      .telegram-card, .device-card { border: 0; border-radius: 17px; background: var(--surface); }
+      [data-settings-content="privacy"] .setting-row { min-height: 68px; }
+      [data-settings-content="privacy"] .setting-row:first-of-type { padding-top: 16px; }
+      [data-settings-content="privacy"] .setting-row:last-child { padding-bottom: 16px; }
+      [data-settings-content="privacy"] .setting-row { padding-right: 14px; padding-left: 14px; background: var(--surface); }
+      [data-settings-content="privacy"] .setting-row + .setting-row { border-top: 1px solid var(--line); }
+      [data-settings-content="privacy"] .setting-row:first-of-type { border-radius: 17px 17px 0 0; }
+      [data-settings-content="privacy"] .setting-row:last-child { border-radius: 0 0 17px 17px; }
+      [data-settings-content="personalization"] .setting-row { padding-right: 14px; padding-left: 14px; background: var(--surface); }
+      [data-settings-content="personalization"] .setting-row:first-of-type { border-radius: 17px 17px 0 0; }
+      [data-settings-content="personalization"] .setting-row:last-of-type { border-radius: 0 0 17px 17px; }
+      .product-hero { position: relative; display: grid; justify-items: center; gap: 12px; margin: -20px -16px 20px; padding: max(42px, calc(env(safe-area-inset-top) + 24px)) 24px 25px; overflow: hidden; color: white; text-align: center; }
+      .product-hero::before, .product-hero::after { position: absolute; width: 250px; height: 250px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; content: ''; pointer-events: none; }
+      .product-hero::before { top: -150px; left: -90px; box-shadow: 0 0 0 26px rgba(255,255,255,.04), 0 0 0 52px rgba(255,255,255,.03); }
+      .product-hero::after { right: -120px; bottom: -180px; }
+      .premium-hero { background: radial-gradient(circle at 50% 15%, rgba(255,220,128,.5), transparent 45%), linear-gradient(155deg,#5b35bd,#33206f 68%,#211744); }
+      .coins-hero { background: radial-gradient(circle at 50% 10%, rgba(255,211,89,.55), transparent 48%), linear-gradient(155deg,#db9a20,#a96c0d 68%,#764b12); }
+      .product-hero > * { position: relative; z-index: 1; }
+      .product-hero-symbol { display: grid; width: 94px; height: 94px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 30px; background: linear-gradient(145deg,rgba(255,255,255,.32),rgba(255,255,255,.08)); box-shadow: 0 14px 40px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.55); color: #fff3bd; font-size: 60px; line-height: 1; }
+      .product-hero-title { margin: 0; font-size: 30px; font-weight: 750; letter-spacing: -.8px; }
+      .product-hero-copy { max-width: 350px; margin: 0; color: rgba(255,255,255,.82); font-size: 15px; line-height: 1.45; }
+      .product-status-card { width: min(100%, 430px); padding: 17px; border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); border-radius: 17px; background: var(--surface); color: var(--ink); text-align: center; box-shadow: 0 8px 26px rgba(22,18,35,.12); }
+      .product-status-label { color: var(--muted); font-size: 13px; }
+      .product-status-value { margin-top: 5px; font-size: 19px; font-weight: 750; }
+      .product-hero .settings-button { min-height: 44px; margin-top: 3px; padding: 0 22px; border: 0; border-radius: 999px; background: white; color: #47318d; font-size: 14px; font-weight: 700; }
+      .coins-hero .settings-button { color: #98600b; }
+      .coins-balance-card { display: grid; justify-items: center; gap: 5px; margin: 0 0 16px; padding: 24px 18px 20px; border-radius: 21px; background: var(--surface); box-shadow: 0 8px 26px rgba(22,18,35,.1); }
+      .coins-balance-mark { color: #e6a51c; font-size: 48px; line-height: 1; }
+      .coins-balance-value { font-size: clamp(32px, 9vw, 46px); font-weight: 750; letter-spacing: -1px; }
+      .coins-balance-label { color: var(--muted); font-size: 14px; }
+      .product-feature-list { display: grid; gap: 10px; }
+      .product-feature { display: flex; align-items: flex-start; gap: 13px; padding: 15px; border-radius: 17px; background: var(--surface); }
+      .product-feature-icon { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 13px; background: #f0e9ff; color: #805de0; font-size: 21px; }
+      .product-feature strong { display: block; font-size: 15px; }
+      .product-feature span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+      .product-note { margin: 14px 4px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
       input, textarea, select { font-size: 16px !important; }
       .chats-head { padding: max(18px, env(safe-area-inset-top)) 18px 13px; }
       .conversation-head { min-height: 69px; padding-top: max(10px, env(safe-area-inset-top)); }
@@ -788,7 +849,7 @@
 
   <section class="settings-overlay" id="settingsOverlay" aria-hidden="true">
     <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-      <header class="settings-header"><span class="settings-heading" id="settingsTitle">Настройки Qwant</span><button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button></header>
+      <header class="settings-header"><button class="settings-back" id="settingsBack" type="button" aria-label="Назад к профилю">‹</button><span class="settings-heading" id="settingsTitle">Настройки Qwant</span><button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button></header>
       <div class="settings-body">
         <nav class="settings-nav" aria-label="Разделы настроек">
           <button class="settings-nav-button active" data-settings-page="notifications"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>Уведомления</button>
@@ -798,7 +859,7 @@
           <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span>Fernie+</button>
           <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg></span>FernieCoins</button>
         </nav>
-        <div class="settings-content">
+        <div class="settings-content" id="settingsContent">
           <section class="settings-page active" data-settings-content="notifications"><h2 class="settings-page-title">Уведомления</h2><p class="settings-page-copy">Управляйте уведомлениями Qwant на этом устройстве и сообщениями в Telegram.</p>
             <div class="setting-row"><div><div class="setting-label">Уведомления в браузере</div><div class="setting-description">Показывать уведомления о новых сообщениях, пока сайт открыт.</div></div><button class="setting-switch" id="browserNotifications" role="switch" aria-checked="true"></button></div>
             <div class="telegram-card"><div class="telegram-head"><div><div class="setting-label">Уведомления в Telegram</div><div class="setting-description" id="telegramAccountLabel">Проверяем привязку…</div></div><button class="setting-switch" id="telegramNotifications" role="switch" aria-checked="false" disabled></button></div><div class="settings-status" id="telegramSettingsStatus"></div><button class="settings-button" id="linkTelegramButton" type="button" hidden>Привязать Telegram в FernieID</button></div>
@@ -814,8 +875,16 @@
             <div class="setting-label" style="margin-top:18px">Цвет акцента</div><div class="color-options" id="accentOptions"><button class="color-option" data-color="#b64f3f" style="background:#b64f3f" aria-label="Терракотовый"></button><button class="color-option" data-color="#597a68" style="background:#597a68" aria-label="Зелёный"></button><button class="color-option" data-color="#6c73a8" style="background:#6c73a8" aria-label="Синий"></button><button class="color-option" data-color="#b57a45" style="background:#b57a45" aria-label="Золотой"></button></div>
             <div class="setting-row"><div><div class="setting-label">Размер текста</div><div class="setting-description" id="fontScaleLabel">100%</div><div class="setting-description">Меняется только текст, размер панелей не меняется.</div></div><input class="settings-range" id="fontScale" type="range" min="90" max="115" step="5" value="100"></div>
           </section>
-          <section class="settings-page" data-settings-content="plus"><h2 class="settings-page-title">Fernie+</h2><p class="settings-page-copy">Статус подписки FernieID.</p><div class="product-card"><h3 class="product-title">✦ Fernie+</h3><div class="product-balance" id="plusStatus">Проверяем подписку…</div><p class="product-description">Подписка FernieID расширяет возможности экосистемы. Управление подпиской и условия доступны на сайте FernieID.</p><button class="settings-button" id="openFernieIdPlus" type="button">Открыть FernieID</button></div></section>
-          <section class="settings-page" data-settings-content="coins"><h2 class="settings-page-title">FernieCoins</h2><p class="settings-page-copy">Баланс валюты аккаунта FernieID.</p><div class="product-card"><h3 class="product-title">◉ FernieCoins</h3><div class="product-balance" id="coinsBalance">Загружаем баланс…</div><p class="product-description">Баланс показывается из аккаунта FernieID. Пополнение и операции доступны в экосистеме FernieID.</p><button class="settings-button" id="openFernieIdCoins" type="button">Открыть FernieID</button></div></section>
+          <section class="settings-page" data-settings-content="plus">
+            <div class="product-hero premium-hero"><div class="product-hero-symbol">✦</div><h2 class="product-hero-title">Fernie+</h2><p class="product-hero-copy">Больше возможностей и удобств во всей экосистеме FernieX.</p><div class="product-status-card"><div class="product-status-label">Статус подписки</div><div class="product-status-value" id="plusStatus">Проверяем подписку…</div></div><button class="settings-button" id="openFernieIdPlus" type="button">Управление подпиской</button></div>
+            <div class="product-feature-list"><article class="product-feature"><span class="product-feature-icon">✧</span><div><strong>Больше возможностей</strong><span>Расширенные функции сервисов FernieX.</span></div></article><article class="product-feature"><span class="product-feature-icon">◉</span><div><strong>Единый статус</strong><span>Подписка связана с вашим аккаунтом FernieID.</span></div></article><article class="product-feature"><span class="product-feature-icon">↗</span><div><strong>Управление подпиской</strong><span>Откройте FernieID, чтобы посмотреть условия и срок действия.</span></div></article></div>
+          </section>
+          <section class="settings-page" data-settings-content="coins">
+            <div class="product-hero coins-hero"><div class="product-hero-symbol">✦</div><h2 class="product-hero-title">FernieCoins</h2><p class="product-hero-copy">Баланс валюты вашего аккаунта FernieID.</p></div>
+            <div class="coins-balance-card"><span class="coins-balance-mark">✦</span><strong class="coins-balance-value" id="coinsBalance">Загружаем баланс…</strong><span class="coins-balance-label">Ваш баланс</span></div>
+            <p class="product-note">Пополнение и история операций доступны в FernieID.</p>
+            <button class="settings-button" id="openFernieIdCoins" type="button" style="width:100%;min-height:46px">Открыть FernieID</button>
+          </section>
         </div>
       </div>
     </div>
