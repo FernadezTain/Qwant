@@ -89,6 +89,8 @@
     @keyframes conversation-enter { from { opacity: .76; transform: translateX(18px) scale(.99); } to { opacity: 1; transform: translateX(0) scale(1); } }
     .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
+    .person.open-chat-profile { padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    .person.open-chat-profile:hover .person-name { color: var(--accent); }
     .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
     .person-name { font-size: 14px; font-weight: 700; }
     .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
@@ -288,7 +290,7 @@
     .message-toast.visible { opacity: 1; transform: translate(-50%,0); }
     @keyframes context-menu-in { from { opacity: 0; transform: translateY(3px) scale(.98); } to { opacity: 1; transform: none; } }
     .bubble { max-width: min(78%, 460px); padding: 7px 10px 5px; border: 1px solid var(--bubble-incoming-border); border-radius: 14px 14px 14px 4px; background: var(--bubble-incoming); box-shadow: 0 2px 7px rgba(30,35,42,.055); color: #353a42; font-size: 12px; line-height: 1.42; overflow-wrap: anywhere; }
-    .group-sender-name { margin-bottom: 4px; color: var(--accent); font-size: 10px; font-weight: 750; }
+    .group-sender-name { margin-bottom: 4px; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 10px; font-weight: 750; text-align: left; cursor: pointer; }
     .group-modal { position: fixed; inset: 0; z-index: 125; display: grid; place-items: center; padding: 18px; background: rgba(8,12,18,.62); backdrop-filter: blur(9px); }
     .group-modal[hidden] { display: none; }
     .group-modal-card { width: min(100%,440px); max-height: min(90dvh,740px); overflow: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 28px 90px rgba(0,0,0,.32); animation: auth-rise .22s ease both; }
@@ -349,6 +351,7 @@
     .own .bubble-meta { color: rgba(255,255,255,.72); }
     .checks { color: #5593a0; font-size: 12px; letter-spacing: -4px; padding-right: 3px; }
     .own .checks { color: rgba(255,255,255,.88); }
+    .own .checks.read { color: #d7ffe8; }
     .composer-wrap { padding: 12px 18px 17px; border-top: 1px solid var(--line); background: var(--surface); }
     .composer-wrap[hidden], .deleted-chat-actions[hidden] { display: none !important; }
     .deleted-chat-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 14px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
@@ -421,6 +424,18 @@
     .profile-status { margin-top: 11px; padding: 5px 9px; border-radius: 99px; background: #eaf3eb; color: var(--green); font-size: 10px; font-weight: 600; }
     .profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px; margin-top: 16px; }
     .profile-actions [hidden] { display: none; }
+    .group-members-section[hidden] { display: none; }
+    .group-member-list { display: grid; gap: 7px; }
+    .group-member-card { display: flex; min-width: 0; align-items: center; gap: 10px; }
+    .group-member-card .group-member-avatar { width: 36px; height: 36px; }
+    .group-member-meta { display: grid; min-width: 0; gap: 3px; }
+    .group-member-card-role { color: var(--muted); font-size: 9px; }
+    .group-member-list-state { color: var(--muted); font-size: 10px; }
+    .group-member-remove { margin-left: auto; padding: 5px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
+    .group-member-remove:hover { background: var(--accent-soft); color: var(--accent); }
+    .group-leave-button { width: 100%; margin-top: 12px; color: var(--accent); }
+    .group-event-row { align-self: center; max-width: 90%; margin: 7px 0; text-align: center; }
+    .group-event-pill { display: inline-block; padding: 6px 11px; border: 1px solid color-mix(in srgb,var(--line) 75%,transparent); border-radius: 999px; background: color-mix(in srgb,var(--surface) 84%,transparent); color: var(--muted); font-size: 10px; line-height: 1.4; box-shadow: 0 2px 8px rgba(30,35,42,.04); }
     .profile-action { display: grid; justify-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
     .profile-action .icon-button { width: 38px; height: 38px; background: var(--surface-soft); }
     .detail-section { padding: 15px 17px; border-top: 1px solid var(--line); }
@@ -501,6 +516,26 @@
     .profile-info { padding: 0 30px 26px; }
     .profile-screen .profile-card-meta { color: var(--muted); font-size: 12px; }
     .profile-screen .profile-description { margin-top: 15px; font-size: 13px; line-height: 1.65; }
+    .user-profile-popup { position: fixed; inset: 0; z-index: 115; display: grid; place-items: center; padding: 18px; background: rgba(11,16,24,.52); opacity: 0; visibility: hidden; transition: opacity .18s,visibility .18s; backdrop-filter: blur(7px); }
+    .user-profile-popup.open { opacity: 1; visibility: visible; }
+    .user-profile-card { position: relative; width: min(390px,100%); overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.32); transform: translateY(8px) scale(.98); transition: transform .18s; }
+    .user-profile-popup.open .user-profile-card { transform: none; }
+    .user-profile-close { position: absolute; top: 10px; right: 10px; z-index: 2; background: rgba(255,255,255,.84); }
+    .user-profile-banner { height: 128px; overflow: hidden; background: radial-gradient(circle at 20% 30%, #e4c6b5, transparent 38%), linear-gradient(130deg, #dce5dc, #f1e7df 56%, #d8dced); }
+    .user-profile-banner img { width: 100%; height: 100%; object-fit: cover; }
+    .user-profile-content { padding: 0 22px 22px; }
+    .user-profile-main { display: flex; align-items: flex-end; gap: 13px; margin-top: -36px; }
+    .user-profile-avatar { width: 78px; height: 78px; flex: 0 0 auto; border: 4px solid var(--surface); border-radius: 25px; font-size: 23px; }
+    .user-profile-name { min-width: 0; margin: 0 0 6px; overflow-wrap: anywhere; font-size: 19px; font-weight: 750; }
+    .user-profile-handle { color: var(--muted); font-size: 11px; }
+    .user-profile-description { min-height: 24px; margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user-profile-write { width: 100%; min-height: 40px; border: 0; border-radius: 11px; background: var(--bubble-outgoing); color: var(--bubble-outgoing-ink); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .user-profile-write[hidden] { display: none; }
+    .message-profile-trigger, .group-member-profile-trigger { display: grid; flex: 0 0 auto; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
+    .message-profile-trigger { border-radius: 10px; }
+    .message-profile-trigger:hover, .group-member-profile-trigger:hover { filter: brightness(.94); }
+    .group-member-name-button { overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 11px; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .group-member-name-button:hover { color: var(--accent); }
     .profile-edit-form { margin-top: 16px; }
     .profile-edit-form[hidden] { display: none !important; }
     .profile-edit-form label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 600; }
@@ -1017,9 +1052,10 @@
     <section class="conversation" aria-label="Переписка">
       <header class="conversation-head">
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
-        <div class="person"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></div>
+        <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
         <div class="head-actions">
-          <button class="icon-button call-start" id="startAudioCall" aria-label="Позвонить" title="Аудиозвонок" type="button" disabled><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
+          <button class="icon-button call-start" id="startAudioCall" aria-label="Позвонить" title="Аудиозвонок" type="button" disabled hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
+          <button class="icon-button group-members-toggle" id="showGroupMembers" aria-label="Участники чата" title="Участники чата" type="button" hidden><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/></svg></button>
           <button class="icon-button" id="messageSearchButton" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
           <button class="icon-button" id="detailsToggle" aria-label="Показать информацию о чате" title="Информация о чате"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         </div>
@@ -1035,6 +1071,7 @@
     <aside class="details" aria-label="Информация о контакте">
       <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
       <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button><button class="profile-action" id="groupAddMembers" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></span>Добавить</button><button class="profile-action" id="groupInviteButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span>Ссылка</button><button class="profile-action" id="groupSettingsButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.6.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.6-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.9l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.6-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.6.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z"/></svg></span>Настроить</button></div></div>
+      <div class="detail-section group-members-section" id="groupMembersSection" hidden><div class="section-label"><span>Участники</span><span id="groupMemberCount">0</span></div><div class="group-member-list" id="groupMemberList"><div class="group-member-list-state">Загрузка…</div></div><button class="settings-button group-leave-button" id="groupLeaveButton" type="button">Покинуть группу</button></div>
       <div class="detail-section chat-appearance" id="chatAppearance" hidden><div class="section-label">Оформление чата</div><div class="chat-wallpaper-preview" id="chatWallpaperPreview"><span>Фон по умолчанию</span></div><input id="chatWallpaperInput" type="file" accept="image/*" hidden><div class="chat-wallpaper-actions"><button class="settings-button" id="chooseChatWallpaper" type="button">Своё фото</button><button class="settings-button" id="removeChatWallpaper" type="button" hidden>Сбросить</button></div><div class="settings-status" id="chatWallpaperStatus" role="status" aria-live="polite"></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
@@ -1267,6 +1304,14 @@
       <div class="profile-info"><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div>
         <form class="profile-edit-form" id="accountDisplayNameForm" hidden><label for="accountDisplayNameInput">Отображаемое имя<input id="accountDisplayNameInput" maxlength="40" required></label><button class="settings-button" type="submit">Сохранить имя</button><div class="profile-edit-status" id="accountDisplayNameStatus" role="status"></div></form>
       </div>
+    </article>
+  </section>
+
+  <section class="user-profile-popup" id="userProfilePopup" aria-hidden="true" aria-labelledby="userPopupName">
+    <article class="user-profile-card" role="dialog" aria-modal="true">
+      <button class="icon-button user-profile-close" id="userPopupClose" type="button" aria-label="Закрыть профиль">×</button>
+      <div class="user-profile-banner"><img id="userPopupBanner" alt="" hidden></div>
+      <div class="user-profile-content"><div class="user-profile-main"><div class="avatar user-profile-avatar" id="userPopupAvatar">Q</div><div><h2 class="user-profile-name" id="userPopupName">Профиль</h2><div class="user-profile-handle" id="userPopupHandle"></div></div></div><div class="user-profile-description" id="userPopupDescription">Загрузка профиля…</div><button class="user-profile-write" id="userPopupWrite" type="button">Написать</button></div>
     </article>
   </section>
 
