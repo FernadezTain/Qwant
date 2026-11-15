@@ -113,6 +113,10 @@ let pendingGroupCreateAvatar = '';
 let pendingGroupSettingsAvatar = '';
 let removeGroupSettingsAvatar = false;
 let pendingGroupInvite = null;
+let createdGroupForInvite = null;
+let selectedGroupInvitees = new Map();
+let groupMemberSearchTimer;
+let groupMemberSearchRequestId = 0;
 
 function readSession() {
   try {
@@ -1986,10 +1990,86 @@ async function findGroupMemberIds(input) {
 
 async function createGroupChat() {
   pendingGroupCreateAvatar = '';
+  createdGroupForInvite = null;
+  selectedGroupInvitees = new Map();
+  document.getElementById('groupCreateTitle').textContent = 'Новая группа';
+  document.getElementById('groupCreateDetailsStep').hidden = false;
+  document.getElementById('groupCreateDetailsStep').classList.remove('is-leaving');
+  document.getElementById('groupInviteStep').hidden = true;
+  document.getElementById('groupInviteStepActions').hidden = true;
+  document.querySelector('#groupCreateDetailsStep .group-modal-actions').hidden = false;
   document.getElementById('groupCreateForm').reset();
   renderGroupAvatar('groupCreateAvatarPreview', '', 'G');
   document.getElementById('groupCreateStatus').textContent = '';
+  document.getElementById('groupMemberSearch').value = '';
+  document.getElementById('groupSelectedMembers').replaceChildren();
+  document.getElementById('groupMemberResults').innerHTML = '<div class="group-member-state">Начните вводить NickName</div>';
   document.getElementById('groupCreateModal').hidden = false;
+}
+
+function renderSelectedGroupInvitees() {
+  const selected = document.getElementById('groupSelectedMembers');
+  selected.innerHTML = [...selectedGroupInvitees.values()].map(person => `
+    <span class="group-selected-member">${avatarMarkup(person, 'group-selected-avatar')}<span>${escapeHtml(person.display_name || person.username)}</span><button class="group-selected-remove" type="button" data-remove-group-member="${escapeHtml(person.id)}" aria-label="Убрать ${escapeHtml(person.display_name || person.username)}">×</button></span>`).join('');
+  document.getElementById('groupInviteAddSelected').disabled = selectedGroupInvitees.size === 0;
+}
+
+function renderGroupMemberResults(people) {
+  const results = document.getElementById('groupMemberResults');
+  const candidates = people.filter(person => !person.is_bot && !selectedGroupInvitees.has(String(person.id)));
+  results.innerHTML = candidates.length ? candidates.map(person => `
+    <button class="group-member-option" type="button" data-select-group-member="${escapeHtml(person.id)}">
+      <span class="group-member-avatar">${safeImageUrl(person.avatar_url) ? `<img src="${escapeHtml(safeImageUrl(person.avatar_url))}" alt="">` : escapeHtml(initials(person.display_name || person.username))}</span>
+      <span class="group-member-copy"><span class="group-member-name">${escapeHtml(person.display_name || person.username)}</span><span class="group-member-handle">@${escapeHtml(person.username)}</span></span>
+    </button>`).join('') : '<div class="group-member-state">Пользователи не найдены</div>';
+}
+
+async function searchGroupInvitees(query) {
+  const requestId = ++groupMemberSearchRequestId;
+  const results = document.getElementById('groupMemberResults');
+  if(query.length < 2) {
+    results.innerHTML = '<div class="group-member-state">Введите минимум 2 символа</div>';
+    return;
+  }
+  results.innerHTML = '<div class="group-member-state">Ищем людей…</div>';
+  try {
+    const result = await api(`/api/social/chat-users?q=${encodeURIComponent(query)}`);
+    if(requestId === groupMemberSearchRequestId) renderGroupMemberResults(result.users);
+  } catch(error) {
+    if(requestId === groupMemberSearchRequestId) results.innerHTML = `<div class="group-member-state">${escapeHtml(error.message || 'Не удалось найти людей')}</div>`;
+  }
+}
+
+async function finishGroupCreation() {
+  const group = createdGroupForInvite;
+  if(!group) return;
+  document.getElementById('groupCreateModal').hidden = true;
+  createdGroupForInvite = null;
+  selectedGroupInvitees.clear();
+  await loadChats();
+  await selectChat(group.id);
+}
+
+async function closeGroupCreate() {
+  if(createdGroupForInvite) await finishGroupCreation();
+  else document.getElementById('groupCreateModal').hidden = true;
+}
+
+async function addSelectedGroupInvitees() {
+  if(!createdGroupForInvite || !selectedGroupInvitees.size) return finishGroupCreation();
+  const button = document.getElementById('groupInviteAddSelected');
+  const status = document.getElementById('groupInviteStepStatus');
+  button.disabled = true;
+  status.textContent = 'Добавляем участников…';
+  try {
+    await api(`/api/social/group-chats/${encodeURIComponent(createdGroupForInvite.id)}/members`, {
+      method:'POST', body:JSON.stringify({ memberIds:[...selectedGroupInvitees.keys()] })
+    });
+    await finishGroupCreation();
+  } catch(error) {
+    status.textContent = error.message || 'Не удалось добавить участников';
+    button.disabled = false;
+  }
 }
 
 function renderGroupAvatar(elementId, photoUrl, fallback) {
@@ -3220,20 +3300,23 @@ document.getElementById('groupInviteClose').addEventListener('click', () => {
 for (const modalId of ['groupCreateModal', 'groupSettingsModal', 'groupInviteModal']) {
   document.getElementById(modalId).addEventListener('click', event => {
     if(event.target === event.currentTarget) {
-      event.currentTarget.hidden = true;
-      if(modalId === 'groupInviteModal') clearPendingGroupInvite();
+      if(modalId === 'groupCreateModal') closeGroupCreate();
+      else {
+        event.currentTarget.hidden = true;
+        if(modalId === 'groupInviteModal') clearPendingGroupInvite();
+      }
     }
   });
 }
 document.addEventListener('keydown', event => {
   if(event.key !== 'Escape') return;
-  for(const modalId of ['groupCreateModal', 'groupSettingsModal', 'groupInviteModal']) {
-    document.getElementById(modalId).hidden = true;
-  }
+  closeGroupCreate();
+  document.getElementById('groupSettingsModal').hidden = true;
+  document.getElementById('groupInviteModal').hidden = true;
   if(pendingGroupInviteCode) clearPendingGroupInvite();
 });
-document.getElementById('groupCreateClose').addEventListener('click', () => { document.getElementById('groupCreateModal').hidden = true; });
-document.getElementById('groupCreateCancel').addEventListener('click', () => { document.getElementById('groupCreateModal').hidden = true; });
+document.getElementById('groupCreateClose').addEventListener('click', closeGroupCreate);
+document.getElementById('groupCreateCancel').addEventListener('click', closeGroupCreate);
 document.getElementById('groupSettingsClose').addEventListener('click', () => { document.getElementById('groupSettingsModal').hidden = true; });
 document.getElementById('groupSettingsCancel').addEventListener('click', () => { document.getElementById('groupSettingsModal').hidden = true; });
 document.getElementById('groupInviteCopy').addEventListener('click', async () => {
@@ -3285,24 +3368,33 @@ for (const [inputId, previewId, isSettings] of [
 }
 document.getElementById('groupCreateForm').addEventListener('submit', async event => {
   event.preventDefault();
+  if(createdGroupForInvite) return addSelectedGroupInvitees();
   const button = event.currentTarget.querySelector('button[type="submit"]');
   const status = document.getElementById('groupCreateStatus');
   button.disabled = true;
   status.textContent = 'Создаём группу…';
   try {
-    const memberIds = await findGroupMemberIds(document.getElementById('groupCreateMembers').value);
     const result = await api('/api/social/group-chats', {
       method:'POST',
       body:JSON.stringify({
         title:document.getElementById('groupCreateName').value.trim(),
         description:document.getElementById('groupCreateDescription').value.trim(),
-        memberIds,
+        memberIds:[],
         ...(pendingGroupCreateAvatar ? { avatarBase64:pendingGroupCreateAvatar } : {})
       })
     });
-    document.getElementById('groupCreateModal').hidden = true;
-    await loadChats();
-    await selectChat(result.group.id);
+    createdGroupForInvite = result.group;
+    document.getElementById('groupCreateTitle').textContent = 'Участники группы';
+    const detailsStep = document.getElementById('groupCreateDetailsStep');
+    detailsStep.classList.add('is-leaving');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    detailsStep.hidden = true;
+    detailsStep.classList.remove('is-leaving');
+    document.getElementById('groupInviteStep').hidden = false;
+    document.getElementById('groupInviteStepActions').hidden = false;
+    document.getElementById('groupCreateForm').querySelector('.group-modal-actions').hidden = true;
+    document.getElementById('groupInviteStepStatus').textContent = '';
+    document.getElementById('groupMemberSearch').focus();
   } catch(error) {
     status.textContent = error.message || 'Не удалось создать группу';
   } finally {
@@ -3337,6 +3429,32 @@ document.getElementById('groupSettingsForm').addEventListener('submit', async ev
     button.disabled = false;
   }
 });
+document.getElementById('groupMemberSearch').addEventListener('input', event => {
+  clearTimeout(groupMemberSearchTimer);
+  const query = event.currentTarget.value.trim();
+  groupMemberSearchTimer = setTimeout(() => searchGroupInvitees(query), 240);
+});
+document.getElementById('groupMemberResults').addEventListener('click', event => {
+  const option = event.target.closest('[data-select-group-member]');
+  if(!option) return;
+  const resultPerson = option;
+  const id = resultPerson.dataset.selectGroupMember;
+  const name = resultPerson.querySelector('.group-member-name')?.textContent || 'Участник';
+  const username = resultPerson.querySelector('.group-member-handle')?.textContent.replace(/^@/, '') || '';
+  const photo = resultPerson.querySelector('img')?.src || '';
+  selectedGroupInvitees.set(String(id), { id, username, display_name:name, avatar_url:photo });
+  document.getElementById('groupMemberSearch').value = '';
+  document.getElementById('groupMemberResults').innerHTML = '<div class="group-member-state">Участник добавлен. Найдите следующего или продолжите.</div>';
+  renderSelectedGroupInvitees();
+});
+document.getElementById('groupSelectedMembers').addEventListener('click', event => {
+  const remove = event.target.closest('[data-remove-group-member]');
+  if(!remove) return;
+  selectedGroupInvitees.delete(remove.dataset.removeGroupMember);
+  renderSelectedGroupInvitees();
+});
+document.getElementById('groupInviteSkip').addEventListener('click', finishGroupCreation);
+document.getElementById('groupInviteAddSelected').addEventListener('click', addSelectedGroupInvitees);
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
 document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
