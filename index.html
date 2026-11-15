@@ -59,6 +59,9 @@
     .menu-trigger svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
     .eyebrow { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; }
     .chats-title { margin: 4px 0 0; font-size: 23px; font-weight: 700; letter-spacing: -1px; }
+    .chats-title.is-updating { color: var(--accent); animation: chats-title-refresh .8s ease-in-out infinite; }
+    .chats-title.is-updating::after { content: '…'; }
+    @keyframes chats-title-refresh { 50% { opacity: .48; } }
     .icon-button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
     .icon-button:hover { border-color: #d7cfc2; color: var(--ink); }
     .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -539,7 +542,8 @@
     .user-profile-main { display: flex; align-items: flex-end; gap: 13px; margin-top: -36px; }
     .user-profile-avatar { width: 78px; height: 78px; flex: 0 0 auto; border: 4px solid var(--surface); border-radius: 25px; font-size: 23px; }
     .user-profile-name { min-width: 0; margin: 0 0 6px; overflow-wrap: anywhere; font-size: 19px; font-weight: 750; }
-    .user-profile-handle { color: var(--muted); font-size: 11px; }
+    .user-profile-handle { padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+    .user-profile-handle:hover { color: var(--accent); }
     .user-profile-description { min-height: 24px; margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
     .user-profile-write { width: 100%; min-height: 40px; border: 0; border-radius: 11px; background: var(--bubble-outgoing); color: var(--bubble-outgoing-ink); font-size: 12px; font-weight: 700; cursor: pointer; }
     .user-profile-write[hidden] { display: none; }
@@ -811,6 +815,8 @@
     .detail-foot { margin-top: auto; padding: 13px 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
     .mobile-back { display: none; }
     .mobile-tab-bar { display: none; }
+    .call-history { display: none; }
+    .call-history[hidden] { display: none !important; }
     .empty-state { margin: auto; color: var(--muted); font-size: 13px; text-align: center; }
 
     body.auth-locked .app { opacity: .24; filter: blur(7px); pointer-events: none; transform: scale(.99); }
@@ -898,13 +904,29 @@
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
       .app.show-conversation .mobile-tab-bar { display: none; }
+      .call-history:not([hidden]) { position: absolute; inset: 0 0 calc(76px + env(safe-area-inset-bottom)); z-index: 4; display: flex; flex-direction: column; overflow: hidden; background: var(--page); }
+      .app.show-call-history .chats, .app.show-call-history .conversation { display: none; }
+      .app.show-call-history .call-history { display: flex; }
+      .app.show-call-history .mobile-tab-bar { display: grid; }
+      .call-history-head { display: flex; min-height: calc(60px + env(safe-area-inset-top)); align-items: center; justify-content: space-between; padding: max(12px,env(safe-area-inset-top)) 18px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
+      .call-history-title { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -.5px; }
+      .call-history-list { display: grid; align-content: start; gap: 7px; overflow-y: auto; padding: 10px 12px 18px; }
+      .call-history-row { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) 38px; align-items: center; gap: 4px 9px; padding: 10px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+      .call-history-main { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+      .call-history-avatar { width: 46px; height: 46px; border-radius: 16px; }
+      .call-history-copy { display: grid; min-width: 0; gap: 4px; }
+      .call-history-name { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .call-history-meta { color: var(--muted); font-size: 10px; }
+      .call-history-status { grid-column: 1; margin-left: 57px; color: var(--muted); font-size: 10px; }
+      .call-history-status.missed { color: #c94f5a; }
+      .call-history-redial { display: grid; width: 38px; height: 38px; grid-column: 2; grid-row: 1 / span 2; flex: 0 0 auto; place-items: center; border: 0; border-radius: 13px; background: var(--surface-soft); color: var(--green); cursor: pointer; }
+      .call-history-redial svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .call-history-state { padding: 28px 16px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
       .mobile-tab-bar { --tab-offset: 5px; --tab-width: calc((100% - 18px) / 3); position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; z-index: 10; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; min-height: 64px; padding: 5px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 65%, transparent); border-radius: 23px; background: color-mix(in srgb, var(--surface) 76%, transparent); box-shadow: 0 10px 32px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.2); backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45); }
       .mobile-tab-bar::before { position: absolute; top: 5px; bottom: 5px; left: 0; z-index: 0; width: var(--tab-width); border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 17px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: inset 0 1px rgba(255,255,255,.12),0 2px 8px rgba(0,0,0,.08); content: ''; pointer-events: none; transform: translateX(var(--tab-offset)); transition: transform .42s cubic-bezier(.2,.85,.25,1), width .2s ease; }
       .mobile-tab { position: relative; z-index: 1; display: grid; align-content: center; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; border: 1px solid transparent; border-radius: 17px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; transition: color .2s ease; }
       .mobile-tab svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .mobile-tab.active { color: var(--accent); }
-      .mobile-tab[data-mobile-tab="favorites"].active { color: #4c80e6; }
-      .mobile-tab[data-mobile-tab="favorites"].active svg { fill: currentColor; stroke: currentColor; }
       #menuToggle { display: none; }
       .drawer-backdrop { inset: 0 0 calc(76px + env(safe-area-inset-bottom)); }
       .drawer-backdrop { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
@@ -1056,10 +1078,10 @@
   <main class="app" id="app">
     <section class="chats" aria-label="Список чатов">
       <header class="chats-head">
-        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title">Сообщения</h1></div></div><div class="head-row-actions"><button class="icon-button" id="newGroup" type="button" aria-label="Создать группу" title="Создать группу"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></button><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
+        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title" aria-live="polite">Сообщения</h1></div></div><div class="head-row-actions"><button class="icon-button" id="newGroup" type="button" aria-label="Создать группу" title="Создать группу"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></button><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
         <label class="search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Поиск по чатам" autocomplete="off"></label>
       </header>
-      <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button></div>
+      <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button><button class="filter" data-filter="groups">Группы</button></div>
       <div class="chat-list" id="chatList"></div>
     </section>
 
@@ -1092,8 +1114,12 @@
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
       <div class="detail-foot">Личные сообщения защищены</div>
     </aside>
+    <section class="call-history" id="callHistory" aria-label="История звонков" hidden>
+      <header class="call-history-head"><h2 class="call-history-title">Звонки</h2><button class="icon-button" id="callHistoryRefresh" type="button" aria-label="Обновить историю звонков" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.8-2L20 12M4 12l2.7 5a7 7 0 0 0 11.8-2"/></svg></button></header>
+      <div class="call-history-list" id="callHistoryList" aria-live="polite"><div class="call-history-state">Загрузка истории звонков…</div></div>
+    </section>
     <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Основная навигация">
-      <button class="mobile-tab" type="button" data-mobile-tab="favorites" aria-label="Избранное"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg><span>Избранное</span></button>
+      <button class="mobile-tab" type="button" data-mobile-tab="calls" aria-label="Звонки"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span>Звонки</span></button>
       <button class="mobile-tab active" type="button" data-mobile-tab="chats" aria-label="Чаты"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg><span>Чаты</span></button>
       <button class="mobile-tab" type="button" data-mobile-tab="settings" aria-label="Настройки"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.88 2h-3.76a.5.5 0 0 0-.49.42L9.27 4.96a7.28 7.28 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.72 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.06.94c0 .32.02.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.76c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.22.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg><span>Настройки</span></button>
     </nav>
@@ -1327,7 +1353,7 @@
     <article class="user-profile-card" role="dialog" aria-modal="true">
       <button class="icon-button user-profile-close" id="userPopupClose" type="button" aria-label="Закрыть профиль">×</button>
       <div class="user-profile-banner"><img id="userPopupBanner" alt="" hidden></div>
-      <div class="user-profile-content"><div class="user-profile-main"><div class="avatar user-profile-avatar" id="userPopupAvatar">Q</div><div><h2 class="user-profile-name" id="userPopupName">Профиль</h2><div class="user-profile-handle" id="userPopupHandle"></div></div></div><div class="user-profile-description" id="userPopupDescription">Загрузка профиля…</div><button class="user-profile-write" id="userPopupWrite" type="button">Написать</button></div>
+      <div class="user-profile-content"><div class="user-profile-main"><div class="avatar user-profile-avatar" id="userPopupAvatar">Q</div><div><h2 class="user-profile-name" id="userPopupName">Профиль</h2><button class="user-profile-handle" id="userPopupHandle" type="button" data-copy-username></button></div></div><div class="user-profile-description" id="userPopupDescription">Загрузка профиля…</div><button class="user-profile-write" id="userPopupWrite" type="button">Написать</button></div>
     </article>
   </section>
 
