@@ -34,6 +34,13 @@ const emojiSearch = document.getElementById('emojiSearch');
 const emojiCategoriesElement = document.getElementById('emojiCategories');
 const emojiGrid = document.getElementById('emojiGrid');
 const pageLoader = document.getElementById('pageLoader');
+const authBrandIcon = document.querySelector('.auth-brand-mark img');
+const showAuthBrandFallback = () => {
+  authBrandIcon.hidden = true;
+  authBrandIcon.parentElement.classList.add('is-fallback');
+};
+authBrandIcon.addEventListener('error', showAuthBrandFallback, { once:true });
+if (authBrandIcon.complete && !authBrandIcon.naturalWidth) showAuthBrandFallback();
 const callOverlay = document.getElementById('callOverlay');
 const callRemoteAudio = document.getElementById('callRemoteAudio');
 const callRingtone = document.getElementById('callRingtone');
@@ -219,7 +226,7 @@ function showAuth(message = '') {
   displayNameForm.reset();
   verifyForm.reset();
   renderAuthCode();
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Вход', 'Добро пожаловать', 'Войдите или создайте аккаунт', 'authUsername');
   setAuthError(message);
 }
 
@@ -2614,9 +2621,9 @@ nicknameForm.addEventListener('submit', async event => {
     const result = await api('/api/auth/check-username', { method:'POST', body:JSON.stringify({ username }) });
     authFlowUsername = result.username || username;
     if (result.exists) {
-      showAuthStep(loginForm, `NickName @${username}`, 'С возвращением', 'Введите пароль от аккаунта QwantID.', 'authPassword');
+      showAuthStep(loginForm, 'Вход', 'С возвращением', 'Введите пароль', 'authPassword');
     } else {
-      showAuthStep(signupPasswordForm, `NickName @${username}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
+      showAuthStep(signupPasswordForm, 'Регистрация', 'Создание аккаунта', 'Придумайте пароль', 'signupPassword');
     }
   } catch (error) {
     setAuthError(error.message);
@@ -2636,7 +2643,7 @@ loginForm.addEventListener('submit', async event => {
     });
     if (result.require2fa) {
       pendingChallenge = result.challengeId;
-      showAuthStep(verifyForm, 'Защита аккаунта', 'Подтвердите вход', 'Введите одноразовый код из Telegram.', 'authCode');
+      showAuthStep(verifyForm, 'Проверка', 'Подтвердите вход', 'Введите код из Telegram', 'authCode');
     } else {
       unlock(result);
     }
@@ -2654,7 +2661,7 @@ signupPasswordForm.addEventListener('submit', event => {
   if (password.length < 8) return setAuthError('Пароль должен содержать не менее 8 символов.');
   if (password !== confirmation) return setAuthError('Пароли не совпадают.');
   pendingSignupPassword = password;
-  showAuthStep(displayNameForm, `NickName @${authFlowUsername}`, 'Почти готово', 'Выберите имя, которое будут видеть собеседники. Его можно изменить позже.', 'displayName');
+  showAuthStep(displayNameForm, 'Регистрация', 'Как вас называть?', 'Это имя увидят собеседники', 'displayName');
 });
 
 displayNameForm.addEventListener('submit', async event => {
@@ -2723,19 +2730,19 @@ document.getElementById('backToNickname').addEventListener('click', () => {
   authCodeInput.value = '';
   renderAuthCode();
   document.getElementById('authPassword').value = '';
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Вход', 'Добро пожаловать', 'Войдите или создайте аккаунт', 'authUsername');
 });
 document.getElementById('backFromLogin').addEventListener('click', () => {
   document.getElementById('authPassword').value = '';
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Вход', 'Добро пожаловать', 'Войдите или создайте аккаунт', 'authUsername');
 });
 document.getElementById('backFromSignupPassword').addEventListener('click', () => {
   pendingSignupPassword = '';
   signupPasswordForm.reset();
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Вход', 'Добро пожаловать', 'Войдите или создайте аккаунт', 'authUsername');
 });
 document.getElementById('backFromDisplayName').addEventListener('click', () => {
-  showAuthStep(signupPasswordForm, `NickName @${authFlowUsername}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
+  showAuthStep(signupPasswordForm, 'Регистрация', 'Создание аккаунта', 'Придумайте пароль', 'signupPassword');
 });
 
 function closeMessageMenu() {
