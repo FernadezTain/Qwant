@@ -137,7 +137,7 @@ let activeGroupMembers = [];
 
 function readSession() {
   try {
-    return JSON.parse(localStorage.getItem('ferniex_messenger_session'));
+    return JSON.parse(localStorage.getItem('qwantid_messenger_session'));
   } catch {
     return null;
   }
@@ -163,7 +163,7 @@ function saveSession(data) {
     deviceId: session?.deviceId || crypto.randomUUID()
   };
   pinnedChatIds = new Set(readPinnedChatIds());
-  localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+  localStorage.setItem('qwantid_messenger_session', JSON.stringify(session));
 }
 
 async function api(path, options = {}) {
@@ -219,7 +219,7 @@ function showAuth(message = '') {
   displayNameForm.reset();
   verifyForm.reset();
   renderAuthCode();
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
   setAuthError(message);
 }
 
@@ -251,19 +251,18 @@ function unlock(data) {
   authCodeInput.value = '';
   renderAuthCode();
   updateAccountMenu();
-  loadAdminPanelAccess();
   registerDevice().catch(() => {}).finally(async () => {
     pageLoader.classList.add('hidden');
     await loadChats();
     await handlePendingGroupInvite();
-    loadSettings().then(loadProducts);
+    loadSettings();
     loadOwnProfile();
     startDeviceChecks();
   });
 }
 
 function updateAccountMenu() {
-  document.getElementById('drawerName').textContent = session?.displayName || session?.username || 'FernieID';
+  document.getElementById('drawerName').textContent = session?.displayName || session?.username || 'QwantID';
   document.getElementById('drawerHandle').textContent = session?.username ? `@${session.username}` : 'Ваш аккаунт';
   setAvatar(document.getElementById('drawerAvatar'), { ...session, display_name: session?.displayName });
   const drawerBanner = document.getElementById('drawerBannerImage');
@@ -277,7 +276,7 @@ function updateAccountMenu() {
   };
   if (bannerUrl && drawerBanner.src !== bannerUrl) drawerBanner.src = bannerUrl;
   document.getElementById('accountProfileName').textContent = session?.displayName || session?.username || '—';
-  document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
+  document.getElementById('accountProfileId').textContent = session?.userId ? `QwantID ${session.userId}` : 'QwantID';
   setAvatar(document.getElementById('accountProfileAvatar'), { ...session, display_name: session?.displayName });
   updateAdminPanelVisibility();
 }
@@ -511,7 +510,7 @@ function createDeviceId() {
 async function registerDevice() {
   if (!session?.sessionToken) return;
   session.deviceId ||= createDeviceId();
-  localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+  localStorage.setItem('qwantid_messenger_session', JSON.stringify(session));
   let deviceModel = '';
   try {
     deviceModel = (await navigator.userAgentData?.getHighEntropyValues(['model']))?.model || '';
@@ -523,7 +522,7 @@ function endRevokedSession() {
   finishAudioCall({ notify:false });
   closeVerificationModal();
   closeSettings();
-  localStorage.removeItem('ferniex_messenger_session');
+  localStorage.removeItem('qwantid_messenger_session');
   session = null;
   accountSettings = null;
   telegramId = null;
@@ -581,7 +580,7 @@ async function loadSettings() {
   try {
     const result = await api('/api/qwant/settings');
     renderSettings(result);
-    status.textContent = result.telegramId ? 'Telegram привязан к аккаунту.' : 'Привяжите Telegram в FernieID, чтобы включить уведомления.';
+    status.textContent = 'Настройки QwantID загружены.';
   } catch (error) {
     status.textContent = error.message;
   }
@@ -656,7 +655,7 @@ async function loadProducts() {
     document.getElementById('coinsMenuBalance').textContent = coins === null || coins === undefined ? '—' : new Intl.NumberFormat('ru-RU').format(coins);
     fernieCoinTransactions = transactionData.transactions || [];
     renderCoinTransactions(transactionData.telegramLinked === false
-      ? 'Привяжите Telegram в FernieID, чтобы видеть операции.'
+      ? 'FernieCoins будут доступны после восстановления FernieID.'
       : 'Операций пока нет.');
   } catch (error) {
     if (requestId !== coinsTransactionsRequestId) return;
@@ -873,7 +872,6 @@ async function openSettings(page = 'notifications') {
   document.getElementById('settingsContent').scrollTop = 0;
   await loadSettings();
   if (page === 'devices') loadDevices();
-  if (page === 'plus' || page === 'coins') loadProducts();
   if (page === 'admin') loadVerificationUsers();
 }
 
@@ -1196,7 +1194,7 @@ async function loadOwnProfile() {
     session.avatar_url = result.user.avatar_url || null;
     session.banner_url = result.user.banner_url || null;
     session.displayName = result.user.display_name || session.displayName || session.username;
-    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    localStorage.setItem('qwantid_messenger_session', JSON.stringify(session));
     updateAccountMenu();
     return result.user;
   } catch {
@@ -1224,15 +1222,15 @@ async function openProfile(person = null) {
       renderProfile(currentProfile, !person);
     }
   } catch (error) {
-    showMessageToast(error.message || 'Не удалось загрузить профиль FernieID');
+    showMessageToast(error.message || 'Не удалось загрузить профиль QwantID');
   }
 }
 
 function renderProfile(person, own) {
-  const displayName = person.display_name || person.username || 'FernieID';
+  const displayName = person.display_name || person.username || 'QwantID';
   document.getElementById('profileTitle').textContent = own ? 'Мой профиль' : 'Профиль';
   document.getElementById('accountProfileName').textContent = displayName;
-  document.getElementById('accountProfileId').textContent = person.id ? `ID ${person.id}` : 'FernieID';
+  document.getElementById('accountProfileId').textContent = person.id ? `QwantID ${person.id}` : 'QwantID';
   document.getElementById('profileUsername').textContent = person.username ? `@${person.username}` : (person.is_deleted ? 'Аккаунт удалён' : 'NickName не указан');
   const description = document.getElementById('accountProfileDescription');
   description.textContent = person.description || '';
@@ -1271,7 +1269,7 @@ async function uploadOwnProfileImage(asset, file) {
     const imageUrl = result[`${asset}Url`];
     session[field] = imageUrl;
     currentProfile = { ...currentProfile, [field]:imageUrl };
-    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    localStorage.setItem('qwantid_messenger_session', JSON.stringify(session));
     updateAccountMenu();
     renderProfile(currentProfile, true);
     status.textContent = asset === 'avatar' ? 'Аватар сохранён' : 'Баннер сохранён';
@@ -2198,13 +2196,13 @@ async function loadChats() {
   } catch (error) {
     if (requestId !== chatListRequestId || revision !== chatListRevision) return;
     if (error.status === 401) {
-      localStorage.removeItem('ferniex_messenger_session');
+      localStorage.removeItem('qwantid_messenger_session');
       session = null;
       accountSettings = null;
       telegramId = null;
       chats = [];
       chatsLoadedOnce = false;
-      showAuth('Сессия FernieID завершилась. Войдите снова.');
+      showAuth('Сессия QwantID завершилась. Войдите снова.');
       return;
     }
     chatList.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}<br>Обновите список позже.</div>`;
@@ -2569,7 +2567,7 @@ async function joinInvitedGroup() {
 async function addGroupMembers() {
   const chat = chats.find(item => item.id === activeId && item.isGroup);
   if (!chat) return;
-  const usernames = await showDialog({ title:'Добавить участников', message:'Введите FernieID NickName через запятую.', input:true, confirmLabel:'Добавить' });
+  const usernames = await showDialog({ title:'Добавить участников', message:'Введите QwantID NickName через запятую.', input:true, confirmLabel:'Добавить' });
   if (typeof usernames !== 'string' || !usernames.trim()) return;
   try {
     const memberIds = await findGroupMemberIds(usernames);
@@ -2639,7 +2637,7 @@ nicknameForm.addEventListener('submit', async event => {
     const result = await api('/api/auth/check-username', { method:'POST', body:JSON.stringify({ username }) });
     authFlowUsername = result.username || username;
     if (result.exists) {
-      showAuthStep(loginForm, `NickName @${username}`, 'С возвращением', 'Введите пароль от аккаунта FernieID.', 'authPassword');
+      showAuthStep(loginForm, `NickName @${username}`, 'С возвращением', 'Введите пароль от аккаунта QwantID.', 'authPassword');
     } else {
       showAuthStep(signupPasswordForm, `NickName @${username}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
     }
@@ -2748,16 +2746,16 @@ document.getElementById('backToNickname').addEventListener('click', () => {
   authCodeInput.value = '';
   renderAuthCode();
   document.getElementById('authPassword').value = '';
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
 });
 document.getElementById('backFromLogin').addEventListener('click', () => {
   document.getElementById('authPassword').value = '';
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
 });
 document.getElementById('backFromSignupPassword').addEventListener('click', () => {
   pendingSignupPassword = '';
   signupPasswordForm.reset();
-  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'FernieID NickName', 'Введите свой NickName, чтобы войти или создать аккаунт.', 'authUsername');
+  showAuthStep(nicknameForm, 'Ваше пространство для общения', 'QwantID NickName', 'Введите свой NickName QwantID, чтобы войти или создать аккаунт.', 'authUsername');
 });
 document.getElementById('backFromDisplayName').addEventListener('click', () => {
   showAuthStep(signupPasswordForm, `NickName @${authFlowUsername}`, 'Создание аккаунта', 'Придумайте надёжный пароль. На следующем шаге зададите отображаемое имя.', 'signupPassword');
@@ -4193,7 +4191,7 @@ document.getElementById('newChat').addEventListener('click', () => {
   searchUsers = true;
   searchInput.value = '';
   searchInput.placeholder = 'Найдите пользователя';
-  chatList.innerHTML = '<div class="empty-state">Введите имя пользователя FernieID</div>';
+  chatList.innerHTML = '<div class="empty-state">Введите NickName пользователя QwantID</div>';
   searchInput.focus();
 });
 document.getElementById('menuToggle').addEventListener('click', openDrawer);
@@ -4385,7 +4383,7 @@ document.getElementById('accountDisplayNameForm').addEventListener('submit', asy
       method:'PATCH', body:JSON.stringify({ displayName:input.value.trim() })
     });
     session.displayName = result.displayName;
-    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    localStorage.setItem('qwantid_messenger_session', JSON.stringify(session));
     updateAccountMenu();
     currentProfile = { ...currentProfile, display_name: result.displayName };
     renderProfile(currentProfile, true);
@@ -4703,7 +4701,7 @@ async function logout() {
     closeVerificationModal();
     closeSettings();
     closeUserProfilePopup();
-    localStorage.removeItem('ferniex_messenger_session');
+    localStorage.removeItem('qwantid_messenger_session');
     session = null;
     accountSettings = null;
     telegramId = null;
@@ -4763,7 +4761,6 @@ document.querySelectorAll('[data-settings-page]').forEach(button => button.addEv
   const page = button.dataset.settingsPage;
   showSettingsPage(page);
   if (page === 'devices') loadDevices();
-  if (page === 'plus' || page === 'coins') loadProducts();
   if (page === 'admin') loadVerificationUsers();
 }));
 document.getElementById('verificationOpenSearch').addEventListener('click', openVerificationModal);
@@ -4877,10 +4874,9 @@ async function bootstrap() {
     else await checkDeviceSession();
     if (!session) return;
     startDeviceChecks();
-    await Promise.all([loadChats(), loadSettings(), loadOwnProfile(), loadAdminPanelAccess()]);
+    await Promise.all([loadChats(), loadSettings(), loadOwnProfile()]);
     await handlePendingGroupInvite();
     hidePageLoader();
-    loadProducts();
   } catch (error) {
     if (error.status === 401) {
       endRevokedSession();
@@ -4899,3 +4895,13 @@ setInterval(() => {
 }, 12000);
 
 callSignalTimer = setInterval(pollCallSignals, 1200);
+
+for (const id of ['drawerBots', 'drawerPlus', 'drawerCoins', 'linkTelegramButton', 'telegramNotifications', 'openFernieIdPlus', 'openFernieIdCoins']) {
+  const element = document.getElementById(id);
+  if (element) element.hidden = true;
+}
+document.querySelector('.telegram-card')?.setAttribute('hidden', '');
+for (const page of ['plus', 'coins', 'admin']) {
+  document.querySelector(`[data-settings-page="${page}"]`)?.setAttribute('hidden', '');
+  document.querySelector(`[data-settings-content="${page}"]`)?.setAttribute('hidden', '');
+}
