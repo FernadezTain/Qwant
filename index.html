@@ -521,7 +521,12 @@
     .product-balance { margin: 12px 0 18px; color: #8d6044; font-size: 14px; font-weight: 700; }
     .product-description { color: #62574e; font-size: 12px; line-height: 1.65; }
     .product-hero { position: relative; display: grid; justify-items: center; gap: 12px; margin: 0 0 18px; padding: 32px 24px 25px; overflow: hidden; border-radius: 22px; background: linear-gradient(155deg,#5b35bd,#33206f 68%,#211744); color: white; text-align: center; }
-    .coins-hero { background: linear-gradient(155deg,#db9a20,#a96c0d 68%,#764b12); }
+    .coins-hero { background: linear-gradient(180deg,#f8cf55 0%, color-mix(in srgb,#f0b52f 42%,var(--accent)) 35%, var(--accent) 100%); background-size: 100% 145%; background-position: 50% 50%; animation: coins-theme-flow 8s ease-in-out infinite alternate; }
+    @keyframes coins-theme-flow { from { background-position: 50% 0%; } to { background-position: 50% 100%; } }
+    .coins-hero-symbol { position: relative; border: 2px solid rgba(255,255,255,.62); border-radius: 50%; background: radial-gradient(circle at 32% 24%, #fff6cf 0, #f8d25f 25%, #e8a91f 58%, #b87412 100%); box-shadow: inset 0 2px 5px rgba(255,255,255,.78), inset 0 -7px 12px rgba(116,66,8,.28), 0 12px 30px rgba(105,65,6,.28); transform: rotate(-8deg); animation: coin-float 4.2s ease-in-out infinite; }
+    @keyframes coin-float { 0%,100% { translate: 0 0; rotate: -5deg; } 50% { translate: 0 -6px; rotate: 5deg; } }
+    .coins-hero-symbol::before { position: absolute; inset: 7px; border: 1px solid rgba(255,255,255,.52); border-radius: 50%; content: ''; }
+    .coins-hero-symbol span { position: relative; z-index: 1; display: grid; width: 58%; aspect-ratio: 1; place-items: center; border: 2px solid rgba(255,255,255,.68); border-radius: 50%; background: linear-gradient(145deg,rgba(255,250,221,.35),rgba(174,104,10,.16)); color: #fff9df; font-size: 34px; font-weight: 800; line-height: 1; text-shadow: 0 2px 5px rgba(115,66,8,.32); }
     .product-hero-symbol { display: grid; width: 82px; height: 82px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 25px; background: linear-gradient(145deg,rgba(255,255,255,.32),rgba(255,255,255,.08)); color: #fff3bd; font-size: 54px; line-height: 1; }
     .product-hero-title { margin: 0; font-size: 28px; font-weight: 750; }
     .product-hero-copy { max-width: 430px; margin: 0; color: rgba(255,255,255,.82); font-size: 13px; line-height: 1.5; }
@@ -531,7 +536,7 @@
     .product-hero .settings-button { min-height: 39px; border: 0; border-radius: 999px; background: white; color: #47318d; font-weight: 700; }
     .coins-hero .settings-button { color: #98600b; }
     .coins-balance-card { display: grid; justify-items: center; gap: 5px; margin: 0 0 14px; padding: 20px; border-radius: 17px; background: var(--surface); text-align: center; }
-    .coins-balance-mark { color: #e6a51c; font-size: 40px; line-height: 1; }
+    .coins-balance-mark { display: grid; width: 43px; height: 43px; place-items: center; border: 2px solid #e6aa27; border-radius: 50%; background: linear-gradient(145deg,#fff1ad,#e7a923); box-shadow: inset 0 0 0 3px rgba(255,255,255,.55), 0 4px 12px rgba(202,143,26,.22); color: #9c650e; font-size: 21px; font-weight: 800; line-height: 1; }
     .coins-balance-value { font-size: 30px; font-weight: 750; }
     .coins-balance-label { color: var(--muted); font-size: 12px; }
     .coins-open-button { width: 100%; min-height: 46px; }
@@ -742,9 +747,11 @@
       .product-hero::before { top: -150px; left: -90px; box-shadow: 0 0 0 26px rgba(255,255,255,.04), 0 0 0 52px rgba(255,255,255,.03); }
       .product-hero::after { right: -120px; bottom: -180px; }
       .premium-hero { background: radial-gradient(circle at 50% 15%, rgba(255,220,128,.5), transparent 45%), linear-gradient(155deg,#5b35bd,#33206f 68%,#211744); }
-      .coins-hero { background: radial-gradient(circle at 50% 10%, rgba(255,211,89,.55), transparent 48%), linear-gradient(155deg,#db9a20,#a96c0d 68%,#764b12); }
+      .coins-hero { background: radial-gradient(ellipse at 50% 0%,rgba(255,239,157,.64),transparent 53%),linear-gradient(180deg,#f8d45f 0%,color-mix(in srgb,#f3b936 40%,var(--accent)) 36%,var(--accent) 100%); background-size: 100% 145%; background-position: 50% 50%; animation: coins-theme-flow 8s ease-in-out infinite alternate; }
       .product-hero > * { position: relative; z-index: 1; }
       .product-hero-symbol { display: grid; width: 94px; height: 94px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 30px; background: linear-gradient(145deg,rgba(255,255,255,.32),rgba(255,255,255,.08)); box-shadow: 0 14px 40px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.55); color: #fff3bd; font-size: 60px; line-height: 1; }
+      .coins-hero-symbol { border: 2px solid rgba(255,255,255,.66); border-radius: 50%; background: radial-gradient(circle at 32% 24%, #fff6cf 0, #f8d25f 25%, #e8a91f 58%, #b87412 100%); box-shadow: inset 0 2px 5px rgba(255,255,255,.78), inset 0 -7px 12px rgba(116,66,8,.28), 0 12px 30px rgba(105,65,6,.28); transform: rotate(-8deg); }
+      .coins-hero-symbol span { font-size: 39px; }
       .product-hero-title { margin: 0; font-size: 30px; font-weight: 750; letter-spacing: -.8px; }
       .product-hero-copy { max-width: 350px; margin: 0; color: rgba(255,255,255,.82); font-size: 15px; line-height: 1.45; }
       .product-status-card { width: min(100%, 430px); padding: 17px; border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); border-radius: 17px; background: var(--surface); color: var(--ink); text-align: center; box-shadow: 0 8px 26px rgba(22,18,35,.12); }
@@ -753,7 +760,7 @@
       .product-hero .settings-button { min-height: 44px; margin-top: 3px; padding: 0 22px; border: 0; border-radius: 999px; background: white; color: #47318d; font-size: 14px; font-weight: 700; }
       .coins-hero .settings-button { color: #98600b; }
       .coins-balance-card { display: grid; justify-items: center; gap: 5px; margin: 0 0 16px; padding: 24px 18px 20px; border-radius: 21px; background: var(--surface); box-shadow: 0 8px 26px rgba(22,18,35,.1); }
-      .coins-balance-mark { color: #e6a51c; font-size: 48px; line-height: 1; }
+      .coins-balance-mark { width: 54px; height: 54px; border-width: 2px; font-size: 27px; }
       .coins-balance-value { font-size: clamp(32px, 9vw, 46px); font-weight: 750; letter-spacing: -1px; }
       .coins-balance-label { color: var(--muted); font-size: 14px; }
       .product-feature-list { display: grid; gap: 10px; }
@@ -921,8 +928,8 @@
             <div class="product-feature-list"><article class="product-feature"><span class="product-feature-icon">✧</span><div><strong>Больше возможностей</strong><span>Расширенные функции сервисов FernieX.</span></div></article><article class="product-feature"><span class="product-feature-icon">◉</span><div><strong>Единый статус</strong><span>Подписка связана с вашим аккаунтом FernieID.</span></div></article><article class="product-feature"><span class="product-feature-icon">↗</span><div><strong>Управление подпиской</strong><span>Откройте FernieID, чтобы посмотреть условия и срок действия.</span></div></article></div>
           </section>
           <section class="settings-page" data-settings-content="coins">
-            <div class="product-hero coins-hero"><div class="product-hero-symbol">✦</div><h2 class="product-hero-title">FernieCoins</h2><p class="product-hero-copy">Баланс валюты вашего аккаунта FernieID.</p></div>
-            <div class="coins-balance-card"><span class="coins-balance-mark">✦</span><strong class="coins-balance-value" id="coinsBalance">Загружаем баланс…</strong><span class="coins-balance-label">Ваш баланс</span></div>
+            <div class="product-hero coins-hero"><div class="product-hero-symbol coins-hero-symbol" aria-hidden="true"><span>F</span></div><h2 class="product-hero-title">FernieCoins</h2><p class="product-hero-copy">Баланс валюты вашего аккаунта FernieID.</p></div>
+            <div class="coins-balance-card"><span class="coins-balance-mark" aria-hidden="true">F</span><strong class="coins-balance-value" id="coinsBalance">Загружаем баланс…</strong><span class="coins-balance-label">Ваш баланс</span></div>
             <button class="settings-button coins-open-button" id="openFernieIdCoins" type="button">Открыть FernieID</button>
             <section class="coins-activity" aria-label="История FernieCoins">
               <h3 class="coins-activity-title">Недавние операции</h3>
