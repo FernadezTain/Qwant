@@ -1,4 +1,6 @@
 const app = document.getElementById('app');
+const conversationWindow = document.querySelector('.conversation');
+const conversationDragHandle = document.getElementById('conversationDragHandle');
 const authScreen = document.getElementById('authScreen');
 const nicknameForm = document.getElementById('nicknameForm');
 const loginForm = document.getElementById('loginForm');
@@ -66,6 +68,7 @@ let pendingPhotos = [];
 let pendingPhotoConversationId = null;
 let chats = [];
 let activeId = null;
+let conversationDrag = null;
 let activeFilter = 'all';
 let searchUsers = false;
 let searchTimer;
@@ -986,6 +989,47 @@ function setMobileTabActive(tab) {
   nav.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button === tab));
 }
 
+function constrainConversationWindow() {
+  if (!conversationWindow.classList.contains('is-floating')) return;
+  const bounds = conversationWindow.getBoundingClientRect();
+  conversationWindow.style.left = `${Math.max(0, Math.min(bounds.left, window.innerWidth - bounds.width))}px`;
+  conversationWindow.style.top = `${Math.max(0, Math.min(bounds.top, window.innerHeight - bounds.height))}px`;
+}
+
+function restoreConversationWindow() {
+  conversationDrag = null;
+  conversationWindow.classList.remove('is-floating', 'chat-opening');
+  conversationWindow.style.removeProperty('left');
+  conversationWindow.style.removeProperty('top');
+}
+
+conversationDragHandle.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'touch' || window.matchMedia('(max-width: 760px)').matches) return;
+  const bounds = conversationWindow.getBoundingClientRect();
+  conversationWindow.classList.add('is-floating');
+  conversationWindow.classList.remove('chat-opening');
+  conversationWindow.style.left = `${bounds.left}px`;
+  conversationWindow.style.top = `${bounds.top}px`;
+  conversationDrag = { pointerId:event.pointerId, offsetX:event.clientX - bounds.left, offsetY:event.clientY - bounds.top };
+  conversationDragHandle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+
+conversationDragHandle.addEventListener('pointermove', event => {
+  if (!conversationDrag || event.pointerId !== conversationDrag.pointerId) return;
+  const maxLeft = Math.max(0, window.innerWidth - conversationWindow.offsetWidth);
+  const maxTop = Math.max(0, window.innerHeight - conversationWindow.offsetHeight);
+  conversationWindow.style.left = `${Math.max(0, Math.min(event.clientX - conversationDrag.offsetX, maxLeft))}px`;
+  conversationWindow.style.top = `${Math.max(0, Math.min(event.clientY - conversationDrag.offsetY, maxTop))}px`;
+});
+
+for (const eventName of ['pointerup', 'pointercancel']) {
+  conversationDragHandle.addEventListener(eventName, () => { conversationDrag = null; });
+}
+
+conversationDragHandle.addEventListener('dblclick', restoreConversationWindow);
+window.addEventListener('resize', constrainConversationWindow);
+
 window.addEventListener('resize', () => {
   const activeTab = document.querySelector('.mobile-tab.active');
   if (activeTab) setMobileTabActive(activeTab);
@@ -1054,7 +1098,35 @@ function renderProfile(person, own) {
   displayNameForm.hidden = !own;
   document.getElementById('accountDisplayNameInput').value = session?.displayName || session?.username || '';
   document.getElementById('accountDisplayNameStatus').textContent = '';
+  document.getElementById('profileMediaActions').hidden = !own;
+  document.getElementById('profileMediaStatus').textContent = '';
   setAvatar(document.getElementById('accountProfileAvatar'), person);
+}
+
+async function uploadOwnProfileImage(asset, file) {
+  const input = document.getElementById(asset === 'avatar' ? 'profileAvatarInput' : 'profileBannerInput');
+  const status = document.getElementById('profileMediaStatus');
+  try {
+    const maxBytes = asset === 'avatar' ? 5 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Поддерживаются JPG, PNG и WEBP');
+    if (file.size > maxBytes) throw new Error(`Размер изображения не должен превышать ${maxBytes / (1024 * 1024)} МБ`);
+    status.textContent = 'Загружаем изображение…';
+    const result = await api(`/api/qwant/profile/${asset}`, {
+      method:'POST', body:JSON.stringify({ imageBase64:await readImageFile(file) })
+    });
+    const field = asset === 'avatar' ? 'avatar_url' : 'banner_url';
+    const imageUrl = result[`${asset}Url`];
+    session[field] = imageUrl;
+    currentProfile = { ...currentProfile, [field]:imageUrl };
+    localStorage.setItem('ferniex_messenger_session', JSON.stringify(session));
+    updateAccountMenu();
+    renderProfile(currentProfile, true);
+    status.textContent = asset === 'avatar' ? 'Аватар сохранён' : 'Баннер сохранён';
+  } catch(error) {
+    status.textContent = error.message || 'Не удалось сохранить изображение';
+  } finally {
+    input.value = '';
+  }
 }
 
 function closeProfile() {
@@ -3878,6 +3950,14 @@ document.getElementById('userPopupWrite').addEventListener('click', () => {
   closeUserProfilePopup();
   openChat(userId);
 });
+document.getElementById('profileAvatarInput').addEventListener('change', event => {
+  const file = event.currentTarget.files?.[0];
+  if (file) uploadOwnProfileImage('avatar', file);
+});
+document.getElementById('profileBannerInput').addEventListener('change', event => {
+  const file = event.currentTarget.files?.[0];
+  if (file) uploadOwnProfileImage('banner', file);
+});
 document.getElementById('accountDisplayNameForm').addEventListener('submit', async event => {
   event.preventDefault();
   const input = document.getElementById('accountDisplayNameInput');
@@ -4189,6 +4269,8 @@ async function logout() {
   if (!await confirmAction('Выйти из Qwant Messenger?', { title: 'Выйти из аккаунта' })) return;
   const finishLogout = () => {
     finishAudioCall();
+    restoreConversationWindow();
+    closeUserProfilePopup();
     localStorage.removeItem('ferniex_messenger_session');
     session = null;
     accountSettings = null;
