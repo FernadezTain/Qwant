@@ -2,13 +2,28 @@
   "version": 2,
   "builds": [
     { "src": "server.js", "use": "@vercel/node" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "app.js", "use": "@vercel/static" },
-    { "src": "Sounds/**", "use": "@vercel/static" }
+    { "src": "website/index.html", "use": "@vercel/static" },
+    { "src": "website/app.js", "use": "@vercel/static" },
+    { "src": "website/favicon.png", "use": "@vercel/static" },
+    { "src": "website/Sounds/**", "use": "@vercel/static" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://localhost" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PATCH,PUT,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Authorization,Content-Type" },
+        { "key": "Vary", "value": "Origin" }
+      ]
+    }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server.js" },
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/$1" }
+    { "src": "/app.js", "dest": "/website/app.js" },
+    { "src": "/favicon.png", "dest": "/website/favicon.png" },
+    { "src": "/Sounds/(.*)", "dest": "/website/Sounds/$1" },
+    { "src": "/", "dest": "/website/index.html" },
+    { "src": "/(.*)", "dest": "/website/$1" }
   ]
 }
