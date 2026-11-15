@@ -11,6 +11,7 @@ const authCodeInput = document.getElementById('authCode');
 const authCodeBoxes = document.getElementById('authCodeBoxes');
 const authCodeSlots = [...authCodeBoxes.querySelectorAll('.auth-code-slot')];
 const chatList = document.getElementById('chatList');
+const chatsTitle = document.querySelector('.chats-title');
 const messages = document.getElementById('messages');
 const searchInput = document.getElementById('searchInput');
 const messageInput = document.getElementById('messageInput');
@@ -82,6 +83,10 @@ let pendingChallenge = null;
 let authFlowUsername = '';
 let pendingSignupPassword = '';
 let refreshing = false;
+let connectionLost = !navigator.onLine;
+let connectionRetryTimer;
+let connectionRestoreTimer;
+let connectionRetryDelay = 2000;
 let awaySince = null;
 let chatsLoadedOnce = false;
 let chatListRevision = 0;
@@ -176,14 +181,57 @@ function saveSession(data) {
 async function api(path, options = {}) {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (session?.sessionToken) headers.Authorization = `Bearer ${session.sessionToken}`;
-  const response = await fetch(path, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch (error) {
+    markConnectionLost();
+    throw error;
+  }
   const data = await response.json().catch(() => ({}));
+  if (response.status < 500) markConnectionRestored();
   if (!response.ok || data.success === false) {
     const error = new Error(data.error || 'Не удалось выполнить запрос');
     error.status = response.status;
+    if (response.status >= 500) markConnectionLost();
     throw error;
   }
   return data;
+}
+
+function setChatsTitle(status) {
+  chatsTitle.textContent = status === 'connection' ? 'Соединение' : status === 'updating' ? 'Обновление' : 'Сообщения';
+  chatsTitle.classList.toggle('is-updating', status !== 'online');
+}
+
+function scheduleConnectionRetry() {
+  if (connectionRetryTimer || !navigator.onLine || !session?.sessionToken) return;
+  connectionRetryTimer = setTimeout(async () => {
+    connectionRetryTimer = null;
+    if (refreshing) return scheduleConnectionRetry();
+    await refreshChats(true);
+  }, connectionRetryDelay);
+  connectionRetryDelay = Math.min(connectionRetryDelay * 2, 30000);
+}
+
+function markConnectionLost() {
+  connectionLost = true;
+  clearTimeout(connectionRestoreTimer);
+  setChatsTitle('connection');
+  scheduleConnectionRetry();
+}
+
+function markConnectionRestored() {
+  if (!connectionLost) return;
+  connectionLost = false;
+  clearTimeout(connectionRetryTimer);
+  connectionRetryTimer = null;
+  connectionRetryDelay = 2000;
+  setChatsTitle('updating');
+  clearTimeout(connectionRestoreTimer);
+  connectionRestoreTimer = setTimeout(() => {
+    if (!connectionLost && !refreshing) setChatsTitle('online');
+  }, 1400);
 }
 
 function setAuthError(message = '') {
@@ -2277,37 +2325,16 @@ async function refreshChats(showUpdate = false) {
   if (refreshing) return;
   refreshing = true;
   const shouldRefreshConversation = isConversationVisible();
-  const previousChats = new Map(chats.map(chat => [String(chat.id), {
-    unread:chat.unread,
-    lastMessageAt:Date.parse(chat.lastMessageAt) || 0
-  }]));
-  const chatsTitle = document.querySelector('.chats-title');
-  if (showUpdate) {
-    chatsTitle.textContent = 'Обновление';
-    chatsTitle.classList.add('is-updating');
-  }
+  if (showUpdate) setChatsTitle('updating');
   try {
     await loadChats();
-    const hasNewMessages = chats.some(chat => {
-      const previous = previousChats.get(String(chat.id));
-      return previous
-        ? chat.unread > previous.unread || (Date.parse(chat.lastMessageAt) || 0) > previous.lastMessageAt
-        : !chat.isFavorites && Boolean(chat.lastMessageAt);
-    });
-    if (showUpdate && !hasNewMessages) {
-      chatsTitle.classList.remove('is-updating');
-      chatsTitle.textContent = 'Сообщения';
-    }
     if (shouldRefreshConversation && activeId) {
       const chat = chats.find(item => item.id === activeId);
       if (chat?.isFavorites) await loadFavoriteMessages(chat);
       else if (chat) await loadChatMessages(chat);
     }
   } finally {
-    if (showUpdate) {
-      chatsTitle.classList.remove('is-updating');
-      chatsTitle.textContent = 'Сообщения';
-    }
+    if (showUpdate) setChatsTitle(connectionLost ? 'connection' : 'online');
     refreshing = false;
   }
 }
@@ -4911,6 +4938,16 @@ setInterval(() => {
 }, 12000);
 
 callSignalTimer = setInterval(pollCallSignals, 1200);
+window.addEventListener('offline', markConnectionLost);
+window.addEventListener('online', () => {
+  if (!session?.sessionToken) return;
+  clearTimeout(connectionRetryTimer);
+  connectionRetryTimer = null;
+  setChatsTitle('updating');
+  if (refreshing) scheduleConnectionRetry();
+  else refreshChats(true);
+});
+if (connectionLost) markConnectionLost();
 
 for (const id of ['drawerBots', 'drawerPlus', 'drawerCoins', 'linkTelegramButton', 'telegramNotifications', 'openFernieIdPlus', 'openFernieIdCoins']) {
   const element = document.getElementById(id);
