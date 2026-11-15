@@ -102,16 +102,12 @@
     .pin { color: #a9a49a; font-size: 11px; }
 
     .conversation { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
-    .conversation.is-floating { position: fixed; z-index: 25; top: 16px; left: 16px; width: min(660px,calc(100vw - 32px)); height: min(76dvh,calc(100dvh - 32px)); min-height: min(360px,calc(100dvh - 32px)); margin: 0; border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,.32); transform: none !important; animation: none !important; }
     .conversation.chat-opening { animation: conversation-enter .34s cubic-bezier(.18,.85,.25,1) both; }
     @keyframes conversation-enter { from { opacity: .76; transform: translateX(18px) scale(.99); } to { opacity: 1; transform: translateX(0) scale(1); } }
     .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
     .person.open-chat-profile { padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
     .person.open-chat-profile:hover .person-name { color: var(--accent); }
-    .conversation-drag-handle { display: grid; width: 30px; height: 34px; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: grab; touch-action: none; }
-    .conversation-drag-handle:active { cursor: grabbing; background: var(--surface-soft); }
-    .conversation-drag-handle svg { width: 18px; height: 18px; fill: currentColor; }
     .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
     .person-name { font-size: 14px; font-weight: 700; }
     .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
@@ -164,6 +160,9 @@
     .call-remote-audio { display: none; }
     .call-dock { position: fixed; right: max(18px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom)); z-index: 106; display: flex; max-width: min(390px,calc(100vw - 28px)); align-items: center; gap: 9px; padding: 9px 10px 9px 14px; border: 1px solid #34383e; border-radius: 18px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 12px 40px rgba(20,25,30,.24); }
     .call-dock[hidden] { display: none; }
+    .call-dock-drag { display: grid; width: 22px; height: 34px; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #858b92; cursor: grab; touch-action: none; }
+    .call-dock-drag:active { cursor: grabbing; background: rgba(255,255,255,.08); }
+    .call-dock-drag svg { width: 13px; height: 20px; fill: currentColor; }
     .call-dock-main { display: grid; min-width: 0; gap: 3px; padding: 3px 6px 3px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
     .call-dock-title { overflow: hidden; max-width: 210px; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
     .call-dock-status { color: #a5a9ae; font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -452,11 +451,31 @@
     .group-member-meta { display: grid; min-width: 0; gap: 3px; }
     .group-member-card-role { color: var(--muted); font-size: 9px; }
     .group-member-list-state { color: var(--muted); font-size: 10px; }
+    .group-members-show-all { width: 100%; margin-top: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); color: var(--accent); font-size: 11px; font-weight: 700; cursor: pointer; }
+    .group-members-full[hidden] { display: none !important; }
+    .group-members-full:not([hidden]) { position: fixed; inset: 0; z-index: 125; display: grid; place-items: center; padding: 18px; background: rgba(8,12,18,.58); backdrop-filter: blur(7px); }
+    .group-members-full-panel { display: flex; width: min(460px,100%); max-height: min(760px,90dvh); flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.32); }
+    .group-members-full-head { display: flex; min-height: 58px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 15px; border-bottom: 1px solid var(--line); }
+    .group-members-full-title { margin: 0; font-size: 16px; font-weight: 750; }
+    .group-members-full-count { color: var(--muted); font-size: 11px; }
+    .group-members-search { height: 42px; flex: 0 0 auto; margin: 12px 14px 0; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; }
+    .group-members-full-list { display: grid; align-content: start; gap: 7px; overflow-y: auto; padding: 12px 14px 16px; }
+    .group-members-full-list .group-member-card { min-height: 48px; padding: 5px 7px; border-radius: 11px; }
+    .group-members-full-list .group-member-card:hover { background: var(--surface-soft); }
     .group-member-remove { margin-left: auto; padding: 5px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
     .group-member-remove:hover { background: var(--accent-soft); color: var(--accent); }
     .group-leave-button { width: 100%; margin-top: 12px; color: var(--accent); }
     .group-event-row { align-self: center; max-width: 90%; margin: 7px 0; text-align: center; }
     .group-event-pill { display: inline-block; padding: 6px 11px; border: 1px solid color-mix(in srgb,var(--line) 75%,transparent); border-radius: 999px; background: color-mix(in srgb,var(--surface) 84%,transparent); color: var(--muted); font-size: 10px; line-height: 1.4; box-shadow: 0 2px 8px rgba(30,35,42,.04); }
+    .call-event-row { display: flex; margin: 6px 0; }
+    .call-event-row.outgoing { justify-content: flex-end; }
+    .call-event-row.incoming { justify-content: flex-start; }
+    .call-event-card { display: flex; min-width: 158px; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 17px; background: var(--bubble-incoming); color: var(--ink); box-shadow: 0 2px 7px rgba(24,30,38,.08); }
+    .call-event-row.outgoing .call-event-card { background: var(--bubble-outgoing); color: var(--bubble-outgoing-ink); }
+    .call-event-icon { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .call-event-copy { display: grid; min-width: 0; gap: 4px; }
+    .call-event-title { font-size: 11px; font-weight: 700; }
+    .call-event-meta { display: flex; align-items: center; gap: 6px; color: color-mix(in srgb,currentColor 72%,transparent); font-size: 10px; }
     .profile-action { display: grid; justify-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
     .profile-action .icon-button { width: 38px; height: 38px; background: var(--surface-soft); }
     .detail-section { padding: 15px 17px; border-top: 1px solid var(--line); }
@@ -905,6 +924,12 @@
       .app { grid-template-columns: 300px minmax(340px, 1fr); }
       .details { display: none; }
       .app.show-details .details { position: fixed; z-index: 15; top: 14px; right: 14px; bottom: 14px; display: flex; width: min(330px, calc(100vw - 28px)); box-shadow: 0 20px 70px rgba(0,0,0,.28); }
+      .app.show-details .details.show-all-members { z-index: 30; top: 0; right: 0; bottom: 0; left: 0; width: 100%; border: 0; border-radius: 0; }
+      .app.show-details .details.show-all-members > :not(.details-head):not(#groupMembersFull) { display: none; }
+      .group-members-full:not([hidden]) { z-index: 1; position: relative; inset: auto; display: flex; min-height: 0; flex: 1; padding: 0; background: var(--surface); backdrop-filter: none; }
+      .group-members-full-panel { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+      .group-members-full-head { display: none; }
+      .group-members-full-list { padding-bottom: max(16px,env(safe-area-inset-bottom)); }
     }
     @media (min-width: 761px) { .desktop-call-history { display: grid; } }
     @media (max-width: 760px) {
@@ -927,8 +952,6 @@
       .chats { bottom: calc(76px + env(safe-area-inset-bottom)); }
       .chats { z-index: 2; }
       .conversation { z-index: 1; }
-      .conversation-drag-handle { display: none; }
-      .conversation.is-floating { position: absolute; inset: 0; width: auto; height: auto; min-height: 0; border-radius: 0; }
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
       .app.show-conversation .mobile-tab-bar { display: none; }
@@ -1110,7 +1133,6 @@
       <header class="conversation-head">
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
         <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
-        <button class="conversation-drag-handle" id="conversationDragHandle" type="button" aria-label="Переместить окно переписки" title="Перетащите, чтобы переместить; двойной щелчок — вернуть на место"><svg viewBox="0 0 12 20"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="10" r="1.4"/><circle cx="9" cy="10" r="1.4"/><circle cx="3" cy="17" r="1.4"/><circle cx="9" cy="17" r="1.4"/></svg></button>
         <div class="head-actions">
           <button class="icon-button call-start" id="startAudioCall" aria-label="Позвонить" title="Аудиозвонок" type="button" disabled hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
           <button class="icon-button group-members-toggle" id="showGroupMembers" aria-label="Участники чата" title="Участники чата" type="button" hidden><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/></svg></button>
@@ -1127,9 +1149,10 @@
     </section>
 
     <aside class="details" aria-label="Информация о контакте">
-      <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
+      <div class="details-head"><span class="details-title" id="detailsTitle">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
       <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button><button class="profile-action" id="groupAddMembers" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></span>Добавить</button><button class="profile-action" id="groupInviteButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span>Ссылка</button><button class="profile-action" id="groupSettingsButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.6.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.6-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.9l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.6-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.6.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z"/></svg></span>Настроить</button></div></div>
-      <div class="detail-section group-members-section" id="groupMembersSection" hidden><div class="section-label"><span>Участники</span><span id="groupMemberCount">0</span></div><div class="group-member-list" id="groupMemberList"><div class="group-member-list-state">Загрузка…</div></div><button class="settings-button group-leave-button" id="groupLeaveButton" type="button">Покинуть группу</button></div>
+      <div class="detail-section group-members-section" id="groupMembersSection" hidden><div class="section-label"><span>Участники</span><span id="groupMemberCount">0</span></div><div class="group-member-list" id="groupMemberList"><div class="group-member-list-state">Загрузка…</div></div><button class="group-members-show-all" id="groupMembersShowAll" type="button" hidden>Показать всех</button><button class="settings-button group-leave-button" id="groupLeaveButton" type="button">Покинуть группу</button></div>
+      <section class="group-members-full" id="groupMembersFull" aria-label="Все участники группы" hidden><div class="group-members-full-panel" role="dialog" aria-modal="true" aria-labelledby="groupMembersFullTitle"><header class="group-members-full-head"><h2 class="group-members-full-title" id="groupMembersFullTitle">Все участники</h2><span class="group-members-full-count" id="groupMembersFullCount">0</span><button class="icon-button" id="groupMembersFullClose" type="button" aria-label="Закрыть список участников">×</button></header><input class="group-members-search" id="groupMembersSearch" type="search" placeholder="Поиск по NickName" autocomplete="off"><div class="group-members-full-list" id="groupMembersFullList" aria-live="polite"></div></div></section>
       <div class="detail-section chat-appearance" id="chatAppearance" hidden><div class="section-label">Оформление чата</div><div class="chat-wallpaper-preview" id="chatWallpaperPreview"><span>Фон по умолчанию</span></div><input id="chatWallpaperInput" type="file" accept="image/*" hidden><div class="chat-wallpaper-actions"><button class="settings-button" id="chooseChatWallpaper" type="button">Своё фото</button><button class="settings-button" id="removeChatWallpaper" type="button" hidden>Сбросить</button></div><div class="settings-status" id="chatWallpaperStatus" role="status" aria-live="polite"></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
@@ -1217,6 +1240,7 @@
     </section>
   </div>
   <div class="call-dock" id="callDock" hidden>
+    <button class="call-dock-drag" id="callDockDrag" type="button" aria-label="Переместить свернутый звонок" title="Перетащить"><svg viewBox="0 0 12 20"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="10" r="1.4"/><circle cx="9" cy="10" r="1.4"/><circle cx="3" cy="17" r="1.4"/><circle cx="9" cy="17" r="1.4"/></svg></button>
     <button class="call-dock-main" id="callRestore" type="button" aria-label="Развернуть звонок"><span class="call-dock-title" id="callDockTitle">Аудиозвонок</span><span class="call-dock-status" id="callDockStatus"></span></button>
     <button class="call-dock-end" id="callDockEnd" type="button" aria-label="Завершить звонок" title="Завершить"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
   </div>
@@ -1458,6 +1482,6 @@
     </div>
   </section>
 
-  <script src="/app.js?v=chat-filter-slider-1" defer></script>
+  <script src="/app.js?v=call-logs-member-view-1" defer></script>
 </body>
 </html>
