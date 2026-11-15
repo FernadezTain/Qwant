@@ -47,6 +47,7 @@ const callRemoteAudio = document.getElementById('callRemoteAudio');
 const callRingtone = document.getElementById('callRingtone');
 const callStatus = document.getElementById('callStatus');
 const startAudioCallButton = document.getElementById('startAudioCall');
+const headerStartAudioCallButton = document.getElementById('headerStartAudioCall');
 const showGroupMembersButton = document.getElementById('showGroupMembers');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 const emojiCategories = [
@@ -2921,8 +2922,11 @@ async function copyUsername(username) {
 
 function updateCallControls() {
   const chat = chats.find(item => String(item.id) === String(activeId));
-  startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.isGroup || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
+  const canStartCall = Boolean(chat && !chat.isFavorites && !chat.isGroup && !chat.partner.is_deleted && !chat.partner.is_bot);
+  startAudioCallButton.disabled = !session?.sessionToken || !canStartCall || Boolean(activeCall);
   startAudioCallButton.hidden = false;
+  headerStartAudioCallButton.hidden = !canStartCall;
+  headerStartAudioCallButton.disabled = startAudioCallButton.disabled;
   showGroupMembersButton.hidden = !chat?.isGroup;
 }
 
@@ -3887,6 +3891,7 @@ startAudioCallButton.addEventListener('click', () => {
   closeDrawer();
   startAudioCall();
 });
+headerStartAudioCallButton.addEventListener('click', () => startAudioCallButton.click());
 document.getElementById('callHistoryRefresh').addEventListener('click', loadCallHistory);
 document.getElementById('callHistoryOpen').addEventListener('click', openCallHistory);
 document.getElementById('callHistoryClose').addEventListener('click', closeCallHistory);
