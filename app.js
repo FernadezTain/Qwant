@@ -1702,7 +1702,7 @@ function renderMessages(chat, animateRecent = false) {
 }
 
 function renderConversationEmptyState() {
-  messages.innerHTML = '<div class="conversation-empty-state"><svg class="conversation-empty-art" viewBox="0 0 560 400" aria-hidden="true"><path fill="#fff" d="M174 35h54v74h38V84h58v25h38V35h54v76h37v45h27v155h-34v37h-48v27H207v-27h-54v-35h-38v-49H56v-48h72v-37h32v-45h14z"/><path fill="#888" d="M209 221h53v15h-53zm127 0h53v15h-53z"/></svg><span class="conversation-empty-label">Выберите, кому хотели бы написать</span></div>';
+  messages.innerHTML = '<div class="conversation-empty-state"><div class="conversation-empty-visual"><svg class="conversation-empty-art" viewBox="0 0 480 360" aria-hidden="true"><g fill="#f8f9ff"><path d="M120 15h70v80h100V15h70v80h55v45h35v135h-35v45h-55v30H150v-30h-55v-30H65v-45H15v-45h75v-45h30z"/></g><g fill="#abb2c5"><path d="M145 48h22v36h-22zm168 0h22v36h-22zM148 176h58v15h-58zm126 0h58v15h-58zM230 207h20v10h-20zM222 221h12v8h-12zm24 0h12v8h-12z"/></g><g fill="#aeb9d1" opacity=".8"><path d="M48 116h10v10H48zm390 7h8v8h-8zM73 292h7v7h-7zm350-46h9v9h-9zM101 52h6v6h-6zM383 303h7v7h-7z"/></g></svg></div><span class="conversation-empty-label">Выберите, кому хотели бы написать</span></div>';
 }
 
 function conversationPhotos(chat) {
