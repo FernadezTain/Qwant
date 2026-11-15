@@ -102,6 +102,7 @@ let callSignalTimer;
 let callTimeoutTimer;
 let callSignalsPolling = false;
 let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
+const pendingCallCandidates = new Map();
 
 function readSession() {
   try {
@@ -2187,7 +2188,7 @@ function flushLocalCallCandidates(call) {
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
   callStatus.textContent = status;
-  document.getElementById('callAvatar').textContent = initials(name || 'FX');
+  setAvatar(document.getElementById('callAvatar'), activeCall?.partner || { display_name:name || 'FX' });
   document.getElementById('callDockTitle').textContent = name || 'Аудиозвонок';
   document.getElementById('callDockStatus').textContent = status;
   document.getElementById('callAccept').hidden = !incoming;
@@ -2325,7 +2326,7 @@ async function startAudioCall() {
     return showMessageToast('Браузер не поддерживает аудиозвонки.');
   }
   if (!window.isSecureContext) return showMessageToast('Для звонков откройте Messenger через HTTPS.');
-  const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
+  const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, partner:chat.partner, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
   activeCall = call;
   updateCallControls();
   setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
@@ -2394,16 +2395,26 @@ async function processCallSignal(signal) {
         }).catch(() => {});
         return;
       }
-      call = { id:signal.callId, conversationId:String(signal.conversationId), name:chat.name, initiator:false, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
+      call = { id:signal.callId, conversationId:String(signal.conversationId), name:chat.name, partner:chat.partner, initiator:false, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
       activeCall = call;
       updateCallControls();
       setCallDialog({ name:call.name, status:'Входящий аудиозвонок', incoming:true });
       callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Пропущенный звонок.' }), 45000);
+      const candidates = pendingCallCandidates.get(call.id) || [];
+      pendingCallCandidates.delete(call.id);
+      for (const candidate of candidates) await processCallSignal(candidate);
     } else if (call.id !== signal.callId) {
       api(`/api/social/chats/${encodeURIComponent(signal.conversationId)}/call-signals`, {
         method:'POST', body:JSON.stringify({ callId:signal.callId, type:'declined', payload:{} })
       }).catch(() => {});
     }
+    return;
+  }
+  if (!call && signal.type === 'ice') {
+    const candidates = pendingCallCandidates.get(signal.callId) || [];
+    if (candidates.length < 64) candidates.push(signal);
+    pendingCallCandidates.set(signal.callId, candidates);
+    while (pendingCallCandidates.size > 16) pendingCallCandidates.delete(pendingCallCandidates.keys().next().value);
     return;
   }
   if (!call || call.id !== signal.callId || call.conversationId !== String(signal.conversationId)) return;
@@ -2445,9 +2456,9 @@ async function processCallSignal(signal) {
     }
     return;
   }
-  if (signal.type === 'ice' && call.peer) {
+  if (signal.type === 'ice') {
     try {
-      if (call.peer.remoteDescription) await call.peer.addIceCandidate(signal.payload);
+      if (call.peer?.remoteDescription) await call.peer.addIceCandidate(signal.payload);
       else call.pendingCandidates.push(signal.payload);
     } catch {
       await finishAudioCall({ status:'Ошибка сетевого соединения.' });
@@ -2456,7 +2467,7 @@ async function processCallSignal(signal) {
 }
 
 async function pollCallSignals() {
-  if (!session?.sessionToken || document.hidden || callSignalsPolling) return;
+  if (!session?.sessionToken || !chatsLoadedOnce || document.hidden || callSignalsPolling) return;
   callSignalsPolling = true;
   try {
     const result = await api('/api/social/calls/signals');
@@ -2849,6 +2860,7 @@ document.getElementById('callMute').addEventListener('click', event => {
   track.enabled = !track.enabled;
   event.currentTarget.querySelector('span').textContent = track.enabled ? 'Выключить микрофон' : 'Включить микрофон';
   event.currentTarget.setAttribute('aria-pressed', String(!track.enabled));
+  event.currentTarget.setAttribute('aria-label', track.enabled ? 'Выключить микрофон' : 'Включить микрофон');
 });
 
 document.getElementById('messageForm').addEventListener('submit', async event => {
