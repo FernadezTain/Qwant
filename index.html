@@ -531,11 +531,13 @@
     .drawer-cover.has-banner .drawer-handle { color: rgba(255,255,255,.82); text-shadow: 0 1px 5px rgba(0,0,0,.45); }
     .drawer-item { display: flex; width: 100%; min-height: 48px; flex: 0 0 auto; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer; }
     .drawer-item:disabled { opacity: .48; cursor: not-allowed; }
+    .drawer-item[hidden] { display: none !important; }
     .drawer-item:hover { background: var(--surface-soft); }
     .drawer-item svg { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .drawer-group { width: 100%; flex: 0 0 auto; }
     .drawer-group .drawer-item { width: 100%; }
     @media (min-width: 761px) { .preference-links [data-drawer-settings] { display: none; } }
+    @media (min-width: 761px) { .preference-links [data-drawer-settings="admin"] { display: flex; } }
     .drawer-separator { height: 1px; margin: 8px 0; background: var(--line); }
     .drawer-spacer { flex: 1; min-height: 35px; }
     .drawer-product { background: linear-gradient(110deg,rgba(255,255,255,.07),transparent); }
@@ -572,7 +574,8 @@
     .user-profile-avatar { width: 78px; height: 78px; flex: 0 0 auto; border: 4px solid var(--surface); border-radius: 25px; font-size: 23px; }
     .user-profile-name { min-width: 0; margin: 0 0 6px; overflow-wrap: anywhere; font-size: 19px; font-weight: 750; }
     .user-profile-name-row { display: flex; align-items: center; gap: 7px; }
-    .official-profile-badge { display: inline-grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border: 2px solid color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 50%; background: linear-gradient(145deg,#66c9ff,#2585ec 68%,#1466ce); color: #fff; font-size: 12px; font-weight: 900; line-height: 1; box-shadow: 0 2px 7px rgba(32,132,235,.35); }
+    .official-profile-badge { position: relative; display: inline-grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border: 2px solid color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 50%; background: linear-gradient(145deg,#66c9ff,#2585ec 68%,#1466ce); color: #fff; font-size: 12px; font-weight: 900; line-height: 1; box-shadow: 0 2px 7px rgba(32,132,235,.35); }
+    .official-profile-badge::after { position: absolute; right: -3px; bottom: -2px; display: grid; width: 10px; height: 10px; place-items: center; border: 1px solid var(--surface); border-radius: 50%; background: #fff; color: #2180d8; content: '✓'; font-size: 7px; font-weight: 900; }
     .official-profile-badge[hidden], .official-profile-notice[hidden] { display: none; }
     .official-profile-notice { margin: 13px 0 -3px; padding: 10px 12px; border-left: 3px solid #3997ee; border-radius: 0 9px 9px 0; background: color-mix(in srgb,#398fe3 11%,var(--surface-soft)); color: var(--muted); font-size: 11px; line-height: 1.5; }
     .user-profile-handle { padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
@@ -714,7 +717,7 @@
     @keyframes bot-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes bot-page-out { to { opacity: 0; transform: translateY(-5px); } }
     @keyframes bot-message-in { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); max-height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
+    .settings-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%, 900px); height: min(760px, 90dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 32px 90px rgba(30,26,20,.26); transform: translateY(10px) scale(.99); transition: transform .22s ease; }
     .settings-overlay.open .settings-dialog { transform: none; }
     .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 21px; border-bottom: 1px solid var(--line); }
     .settings-heading { font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
@@ -723,11 +726,13 @@
     .settings-nav-button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font-size: 12px; text-align: left; cursor: pointer; transition: .16s ease; }
     .settings-nav-button:hover { background: var(--surface); color: var(--ink); }
     .settings-nav-button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); font-weight: 700; }
+    .settings-nav-button[hidden] { display: none !important; }
     .settings-nav-icon { display: inline-grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; }
     .settings-nav-icon svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .settings-content { overflow: auto; padding: clamp(18px,4vw,32px); }
     .settings-page { display: none; max-width: 620px; animation: auth-rise .24s ease both; }
     .settings-page.active { display: block; }
+    .settings-page[data-settings-content="admin"] { max-width: none; }
     .settings-page-title { margin: 0; font-size: 21px; letter-spacing: -.7px; }
     .settings-page-copy { margin: 7px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
     .setting-row { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
@@ -752,6 +757,57 @@
     .color-option { width: 28px; height: 28px; border: 3px solid var(--surface); border-radius: 50%; outline: 1px solid var(--line); cursor: pointer; }
     .color-option.active { outline: 2px solid var(--ink); }
     .settings-range { width: min(220px,40vw); accent-color: var(--accent); }
+    .verified-mark { position: relative; display: inline-grid; width: 17px; height: 17px; flex: 0 0 17px; place-items: center; border: 1px solid rgba(255,255,255,.82); border-radius: 50%; background: linear-gradient(145deg,#66c9ff,#2585ec 68%,#1466ce); color: #fff; font-size: 10px; font-weight: 900; line-height: 1; vertical-align: -2px; box-shadow: 0 1px 5px rgba(32,132,235,.28); }
+    .verified-mark[hidden] { display: none !important; }
+    .verified-mark::after { position: absolute; right: -3px; bottom: -2px; display: grid; width: 8px; height: 8px; place-items: center; border: 1px solid var(--surface); border-radius: 50%; background: #fff; color: #2180d8; content: '✓'; font-size: 6px; font-weight: 900; }
+    .verified-mark.large { width: 23px; height: 23px; flex-basis: 23px; font-size: 13px; }
+    .verified-mark.large::after { width: 10px; height: 10px; font-size: 7px; }
+    .verification-admin-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .verification-admin-head .settings-page-copy { margin-bottom: 17px; }
+    .verification-admin-head .settings-page-title { display: block; }
+    .verification-admin-head .settings-button { flex: 0 0 auto; }
+    .verification-tabs { --verification-tab: 0; position: relative; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); }
+    .verification-tabs::before { position: absolute; inset: 4px auto 4px 4px; width: calc((100% - 12px) / 2); border: 1px solid color-mix(in srgb,var(--accent) 18%,transparent); border-radius: 10px; background: var(--surface); box-shadow: 0 3px 10px rgba(20,25,30,.08); content: ''; transform: translateX(calc(var(--verification-tab) * (100% + 4px))); transition: transform .38s cubic-bezier(.2,.85,.25,1); }
+    .verification-tabs[data-level="full"] { --verification-tab: 1; }
+    .verification-tab { position: relative; z-index: 1; min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; transition: color .2s ease; }
+    .verification-tab.active { color: var(--accent); }
+    .verification-list { display: grid; align-content: start; gap: 8px; min-height: 245px; max-height: 440px; margin-top: 13px; overflow: auto; }
+    .verification-user-row { display: flex; width: 100%; min-height: 66px; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .16s,transform .16s,background .16s; animation: auth-rise .2s ease both; }
+    .verification-user-row:hover { transform: translateY(-1px); border-color: color-mix(in srgb,var(--accent) 45%,var(--line)); background: var(--surface-soft); }
+    .verification-avatar { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px; font-size: 13px; }
+    .verification-user-copy { display: grid; min-width: 0; flex: 1; gap: 4px; }
+    .verification-user-title { display: flex; align-items: center; gap: 6px; overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .verification-user-handle { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .verification-user-tier { flex: 0 0 auto; color: var(--muted); font-size: 10px; }
+    .verification-empty { display: grid; min-height: 220px; place-items: center; padding: 24px; border: 1px dashed var(--line); border-radius: 15px; color: var(--muted); font-size: 12px; text-align: center; }
+    .verification-status { min-height: 17px; margin-top: 10px; color: var(--muted); font-size: 11px; }
+    .verification-modal { position: fixed; inset: 0; z-index: 145; display: grid; place-items: center; padding: 18px; background: rgba(11,16,24,.56); opacity: 0; visibility: hidden; transition: opacity .18s,visibility .18s; backdrop-filter: blur(7px); }
+    .verification-modal.open { opacity: 1; visibility: visible; }
+    .verification-modal[hidden] { display: none !important; }
+    .verification-modal-card { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(520px,100%); height: min(590px,84dvh); overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 0 25px 80px rgba(0,0,0,.32); transform: translateY(8px) scale(.985); transition: transform .2s ease; }
+    .verification-modal.open .verification-modal-card { transform: none; }
+    .verification-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 700; }
+    .verification-modal-body { min-height: 0; overflow: auto; padding: 18px; }
+    .verification-search { width: 100%; height: 43px; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; }
+    .verification-search:focus { border-color: var(--accent); }
+    .verification-search-results { display: grid; gap: 7px; max-height: 430px; margin-top: 11px; overflow: auto; }
+    .verification-search-result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+    .verification-search-result:hover { border-color: var(--line); background: var(--surface-soft); }
+    .verification-selected-user { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); }
+    .verification-selected-user .verification-avatar { width: 52px; height: 52px; flex-basis: 52px; }
+    .verification-choice-copy { margin: 15px 0 9px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .verification-choice-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+    .verification-choice-button { min-height: 43px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; transition: .16s ease; }
+    .verification-choice-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .verification-choice-button:disabled { opacity: .42; cursor: not-allowed; }
+    .verification-choice-button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .verification-choice-button.danger { color: #b94a3f; }
+    .verification-choice-button.full-width { grid-column: 1 / -1; }
+    .verification-confirm-card { padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-soft); text-align: center; }
+    .verification-confirm-title { margin: 0 0 8px; font-size: 16px; }
+    .verification-confirm-copy { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+    .verification-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .verification-modal-error { min-height: 18px; margin-top: 9px; color: #bd5548; font-size: 11px; }
     .product-card { padding: 23px; background: linear-gradient(135deg,#fff8eb,#f8e8dd 62%,#f3eee2); }
     .product-title { margin: 0; font-size: 24px; letter-spacing: -1px; }
     .product-balance { margin: 12px 0 18px; color: #8d6044; font-size: 14px; font-weight: 700; }
@@ -943,6 +999,11 @@
       .profile-screen-body { width: 100%; max-height: none; min-height: calc(100% - 62px); margin: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
       .settings-overlay { padding: 0; }
       .settings-dialog { width: 100%; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
+      .verification-modal { padding: 0; background: var(--page); backdrop-filter: none; }
+      .verification-modal-card { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+      .verification-modal-head { min-height: calc(58px + env(safe-area-inset-top)); padding: max(10px,env(safe-area-inset-top)) 16px 10px; }
+      .verification-modal-body { padding: 17px 16px max(24px,env(safe-area-inset-bottom)); }
+      .verification-list { max-height: none; min-height: 50dvh; }
       .settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); }
       .settings-nav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
       .settings-nav-button { min-height: 38px; gap: 6px; padding: 8px 10px; white-space: nowrap; }
@@ -1134,7 +1195,7 @@
     <section class="conversation" aria-label="Переписка">
       <header class="conversation-head">
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
-        <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
+        <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат <span class="verified-mark" id="headerVerificationBadge" aria-label="Верифицированный аккаунт" hidden>Q</span></div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
         <div class="head-actions">
           <button class="icon-button group-members-toggle" id="showGroupMembers" aria-label="Участники чата" title="Участники чата" type="button" hidden><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/></svg></button>
           <button class="icon-button" id="messageSearchButton" aria-label="Поиск в переписке" title="Поиск в переписке"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg></button>
@@ -1263,6 +1324,7 @@
       </div>
       <div class="drawer-group preference-links">
         <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>Настройки<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" id="drawerAdmin" data-drawer-settings="admin" type="button" hidden><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Панель администратора<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="privacy"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>Конфиденциальность<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M10 18.5h4"/></svg>Устройства<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="personalization"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l1.5-1.2-1.5-2.7-1.8.6a7 7 0 0 0-2-1.2L14.8 4h-3.1l-.3 2.3a7 7 0 0 0-2 1.2l-1.8-.6-1.5 2.7 1.5 1.2a7 7 0 0 0 0 2.4l-1.5 1.2 1.5 2.7 1.8-.6a7 7 0 0 0 2 1.2l.3 2.3h3.1l.3-2.3a7 7 0 0 0 2-1.2l1.8.6 1.5-2.7-1.5-1.2A7 7 0 0 0 19 12Z"/></svg>Оформление<span class="drawer-chevron">›</span></button>
@@ -1288,6 +1350,7 @@
           <button class="settings-nav-button" data-settings-page="personalization"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l1.5-1.2-1.5-2.7-1.8.6a7 7 0 0 0-2-1.2L14.8 4h-3.1l-.3 2.3a7 7 0 0 0-2 1.2l-1.8-.6-1.5 2.7 1.5 1.2a7 7 0 0 0 0 2.4l-1.5 1.2 1.5 2.7 1.8-.6a7 7 0 0 0 2 1.2l.3 2.3h3.1l.3-2.3a7 7 0 0 0 2-1.2l1.8.6 1.5-2.7-1.5-1.2A7 7 0 0 0 19 12Z"/></svg></span>Персонализация</button>
           <button class="settings-nav-button" data-settings-page="plus"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span>Fernie+</button>
           <button class="settings-nav-button" data-settings-page="coins"><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg></span>FernieCoins</button>
+          <button class="settings-nav-button" id="settingsAdminNav" data-settings-page="admin" type="button" hidden><span class="settings-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>Администрирование</button>
         </nav>
         <div class="settings-content" id="settingsContent">
           <section class="settings-page active" data-settings-content="notifications"><h2 class="settings-page-title">Уведомления</h2><p class="settings-page-copy">Управляйте уведомлениями Qwant на этом устройстве и сообщениями в Telegram.</p>
@@ -1323,9 +1386,25 @@
               <div class="coins-transaction-list" id="coinsTransactionList" aria-live="polite"><div class="coins-transaction-state">Загружаем историю операций…</div></div>
             </section>
           </section>
+          <section class="settings-page" data-settings-content="admin">
+            <div class="verification-admin-head"><div><h2 class="settings-page-title">Верификация пользователей</h2><p class="settings-page-copy">Управляйте базовой и полной верификацией аккаунтов Qwant.</p></div><button class="settings-button" id="verificationOpenSearch" type="button">Верифицировать</button></div>
+            <div class="verification-tabs" id="verificationTabs" role="tablist" aria-label="Категории верификации" data-level="basic"><button class="verification-tab active" type="button" role="tab" aria-selected="true" data-verification-level="basic">Базовая</button><button class="verification-tab" type="button" role="tab" aria-selected="false" data-verification-level="full">Полная</button></div>
+            <div class="verification-list" id="verificationUserList" aria-live="polite"><div class="verification-empty">Загружаем список…</div></div><div class="verification-status" id="verificationAdminStatus" role="status" aria-live="polite"></div>
+          </section>
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="verification-modal" id="verificationModal" aria-hidden="true" hidden>
+    <article class="verification-modal-card" role="dialog" aria-modal="true" aria-labelledby="verificationModalTitle">
+      <header class="verification-modal-head"><span id="verificationModalTitle">Верифицировать пользователя</span><button class="icon-button" id="verificationModalClose" type="button" aria-label="Закрыть">×</button></header>
+      <div class="verification-modal-body">
+        <div id="verificationSearchView"><input class="verification-search" id="verificationSearchInput" type="search" autocomplete="off" placeholder="Введите NickName или имя пользователя" aria-label="Глобальный поиск пользователей"><div class="verification-search-results" id="verificationSearchResults" aria-live="polite"><div class="verification-empty">Введите минимум 2 символа для поиска.</div></div></div>
+        <div id="verificationChoiceView" hidden><div class="verification-selected-user" id="verificationSelectedUser"></div><p class="verification-choice-copy" id="verificationCurrentStatus"></p><p class="verification-choice-copy">Выберите тип верификации:</p><div class="verification-choice-actions"><button class="verification-choice-button" type="button" data-verification-choice="basic">Базовая</button><button class="verification-choice-button" id="verificationFullChoice" type="button" data-verification-choice="full">Полная</button><button class="verification-choice-button danger full-width" id="verificationRemoveChoice" type="button" data-verification-choice="none" hidden>Снять верификацию</button><button class="verification-choice-button full-width" id="verificationCancelChoice" type="button">Отмена</button></div><div class="verification-modal-error" id="verificationChoiceHint" role="status"></div></div>
+        <div id="verificationConfirmView" hidden><div class="verification-confirm-card"><h3 class="verification-confirm-title">Подтверждение</h3><p class="verification-confirm-copy" id="verificationConfirmCopy"></p></div><div class="verification-modal-actions"><button class="settings-button" id="verificationConfirmCancel" type="button">Отмена</button><button class="settings-button" id="verificationConfirmApply" type="button">Да, подтвердить</button></div><div class="verification-modal-error" id="verificationConfirmError" role="status"></div></div>
+      </div>
+    </article>
   </section>
 
   <section class="bot-manager" id="botManager" aria-hidden="true">
@@ -1483,6 +1562,6 @@
     </div>
   </section>
 
-  <script src="/app.js?v=call-logs-member-view-1" defer></script>
+  <script src="/app.js?v=verification-admin-1" defer></script>
 </body>
 </html>
