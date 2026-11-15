@@ -872,6 +872,23 @@ function closeDrawer() {
   drawerBackdrop.setAttribute('aria-hidden', 'true');
 }
 
+function setMobileTabActive(tab) {
+  const nav = document.getElementById('mobileTabBar');
+  const buttons = [...nav.querySelectorAll('[data-mobile-tab]')];
+  const nextIndex = buttons.indexOf(tab);
+  if (nextIndex < 0) return;
+  const currentIndex = Number(nav.dataset.activeIndex ?? 1);
+  nav.style.setProperty('--tab-offset', `${nextIndex * 100}%`);
+  nav.dataset.activeIndex = nextIndex;
+  nav.classList.remove('slide-left', 'slide-right');
+  if (nextIndex !== currentIndex) {
+    nav.classList.add(nextIndex < currentIndex ? 'slide-left' : 'slide-right');
+    clearTimeout(nav.animationTimer);
+    nav.animationTimer = setTimeout(() => nav.classList.remove('slide-left', 'slide-right'), 380);
+  }
+  buttons.forEach(button => button.classList.toggle('active', button === tab));
+}
+
 async function loadOwnProfile() {
   const userId = session?.userId;
   if (!userId) return null;
@@ -1639,7 +1656,8 @@ async function selectChat(id) {
     messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
   }
   renderChats();
-  document.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button.dataset.mobileTab === 'chats'));
+  const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
+  if (chatsTab) setMobileTabActive(chatsTab);
   app.classList.add('show-conversation');
   await loadChatMessages(chat, !chat.messagesLoaded);
 }
@@ -2224,9 +2242,9 @@ document.getElementById('backToChats').addEventListener('click', () => {
 });
 document.querySelectorAll('[data-mobile-tab]').forEach(button => button.addEventListener('click', () => {
   const tab = button.dataset.mobileTab;
-  if (tab === 'calls') return showMessageToast('Раздел звонков пока недоступен');
-  document.querySelectorAll('[data-mobile-tab]').forEach(item => item.classList.toggle('active', item === button));
+  setMobileTabActive(button);
   if (tab === 'contacts') {
+    closeDrawer();
     if (app.classList.contains('show-conversation')) document.getElementById('backToChats').click();
     return document.getElementById('newChat').click();
   }
@@ -2240,8 +2258,7 @@ document.querySelectorAll('[data-mobile-tab]').forEach(button => button.addEvent
     return;
   }
   if (tab === 'settings') {
-    if (drawerBackdrop.classList.contains('open')) closeDrawer();
-    else openDrawer();
+    if (!drawerBackdrop.classList.contains('open')) openDrawer();
   }
 }));
 document.getElementById('newChat').addEventListener('click', () => {
@@ -2252,14 +2269,24 @@ document.getElementById('newChat').addEventListener('click', () => {
   searchInput.focus();
 });
 document.getElementById('menuToggle').addEventListener('click', openDrawer);
-document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerClose').addEventListener('click', () => {
+  closeDrawer();
+  const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
+  if (chatsTab) setMobileTabActive(chatsTab);
+});
 document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
 document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
 drawerBackdrop.addEventListener('click', event => {
-  if (event.target === drawerBackdrop) closeDrawer();
+  if (event.target === drawerBackdrop) {
+    closeDrawer();
+    const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
+    if (chatsTab) setMobileTabActive(chatsTab);
+  }
 });
 document.getElementById('drawerNewChat').addEventListener('click', () => {
   closeDrawer();
+  const contactsTab = document.querySelector('[data-mobile-tab="contacts"]');
+  if (contactsTab) setMobileTabActive(contactsTab);
   document.getElementById('newChat').click();
 });
 document.getElementById('drawerProfileButton').addEventListener('click', () => {
@@ -2271,6 +2298,7 @@ document.getElementById('drawerProfile').addEventListener('click', () => {
   openProfile();
 });
 document.getElementById('drawerSettings').addEventListener('click', () => openSettings());
+document.querySelectorAll('[data-drawer-settings]').forEach(button => button.addEventListener('click', () => openSettings(button.dataset.drawerSettings)));
 document.getElementById('drawerBots').addEventListener('click', openBotManager);
 document.getElementById('drawerPlus').addEventListener('click', () => openSettings('plus'));
 document.getElementById('drawerCoins').addEventListener('click', () => openSettings('coins'));
