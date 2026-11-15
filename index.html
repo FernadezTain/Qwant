@@ -203,6 +203,15 @@
     @keyframes call-avatar-ring { 0%,100% { transform: scale(1); } 50% { transform: scale(1.055); } }
     @keyframes call-speaking-dot { to { transform: scale(.65); opacity: .55; } }
     .messages { display: flex; flex: 1; flex-direction: column; gap: 7px; overflow-y: auto; padding: 18px clamp(16px, 5vw, 65px); background-color: var(--surface-soft); background-image: radial-gradient(rgba(140, 125, 102, .095) .8px, transparent .8px); background-size: 19px 19px; }
+    .app.no-active-chat { grid-template-columns: 330px minmax(0,1fr); padding: 0; gap: 0; }
+    .app.no-active-chat .chats, .app.no-active-chat .conversation { border: 0; border-radius: 0; box-shadow: none; }
+    .app.no-active-chat .conversation { background: #000; }
+    .app.no-active-chat .conversation-head, .app.no-active-chat .composer-wrap, .app.no-active-chat .deleted-chat-actions, .app.no-active-chat .details { display: none; }
+    .app.no-active-chat .messages { display: grid; flex: 1; place-items: center; padding: 24px; overflow: hidden; background: #000; background-image: none; }
+    .conversation-empty-state { position: relative; display: grid; width: min(100%, 560px); aspect-ratio: 1.4; place-items: center; }
+    .conversation-empty-art { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 15px rgba(255,255,255,.55)) drop-shadow(0 0 42px rgba(255,255,255,.23)); }
+    .conversation-empty-label { position: absolute; top: 54%; left: 50%; width: max-content; max-width: 90%; padding: 6px 12px; transform: translate(-50%,-50%); border-radius: 999px; background: rgba(91,91,91,.94); color: #fff; font-size: 12px; line-height: 1.2; text-align: center; }
+    .app:not(.no-active-chat) .conversation-empty-state { display: none; }
     .messages.has-chat-wallpaper { background-image: linear-gradient(rgba(248,247,243,.25),rgba(248,247,243,.25)),var(--chat-wallpaper); background-position: center; background-size: cover; background-repeat: no-repeat; }
     .messages.has-chat-wallpaper .message-row:not(.own) .bubble { background: color-mix(in srgb,var(--bubble-incoming) 90%,transparent); backdrop-filter: blur(12px); }
     .messages.has-chat-wallpaper .message-row.own .bubble { background: color-mix(in srgb,var(--bubble-outgoing) 88%,transparent); backdrop-filter: blur(12px); }
@@ -992,6 +1001,7 @@
     }
     @media (min-width: 761px) { .desktop-call-history { display: grid; } }
     @media (max-width: 760px) {
+      .app.no-active-chat { display: block; padding: 0; }
       .auth-screen { padding: 18px; }
       .auth-card { padding: 0; }
       .profile-screen { display: block; padding: 0; overflow-y: auto; background: var(--page); backdrop-filter: none; }
@@ -1182,7 +1192,7 @@
   </style>
 </head>
 <body class="auth-locked">
-  <main class="app" id="app">
+  <main class="app no-active-chat" id="app">
     <section class="chats" aria-label="Список чатов">
       <header class="chats-head">
         <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title" aria-live="polite">Сообщения</h1></div></div><div class="head-row-actions"><button class="icon-button desktop-call-history" id="callHistoryOpen" type="button" aria-label="История звонков" title="Звонки"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button><button class="icon-button" id="newGroup" type="button" aria-label="Создать группу" title="Создать группу"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></button><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
@@ -1202,7 +1212,7 @@
           <button class="icon-button" id="detailsToggle" aria-label="Показать информацию о чате" title="Информация о чате"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         </div>
       </header>
-      <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="messages" id="messages" aria-live="polite"><div class="conversation-empty-state"><svg class="conversation-empty-art" viewBox="0 0 560 400" aria-hidden="true"><path fill="#fff" d="M174 35h54v74h38V84h58v25h38V35h54v76h37v45h27v155h-34v37h-48v27H207v-27h-54v-35h-38v-49H56v-48h72v-37h32v-45h14z"/><path fill="#888" d="M209 221h53v15h-53zm127 0h53v15h-53z"/></svg><span class="conversation-empty-label">Выберите, кому хотели бы написать</span></div></div>
       <form class="composer-wrap" id="messageForm">
         <div class="reply-bar" id="replyBar" hidden><div class="reply-bar-copy"><div class="reply-bar-title" id="replyBarTitle">Ответ</div><div class="reply-bar-text" id="replyBarText"></div></div><button class="reply-bar-close" id="cancelReply" type="button" aria-label="Отменить ответ">×</button></div>
         <div class="composer"><button type="button" class="icon-button" id="attachButton" aria-label="Прикрепить фото" title="Прикрепить фото"><svg viewBox="0 0 24 24"><path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button><input id="attachInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden><input id="messageInput" type="text" placeholder="Написать сообщение…" autocomplete="off" aria-label="Текст сообщения"><div class="emoji-picker-wrap" id="emojiPickerWrap"><button type="button" class="icon-button" id="emojiButton" aria-label="Добавить эмодзи" title="Эмодзи" aria-expanded="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><div class="emoji-picker" id="emojiPicker" aria-label="Выбор эмодзи"><input class="emoji-picker-search" id="emojiSearch" type="search" placeholder="Поиск эмодзи" autocomplete="off"><div class="emoji-picker-categories" id="emojiCategories" role="tablist" aria-label="Категории эмодзи"></div><div class="emoji-picker-grid" id="emojiGrid" role="listbox" aria-label="Эмодзи"></div></div></div><button class="send-button" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="m21 3-7.5 18-3.8-7.7L2 9.5Z"/><path d="M21 3 9.7 13.3"/></svg></button></div>
