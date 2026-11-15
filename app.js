@@ -107,6 +107,12 @@ let callSignalsPolling = false;
 let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
 const pendingCallCandidates = new Map();
 let callVoiceContext = null;
+let pendingGroupInviteCode = new URLSearchParams(location.search).get('groupInvite') || '';
+let activeGroupSettingsChat = null;
+let pendingGroupCreateAvatar = '';
+let pendingGroupSettingsAvatar = '';
+let removeGroupSettingsAvatar = false;
+let pendingGroupInvite = null;
 
 function readSession() {
   try {
@@ -224,9 +230,10 @@ function unlock(data) {
   authCodeInput.value = '';
   renderAuthCode();
   updateAccountMenu();
-  registerDevice().catch(() => {}).finally(() => {
+  registerDevice().catch(() => {}).finally(async () => {
     pageLoader.classList.add('hidden');
-    loadChats();
+    await loadChats();
+    await handlePendingGroupInvite();
     loadSettings().then(loadProducts);
     loadOwnProfile();
     startDeviceChecks();
@@ -1053,6 +1060,31 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
 
+function linkifyMessageText(value) {
+  const text = String(value ?? '');
+  const urlPattern = /https?:\/\/[^\s<>"']+/giu;
+  let output = '';
+  let cursor = 0;
+  for (const match of text.matchAll(urlPattern)) {
+    const raw = match[0];
+    const urlText = raw.replace(/[),.!?;:]+$/u, '');
+    let url;
+    try {
+      url = new URL(urlText);
+    } catch {
+      continue;
+    }
+    if (!['http:', 'https:'].includes(url.protocol)) continue;
+    const start = match.index;
+    output += escapeHtml(text.slice(cursor, start));
+    const inviteCode = url.origin === location.origin ? url.searchParams.get('groupInvite') : null;
+    output += `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer"${inviteCode ? ` data-group-invite="${escapeHtml(inviteCode)}"` : ''}>${escapeHtml(urlText)}</a>`;
+    output += escapeHtml(raw.slice(urlText.length));
+    cursor = start + raw.length;
+  }
+  return (output + escapeHtml(text.slice(cursor))).replace(/\r?\n/g, '<br>');
+}
+
 function initials(name = '') {
   return String(name).trim().split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase('ru') || 'FX';
 }
@@ -1125,13 +1157,18 @@ function dateLabel(value) {
 }
 
 function mapChat(row) {
-  const partner = row.partner || {};
+  const isGroup = row.is_group === true;
+  const partner = isGroup ? { id:row.id, display_name:row.title, avatar_url:row.avatar_url || null, description:row.description || '', is_group:true } : (row.partner || {});
   const name = partner.display_name || partner.username || 'Пользователь';
   return {
     id: row.id,
     partner,
+    isGroup,
+    inviteCode:row.inviteCode || '',
+    isAdmin:row.isAdmin === true,
+    memberCount: Number(row.memberCount) || 0,
     name,
-    handle: partner.is_deleted ? 'Аккаунт удален' : partner.username ? `@${partner.username}` : name,
+    handle: isGroup ? `Группа · ${Number(row.memberCount) || 0} участников` : partner.is_deleted ? 'Аккаунт удален' : partner.username ? `@${partner.username}` : name,
     initials: initials(name),
     color: colors[Math.abs(Number(String(partner.id || name).replace(/\D/g, '').slice(-6)) || name.length) % colors.length],
     lastMessageAt: row.lastMessageAt,
@@ -1140,7 +1177,7 @@ function mapChat(row) {
     unread: Number(row.unreadCount) || 0,
     pinned: pinnedChatIds.has(String(row.id)),
     online: false,
-    personal: true,
+    personal: !isGroup,
     messages: [],
     messagesLoaded: false
   };
@@ -1273,8 +1310,8 @@ function photoAlbumMarkup(chat, album, previousDate = '', animate = false) {
   }).join('');
   const statusMessage = album.find(message => message.sendStatus === 'failed') || album.find(message => message.sendStatus === 'sending') || latest;
   return `${datePill}<div class="message-row ${first.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(first.id)}">
-    ${first.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-    <article class="bubble album-bubble"><div class="album-grid count-${album.length}">${tiles}</div>${replyQuote}${first.text ? `<div class="album-caption">${escapeHtml(first.text)}</div>` : ''}<div class="bubble-meta"><span>${escapeHtml(latest.time)}</span>${messageStatusMarkup(statusMessage)}</div></article>
+    ${first.own ? '' : avatarMarkup(first.sender || chat.partner, 'message-avatar')}
+    <article class="bubble album-bubble"><div class="album-grid count-${album.length}">${tiles}</div>${replyQuote}${first.text ? `<div class="album-caption">${linkifyMessageText(first.text)}</div>` : ''}<div class="bubble-meta"><span>${escapeHtml(latest.time)}</span>${messageStatusMarkup(statusMessage)}</div></article>
   </div>`;
 }
 
@@ -1282,14 +1319,17 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
   const replyQuote = message.replyText ? `<div class="reply-quote"><b>${escapeHtml(message.replySender || 'Ответ')}</b>${escapeHtml(message.replyText)}</div>` : '';
+  const senderLabel = chat.isGroup && !message.own && message.sender
+    ? `<div class="group-sender-name">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}</div>`
+    : '';
   if (message.type === 'udg_gift') {
     const gift = message.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' };
     const image = safeImageUrl(gift.image_url);
     const background = safeImageUrl(gift.background_url);
     const backgroundStyle = background ? ` style="background-image:url('${escapeHtml(background)}')"` : '';
     return `${datePill}<div class="message-row ${message.own ? 'own' : ''} gift-message-row ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
-      ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-      <article class="bubble gift-message-bubble">
+      ${message.own ? '' : avatarMarkup(message.sender || chat.partner, 'message-avatar')}
+      <article class="bubble gift-message-bubble">${senderLabel}
         ${replyQuote}
         <div class="gift-message-label">${message.own ? 'Вы передали подарок' : 'Вам передали подарок'}</div>
         <div class="gift-preview-card">
@@ -1308,8 +1348,8 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   const image = message.localImage ? message.imageUrl : safeImageUrl(message.imageUrl);
   const text = message.text || (image ? ' ' : 'Сообщение без текста');
   return `${datePill}<div class="message-row ${message.own ? 'own' : ''} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}">
-    ${message.own ? '' : avatarMarkup(chat.partner, 'message-avatar')}
-    <div class="bubble">${replyQuote}${image ? `<img class="message-photo" data-view-photo="${escapeHtml(message.id)}" src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy">` : ''}${escapeHtml(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div></div>
+    ${message.own ? '' : avatarMarkup(message.sender || chat.partner, 'message-avatar')}
+    <div class="bubble">${senderLabel}${replyQuote}${image ? `<img class="message-photo" data-view-photo="${escapeHtml(message.id)}" src="${escapeHtml(image)}" alt="Фото из сообщения" loading="lazy">` : ''}${linkifyMessageText(text)}<div class="bubble-meta"><span>${escapeHtml(message.time)}</span>${messageStatusMarkup(message)}</div></div>
   </div>`;
 }
 
@@ -1517,8 +1557,9 @@ function readImageFile(file) {
 }
 
 async function openPhotoFiles(fileList) {
-  if (chats.find(chat => chat.id === activeId)?.isFavorites) {
-    showMessageToast('Избранное предназначено для личных текстовых заметок');
+  const chat = chats.find(item => item.id === activeId);
+  if (chat?.isFavorites || chat?.isGroup) {
+    showMessageToast(chat.isGroup ? 'В группах пока можно отправлять только текст' : 'Избранное предназначено для личных текстовых заметок');
     return;
   }
   const files = Array.from(fileList || []);
@@ -1606,12 +1647,13 @@ function mapMessages(rows) {
     gift: row.deleted_at ? null : row.gift_payload,
     replyToMessageId: row.reply_to_message_id,
     replyText,
-    replySender: replied ? (String(replied.sender_id) === String(session.userId) ? 'Вы' : 'Собеседник') : '',
+    replySender: replied ? (String(replied.sender_id) === String(session.userId) ? 'Вы' : replied.sender?.display_name || replied.sender?.username || (row.group_id ? 'Участник' : 'Собеседник')) : '',
     createdAt: row.created_at,
     time: formatTime(row.created_at),
     readAt: row.read_at,
     albumId: savedPhotoAlbumId(row.id),
-    own: String(row.sender_id) === String(session.userId)
+    own: String(row.sender_id) === String(session.userId),
+    sender:row.sender || null
     };
   });
 }
@@ -1690,10 +1732,16 @@ async function loadChatMessages(chat, showLoader = false) {
     messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
   }
   try {
-    const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages`);
+    const result = await api(chat.isGroup
+      ? `/api/social/group-chats/${encodeURIComponent(chat.id)}/messages`
+      : `/api/social/chats/${encodeURIComponent(chat.id)}/messages`);
     if (activeId !== chat.id || historyVersion !== (chatHistoryVersions.get(String(chat.id)) || 0)) return;
     const changed = updateMessages(chat, mapMessages(result.messages));
     if (changed) renderSharedDetails(chat);
+    if (chat.isGroup) {
+      await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/read`, { method:'POST' }).catch(() => {});
+      return;
+    }
     const presence = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`).catch(() => null);
     if (presence && activeId === chat.id) {
       document.getElementById('headerStatus').textContent = presence.typing ? 'печатает…' : presence.inChat ? 'в сети' : chat.handle;
@@ -1750,7 +1798,11 @@ function renderSharedDetails(chat) {
   document.getElementById('mediaGrid').innerHTML = media.slice(0, 9).map(item => `<button class="media-tile" type="button" data-view-photo="${escapeHtml(item.id)}" aria-label="Открыть фото"><img src="${escapeHtml(safeImageUrl(item.imageUrl))}" alt="Фото из переписки" loading="lazy"></button>`).join('');
   document.getElementById('mediaEmpty').hidden = media.length > 0;
   document.getElementById('linkCount').textContent = links.length;
-  document.getElementById('sharedLinks').innerHTML = links.slice(0, 12).map(link => `<a class="shared-link" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer"><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>${escapeHtml(new URL(link.href).hostname)}<br><small style="color:var(--muted)">${escapeHtml(formatTime(link.createdAt))}</small></span></a>`).join('');
+  document.getElementById('sharedLinks').innerHTML = links.slice(0, 12).map(link => {
+    const url = new URL(link.href);
+    const inviteCode = url.origin === location.origin ? url.searchParams.get('groupInvite') : null;
+    return `<a class="shared-link" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer"${inviteCode ? ` data-group-invite="${escapeHtml(inviteCode)}"` : ''}><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>${escapeHtml(url.hostname)}<br><small style="color:var(--muted)">${escapeHtml(formatTime(link.createdAt))}</small></span></a>`;
+  }).join('');
   document.getElementById('linksEmpty').hidden = links.length > 0;
 }
 
@@ -1759,10 +1811,13 @@ async function loadChats() {
   const requestId = ++chatListRequestId;
   const revision = chatListRevision;
   try {
-    const result = await api('/api/social/chats');
+    const [result, groupResult] = await Promise.all([
+      api('/api/social/chats'),
+      api('/api/social/group-chats').catch(() => ({ chats:[] }))
+    ]);
     if (requestId !== chatListRequestId || revision !== chatListRevision) return;
     const previousChats = new Map(chats.map(chat => [chat.id, chat]));
-    const nextChats = result.chats.map(row => {
+    const nextChats = [...result.chats, ...groupResult.chats].map(row => {
       const chat = mapChat(row);
       const previous = previousChats.get(chat.id);
       if (previous) {
@@ -1818,7 +1873,7 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
-  if (!chat.isFavorites) {
+  if (!chat.isFavorites && !chat.isGroup) {
     chatListRevision += 1;
     api(`/api/social/chats/${encodeURIComponent(chat.id)}/unhide`, { method: 'POST' }).catch(() => {});
   }
@@ -1836,8 +1891,8 @@ async function selectChat(id) {
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
-  document.getElementById('attachButton').hidden = chat.isFavorites;
-  messageInput.placeholder = chat.isFavorites ? 'Сообщение для себя…' : 'Написать сообщение…';
+  document.getElementById('attachButton').hidden = chat.isFavorites || chat.isGroup;
+  messageInput.placeholder = chat.isFavorites ? 'Сообщение для себя…' : chat.isGroup ? 'Сообщение в группу…' : 'Написать сообщение…';
   document.getElementById('deleteDeletedChatStatus').textContent = '';
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
@@ -1845,7 +1900,12 @@ async function selectChat(id) {
   const description = document.getElementById('detailDescription');
   description.textContent = chat.partner.description || '';
   description.hidden = !chat.partner.description;
-  document.getElementById('detailStatus').textContent = chat.isFavorites ? '● личные заметки' : chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
+  document.getElementById('detailStatus').textContent = chat.isFavorites ? '● личные заметки' : chat.isGroup ? `● группа · ${chat.memberCount} участников` : chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
+  document.getElementById('profileMessageButton').hidden = chat.isGroup;
+  document.getElementById('profileOpenButton').hidden = chat.isGroup;
+  document.getElementById('groupAddMembers').hidden = !chat.isGroup;
+  document.getElementById('groupInviteButton').hidden = !chat.isGroup;
+  document.getElementById('groupSettingsButton').hidden = !chat.isGroup || !chat.isAdmin;
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
   document.getElementById('mediaCount').textContent = '0';
@@ -1909,6 +1969,158 @@ async function openChat(recipientId) {
     await selectChat(result.conversation.id);
   } catch (error) {
     chatList.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function findGroupMemberIds(input) {
+  const usernames = [...new Set(String(input || '').split(',').map(value => value.trim().replace(/^@/, '')).filter(Boolean))];
+  if (!usernames.length) throw new Error('Введите хотя бы один NickName');
+  const matches = await Promise.all(usernames.map(async username => {
+    const result = await api(`/api/social/chat-users?q=${encodeURIComponent(username)}`);
+    const person = result.users.find(candidate => candidate.username?.toLocaleLowerCase('ru') === username.toLocaleLowerCase('ru') && !candidate.is_bot);
+    if (!person) throw new Error(`Пользователь @${username} не найден`);
+    return String(person.id);
+  }));
+  return [...new Set(matches)];
+}
+
+async function createGroupChat() {
+  pendingGroupCreateAvatar = '';
+  document.getElementById('groupCreateForm').reset();
+  renderGroupAvatar('groupCreateAvatarPreview', '', 'G');
+  document.getElementById('groupCreateStatus').textContent = '';
+  document.getElementById('groupCreateModal').hidden = false;
+}
+
+function renderGroupAvatar(elementId, photoUrl, fallback) {
+  const preview = document.getElementById(elementId);
+  preview.replaceChildren();
+  if(photoUrl) {
+    const image = document.createElement('img');
+    image.src = photoUrl;
+    image.alt = '';
+    preview.append(image);
+  } else {
+    preview.textContent = fallback || 'G';
+  }
+}
+
+function groupInviteUrl(inviteCode) {
+  const url = new URL('/', location.origin);
+  url.searchParams.set('groupInvite', inviteCode);
+  return url.href;
+}
+
+async function shareGroupInvite(chat) {
+  if(!chat?.inviteCode) return showMessageToast('Ссылка-приглашение недоступна');
+  const url = groupInviteUrl(chat.inviteCode);
+  try {
+    if(navigator.share) await navigator.share({ title:`Группа «${chat.name}»`, url });
+    else {
+      await navigator.clipboard.writeText(url);
+      showMessageToast('Ссылка-приглашение скопирована');
+    }
+  } catch(error) {
+    if(error.name !== 'AbortError') showMessageToast('Не удалось поделиться ссылкой');
+  }
+}
+
+function openGroupSettings() {
+  const chat = chats.find(item => item.id === activeId && item.isGroup && item.isAdmin);
+  if(!chat) return;
+  activeGroupSettingsChat = chat;
+  pendingGroupSettingsAvatar = '';
+  removeGroupSettingsAvatar = false;
+  document.getElementById('groupSettingsForm').reset();
+  document.getElementById('groupSettingsName').value = chat.name;
+  document.getElementById('groupSettingsDescription').value = chat.partner.description || '';
+  document.getElementById('groupInviteUrl').value = groupInviteUrl(chat.inviteCode);
+  document.getElementById('groupSettingsStatus').textContent = '';
+  renderGroupAvatar('groupSettingsAvatarPreview', safeImageUrl(chat.partner.avatar_url), initials(chat.name));
+  document.getElementById('groupSettingsModal').hidden = false;
+}
+
+async function openGroupInvite(inviteCode) {
+  if(!/^[a-f\d-]{36}$/i.test(String(inviteCode || ''))) return showMessageToast('Ссылка-приглашение недействительна');
+  pendingGroupInviteCode = inviteCode;
+  try {
+    const result = await api(`/api/social/group-invites/${encodeURIComponent(inviteCode)}`);
+    pendingGroupInvite = result.group;
+    if(result.group.isMember) {
+      await loadChats();
+      const chat = chats.find(item => item.isGroup && String(item.id) === String(result.group.id));
+      if(chat) {
+        clearPendingGroupInvite();
+        await selectChat(chat.id);
+        return;
+      }
+    }
+    const avatar = document.getElementById('groupInviteAvatar');
+    renderGroupAvatar('groupInviteAvatar', safeImageUrl(result.group.avatar_url), initials(result.group.title));
+    document.getElementById('groupInviteTitle').textContent = result.group.title;
+    document.getElementById('groupInviteCount').textContent = `${result.group.memberCount} участников`;
+    const description = document.getElementById('groupInviteDescription');
+    description.textContent = result.group.description || '';
+    description.hidden = !result.group.description;
+    document.getElementById('groupInviteStatus').textContent = '';
+    document.getElementById('groupInviteJoin').hidden = result.group.isMember === true;
+    document.getElementById('groupInviteOpen').hidden = result.group.isMember !== true;
+    document.getElementById('groupInviteJoin').disabled = false;
+    document.getElementById('groupInviteModal').hidden = false;
+  } catch(error) {
+    pendingGroupInvite = null;
+    clearPendingGroupInvite();
+    showMessageToast(error.message || 'Приглашение не найдено');
+  }
+}
+
+function clearPendingGroupInvite() {
+  pendingGroupInviteCode = '';
+  pendingGroupInvite = null;
+  const url = new URL(location.href);
+  url.searchParams.delete('groupInvite');
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+async function handlePendingGroupInvite() {
+  if(!pendingGroupInviteCode || !session?.sessionToken) return;
+  await openGroupInvite(pendingGroupInviteCode);
+}
+
+async function joinInvitedGroup() {
+  if(!pendingGroupInviteCode) return;
+  const button = document.getElementById('groupInviteJoin');
+  button.disabled = true;
+  document.getElementById('groupInviteStatus').textContent = 'Вступаем в группу…';
+  try {
+    const result = await api(`/api/social/group-invites/${encodeURIComponent(pendingGroupInviteCode)}/join`, { method:'POST' });
+    const groupId = result.group.id;
+    document.getElementById('groupInviteStatus').textContent = 'Вы вступили в группу';
+    await loadChats();
+    clearPendingGroupInvite();
+    document.getElementById('groupInviteModal').hidden = true;
+    await selectChat(groupId);
+  } catch(error) {
+    document.getElementById('groupInviteStatus').textContent = error.message || 'Не удалось вступить в группу';
+    button.disabled = false;
+  }
+}
+
+async function addGroupMembers() {
+  const chat = chats.find(item => item.id === activeId && item.isGroup);
+  if (!chat) return;
+  const usernames = await showDialog({ title:'Добавить участников', message:'Введите FernieID NickName через запятую.', input:true, confirmLabel:'Добавить' });
+  if (typeof usernames !== 'string' || !usernames.trim()) return;
+  try {
+    const memberIds = await findGroupMemberIds(usernames);
+    const result = await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/members`, {
+      method:'POST', body:JSON.stringify({ memberIds })
+    });
+    await loadChats();
+    await selectChat(chat.id);
+    showMessageToast(result.added ? `Добавлено участников: ${result.added}` : 'Выбранные пользователи уже в группе');
+  } catch (error) {
+    showMessageToast(error.message || 'Не удалось добавить участников');
   }
 }
 
@@ -2058,7 +2270,7 @@ function closeChatContextMenu() {
 
 function openChatContextMenu(chatId, x, y) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || chat.isFavorites) return;
+  if (!chat || chat.isFavorites || chat.isGroup) return;
   closeMessageMenu();
   const menu = document.getElementById('chatContextMenu');
   menu.innerHTML = `
@@ -2179,7 +2391,7 @@ function showMessageToast(text) {
 
 function updateCallControls() {
   const chat = chats.find(item => String(item.id) === String(activeId));
-  startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
+  startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.isGroup || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
 }
 
 function flushLocalCallCandidates(call) {
@@ -2285,6 +2497,17 @@ function stopIncomingRingtone() {
   callRingtone.currentTime = 0;
 }
 
+async function keepCallScreenAwake(call = activeCall) {
+  if (!call || !navigator.wakeLock?.request || document.hidden) return;
+  try {
+    call.wakeLock?.release().catch(() => {});
+    call.wakeLock = await navigator.wakeLock.request('screen');
+    call.wakeLock.addEventListener('release', () => {
+      if (activeCall === call) call.wakeLock = null;
+    }, { once:true });
+  } catch {}
+}
+
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
   setCallStatus(status);
@@ -2337,15 +2560,16 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   clearInterval(callDurationTimer);
   cancelAnimationFrame(callVoiceFrame);
   stopIncomingRingtone();
+  call.wakeLock?.release().catch(() => {});
   setCallSpeaking(false);
   call.voiceAnalyser = null;
   call.voiceContext?.close().catch(() => {});
   call.pendingCandidates = [];
-    const durationElement = document.getElementById('callDuration');
-    const voiceIndicator = document.getElementById('callVoiceIndicator');
-    if (durationElement) durationElement.hidden = true;
-    if (voiceIndicator) voiceIndicator.hidden = true;
-  if (notify) sendCallSignal('hangup', {}).catch(() => {});
+  const durationElement = document.getElementById('callDuration');
+  const voiceIndicator = document.getElementById('callVoiceIndicator');
+  if (durationElement) durationElement.hidden = true;
+  if (voiceIndicator) voiceIndicator.hidden = true;
+  if (notify) sendCallSignal('hangup', {}, call).catch(() => {});
   call.peer?.close();
   call.stream?.getTracks().forEach(track => track.stop());
   callRemoteAudio.srcObject = null;
@@ -2363,6 +2587,14 @@ function createCallPeer(call, stream) {
     throw new Error('Звонок завершён');
   }
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  call.stream.getAudioTracks().forEach(track => {
+    track.addEventListener('mute', () => {
+      if (activeCall === call) setCallStatus('Микрофон приостановлен системой');
+    });
+    track.addEventListener('unmute', () => {
+      if (activeCall === call && peer.connectionState === 'connected') setCallStatus('На связи');
+    });
+  });
   monitorCallVoice(call);
   peer.ontrack = event => {
     callRemoteAudio.srcObject = event.streams[0];
@@ -2450,6 +2682,7 @@ async function startAudioCall() {
   activeCall = call;
   updateCallControls();
   prepareCallVoiceContext(call);
+  keepCallScreenAwake(call);
   setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
   try {
     const [stream, config] = await Promise.all([
@@ -2478,6 +2711,7 @@ async function acceptAudioCall() {
   if (!call || call.initiator) return;
   stopIncomingRingtone();
   prepareCallVoiceContext(call);
+  keepCallScreenAwake(call);
   document.getElementById('callAccept').disabled = true;
   try {
     const [stream, config] = await Promise.all([
@@ -2805,6 +3039,10 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
     }
     return sendFavoriteMessage(body, existingMessage, focusComposer);
   }
+  if (chat.isGroup && imageBase64) {
+    showMessageToast('В группах пока можно отправлять только текст');
+    return false;
+  }
   const createdAt = existingMessage?.createdAt || new Date().toISOString();
   const replied = !existingMessage && replyToMessageId
     ? chat.messages.find(message => String(message.id) === String(replyToMessageId))
@@ -2840,9 +3078,11 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
   if (activeId === conversationId) renderMessages(chat);
   renderChats();
   try {
-    const result = await api(`/api/social/chats/${encodeURIComponent(conversationId)}/messages`, {
+    const result = await api(chat.isGroup
+      ? `/api/social/group-chats/${encodeURIComponent(conversationId)}/messages`
+      : `/api/social/chats/${encodeURIComponent(conversationId)}/messages`, {
       method:'POST',
-      body:JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}), ...(pendingMessage.replyToMessageId ? { replyToMessageId:pendingMessage.replyToMessageId } : {}) })
+      body:JSON.stringify({ body, ...(!chat.isGroup && imageBase64 ? { imageBase64 } : {}), ...(pendingMessage.replyToMessageId ? { replyToMessageId:pendingMessage.replyToMessageId } : {}) })
     });
     const sentMessage = mapMessages([result.message])[0];
     sentMessage.replyText = pendingMessage.replyText;
@@ -2959,6 +3199,144 @@ async function deleteDeletedAccountChat() {
 }
 
 startAudioCallButton.addEventListener('click', startAudioCall);
+document.getElementById('newGroup').addEventListener('click', createGroupChat);
+document.getElementById('groupAddMembers').addEventListener('click', addGroupMembers);
+document.getElementById('groupSettingsButton').addEventListener('click', openGroupSettings);
+document.getElementById('groupInviteButton').addEventListener('click', () => shareGroupInvite(chats.find(item => item.id === activeId)));
+document.getElementById('groupInviteJoin').addEventListener('click', joinInvitedGroup);
+document.getElementById('groupInviteOpen').addEventListener('click', async () => {
+  if(!pendingGroupInvite?.id) return;
+  const groupId = pendingGroupInvite.id;
+  clearPendingGroupInvite();
+  document.getElementById('groupInviteModal').hidden = true;
+  await loadChats();
+  const chat = chats.find(item => item.isGroup && String(item.id) === String(groupId));
+  if(chat) await selectChat(chat.id);
+});
+document.getElementById('groupInviteClose').addEventListener('click', () => {
+  document.getElementById('groupInviteModal').hidden = true;
+  clearPendingGroupInvite();
+});
+for (const modalId of ['groupCreateModal', 'groupSettingsModal', 'groupInviteModal']) {
+  document.getElementById(modalId).addEventListener('click', event => {
+    if(event.target === event.currentTarget) {
+      event.currentTarget.hidden = true;
+      if(modalId === 'groupInviteModal') clearPendingGroupInvite();
+    }
+  });
+}
+document.addEventListener('keydown', event => {
+  if(event.key !== 'Escape') return;
+  for(const modalId of ['groupCreateModal', 'groupSettingsModal', 'groupInviteModal']) {
+    document.getElementById(modalId).hidden = true;
+  }
+  if(pendingGroupInviteCode) clearPendingGroupInvite();
+});
+document.getElementById('groupCreateClose').addEventListener('click', () => { document.getElementById('groupCreateModal').hidden = true; });
+document.getElementById('groupCreateCancel').addEventListener('click', () => { document.getElementById('groupCreateModal').hidden = true; });
+document.getElementById('groupSettingsClose').addEventListener('click', () => { document.getElementById('groupSettingsModal').hidden = true; });
+document.getElementById('groupSettingsCancel').addEventListener('click', () => { document.getElementById('groupSettingsModal').hidden = true; });
+document.getElementById('groupInviteCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('groupInviteUrl').value);
+    document.getElementById('groupSettingsStatus').textContent = 'Ссылка скопирована';
+  } catch {
+    document.getElementById('groupInviteUrl').select();
+    document.getElementById('groupSettingsStatus').textContent = 'Выделите ссылку и скопируйте её';
+  }
+});
+document.getElementById('groupInviteShare').addEventListener('click', () => shareGroupInvite(activeGroupSettingsChat));
+document.getElementById('groupSettingsAvatarRemove').addEventListener('click', () => {
+  pendingGroupSettingsAvatar = '';
+  removeGroupSettingsAvatar = true;
+  document.getElementById('groupSettingsAvatarInput').value = '';
+  renderGroupAvatar('groupSettingsAvatarPreview', '', initials(activeGroupSettingsChat?.name || 'G'));
+});
+document.getElementById('groupCreateAvatarRemove').addEventListener('click', () => {
+  pendingGroupCreateAvatar = '';
+  document.getElementById('groupCreateAvatarInput').value = '';
+  renderGroupAvatar('groupCreateAvatarPreview', '', 'G');
+});
+for (const [inputId, previewId, isSettings] of [
+  ['groupCreateAvatarInput', 'groupCreateAvatarPreview', false],
+  ['groupSettingsAvatarInput', 'groupSettingsAvatarPreview', true]
+]) {
+  document.getElementById(inputId).addEventListener('change', async event => {
+    const file = event.currentTarget.files?.[0];
+    if(!file) return;
+    if(!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      event.currentTarget.value = '';
+      document.getElementById(isSettings ? 'groupSettingsStatus' : 'groupCreateStatus').textContent = 'Выберите JPG, PNG или WEBP до 5 МБ';
+      return;
+    }
+    try {
+      const dataUrl = await readImageFile(file);
+      if(isSettings) {
+        pendingGroupSettingsAvatar = dataUrl;
+        removeGroupSettingsAvatar = false;
+      } else {
+        pendingGroupCreateAvatar = dataUrl;
+      }
+      renderGroupAvatar(previewId, dataUrl, 'G');
+    } catch(error) {
+      document.getElementById(isSettings ? 'groupSettingsStatus' : 'groupCreateStatus').textContent = error.message;
+    }
+  });
+}
+document.getElementById('groupCreateForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  const status = document.getElementById('groupCreateStatus');
+  button.disabled = true;
+  status.textContent = 'Создаём группу…';
+  try {
+    const memberIds = await findGroupMemberIds(document.getElementById('groupCreateMembers').value);
+    const result = await api('/api/social/group-chats', {
+      method:'POST',
+      body:JSON.stringify({
+        title:document.getElementById('groupCreateName').value.trim(),
+        description:document.getElementById('groupCreateDescription').value.trim(),
+        memberIds,
+        ...(pendingGroupCreateAvatar ? { avatarBase64:pendingGroupCreateAvatar } : {})
+      })
+    });
+    document.getElementById('groupCreateModal').hidden = true;
+    await loadChats();
+    await selectChat(result.group.id);
+  } catch(error) {
+    status.textContent = error.message || 'Не удалось создать группу';
+  } finally {
+    button.disabled = false;
+  }
+});
+document.getElementById('groupSettingsForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if(!activeGroupSettingsChat) return;
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  const status = document.getElementById('groupSettingsStatus');
+  button.disabled = true;
+  status.textContent = 'Сохраняем изменения…';
+  try {
+    await api(`/api/social/group-chats/${encodeURIComponent(activeGroupSettingsChat.id)}/settings`, {
+      method:'PATCH',
+      body:JSON.stringify({
+        title:document.getElementById('groupSettingsName').value.trim(),
+        description:document.getElementById('groupSettingsDescription').value.trim(),
+        ...(pendingGroupSettingsAvatar ? { avatarBase64:pendingGroupSettingsAvatar } : {}),
+        ...(removeGroupSettingsAvatar ? { removeAvatar:true } : {})
+      })
+    });
+    const groupId = activeGroupSettingsChat.id;
+    activeGroupSettingsChat = null;
+    document.getElementById('groupSettingsModal').hidden = true;
+    await loadChats();
+    await selectChat(groupId);
+  } catch(error) {
+    status.textContent = error.message || 'Не удалось сохранить группу';
+  } finally {
+    button.disabled = false;
+  }
+});
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
 document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
@@ -3022,7 +3400,8 @@ document.querySelectorAll('.filter').forEach(button => button.addEventListener('
 }));
 
 document.getElementById('backToChats').addEventListener('click', () => {
-  if (activeId && !String(activeId).startsWith('favorites-')) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (chat && !chat.isFavorites && !chat.isGroup) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
   app.classList.remove('show-conversation');
   document.querySelector('.conversation').classList.remove('favorites-chat', 'chat-opening');
   document.getElementById('attachButton').hidden = false;
@@ -3259,6 +3638,12 @@ document.addEventListener('keydown', event => {
   }
 });
 messages.addEventListener('click', event => {
+  const groupInviteLink = event.target.closest('a[data-group-invite]');
+  if(groupInviteLink) {
+    event.preventDefault();
+    openGroupInvite(groupInviteLink.dataset.groupInvite);
+    return;
+  }
   if (suppressMessageClick) {
     suppressMessageClick = false;
     event.preventDefault();
@@ -3292,6 +3677,12 @@ messages.addEventListener('keydown', event => {
 document.getElementById('mediaGrid').addEventListener('click', event => {
   const photo = event.target.closest('[data-view-photo]');
   if (photo) openPhotoViewer(photo.dataset.viewPhoto);
+});
+document.getElementById('sharedLinks').addEventListener('click', event => {
+  const link = event.target.closest('a[data-group-invite]');
+  if(!link) return;
+  event.preventDefault();
+  openGroupInvite(link.dataset.groupInvite);
 });
 messages.addEventListener('contextmenu', event => {
   const target = event.target.closest('.album-tile[data-message-id], .message-row[data-message-id]');
@@ -3525,6 +3916,7 @@ document.addEventListener('keydown', event => {
 });
 
 document.addEventListener('visibilitychange', () => {
+  if (activeCall && !document.hidden) keepCallScreenAwake(activeCall);
   if (session?.sessionToken && !document.hidden) {
     checkDeviceSession();
     refreshChats();
@@ -3624,6 +4016,7 @@ async function bootstrap() {
     if (!session) return;
     startDeviceChecks();
     await Promise.all([loadChats(), loadSettings(), loadOwnProfile()]);
+    await handlePendingGroupInvite();
     hidePageLoader();
     loadProducts();
   } catch (error) {
