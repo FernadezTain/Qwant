@@ -99,6 +99,15 @@ let botRefreshing = false;
 let currentProfile = null;
 let activeUserPopup = null;
 let userPopupRequestId = 0;
+let adminPanelAccess = { canAccess:false, canGrantFull:false };
+let verificationLevelFilter = 'basic';
+let verificationUsersRequestId = 0;
+let verificationSearchRequestId = 0;
+let verificationSearchTimer;
+let verificationSelectedUser = null;
+let verificationUsers = [];
+let verificationCandidates = [];
+let verificationPendingLevel = 'none';
 let dialogResolver = null;
 let activeEmojiCategory = 'smileys';
 let fontScaleRulesApplied = false;
@@ -242,6 +251,7 @@ function unlock(data) {
   authCodeInput.value = '';
   renderAuthCode();
   updateAccountMenu();
+  loadAdminPanelAccess();
   registerDevice().catch(() => {}).finally(async () => {
     pageLoader.classList.add('hidden');
     await loadChats();
@@ -269,6 +279,30 @@ function updateAccountMenu() {
   document.getElementById('accountProfileName').textContent = session?.displayName || session?.username || '—';
   document.getElementById('accountProfileId').textContent = session?.userId ? `ID ${session.userId}` : 'FernieID';
   setAvatar(document.getElementById('accountProfileAvatar'), { ...session, display_name: session?.displayName });
+  updateAdminPanelVisibility();
+}
+
+function updateAdminPanelVisibility() {
+  const allowed = adminPanelAccess.canAccess === true;
+  const drawerButton = document.getElementById('drawerAdmin');
+  const settingsButton = document.getElementById('settingsAdminNav');
+  if (drawerButton) drawerButton.hidden = !allowed;
+  if (settingsButton) settingsButton.hidden = !allowed;
+}
+
+async function loadAdminPanelAccess() {
+  if (!session?.sessionToken) {
+    adminPanelAccess = { canAccess:false, canGrantFull:false };
+    updateAdminPanelVisibility();
+    return;
+  }
+  try {
+    const result = await api('/api/qwant/admin/verification/access');
+    adminPanelAccess = { canAccess:result.canAccess === true, canGrantFull:result.canGrantFull === true };
+  } catch {
+    adminPanelAccess = { canAccess:false, canGrantFull:false };
+  }
+  updateAdminPanelVisibility();
 }
 
 function showDialog({ title, message, input = false, value = '', confirmLabel = 'Продолжить', danger = false }) {
@@ -487,10 +521,14 @@ async function registerDevice() {
 
 function endRevokedSession() {
   finishAudioCall({ notify:false });
+  closeVerificationModal();
+  closeSettings();
   localStorage.removeItem('ferniex_messenger_session');
   session = null;
   accountSettings = null;
   telegramId = null;
+  adminPanelAccess = { canAccess:false, canGrantFull:false };
+  updateAdminPanelVisibility();
   chats = [];
   activeId = null;
   updateCallControls();
@@ -675,7 +713,159 @@ function renderCoinTransactions(emptyMessage = 'Операций пока нет
   }).join('');
 }
 
+function verificationLevelName(level) {
+  return level === 'full' ? 'Полная' : level === 'basic' ? 'Базовая' : 'Нет';
+}
+
+function verificationBadgeMarkup(person, large = false) {
+  const verified = person?.is_verified === true || ['basic', 'full'].includes(person?.verification_level) || person?.is_official_admin === true;
+  return verified ? `<span class="verified-mark ${large ? 'large' : ''}" title="${escapeHtml(verificationLevelName(person.verification_level || (person.is_official_admin ? 'full' : 'basic')))} верификация" aria-label="Верифицированный аккаунт">Q</span>` : '';
+}
+
+function renderVerificationUser(person) {
+  return `<button class="verification-user-row" type="button" data-verification-user="${escapeHtml(person.id)}">
+    ${avatarMarkup(person, 'avatar verification-avatar')}
+    <span class="verification-user-copy"><span class="verification-user-title">${escapeHtml(person.display_name || person.username || 'Пользователь')}${verificationBadgeMarkup(person)}</span><span class="verification-user-handle">@${escapeHtml(person.username || '')}</span></span>
+    <span class="verification-user-tier">${escapeHtml(verificationLevelName(person.verification_level))}</span>
+  </button>`;
+}
+
+async function loadVerificationUsers() {
+  if (!adminPanelAccess.canAccess) return;
+  const requestId = ++verificationUsersRequestId;
+  const list = document.getElementById('verificationUserList');
+  const status = document.getElementById('verificationAdminStatus');
+  list.innerHTML = '<div class="verification-empty">Загружаем список…</div>';
+  status.textContent = '';
+  try {
+    const result = await api(`/api/qwant/admin/verification/users?level=${verificationLevelFilter}`);
+    if (requestId !== verificationUsersRequestId) return;
+    verificationUsers = result.users;
+    list.innerHTML = result.users.length
+      ? result.users.map(renderVerificationUser).join('')
+      : `<div class="verification-empty">Пользователей с ${verificationLevelName(verificationLevelFilter).toLocaleLowerCase('ru')} верификацией пока нет.</div>`;
+  } catch (error) {
+    if (requestId === verificationUsersRequestId) list.innerHTML = `<div class="verification-empty">${escapeHtml(error.message || 'Не удалось загрузить список')}</div>`;
+  }
+}
+
+function setVerificationLevelFilter(level) {
+  if (!['basic', 'full'].includes(level)) return;
+  verificationLevelFilter = level;
+  const tabs = document.getElementById('verificationTabs');
+  tabs.dataset.level = level;
+  tabs.querySelectorAll('[data-verification-level]').forEach(button => {
+    const active = button.dataset.verificationLevel === level;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  loadVerificationUsers();
+}
+
+function openVerificationModal() {
+  if (!adminPanelAccess.canAccess) return showMessageToast('Нет доступа к панели администратора');
+  verificationSelectedUser = null;
+  verificationCandidates = [];
+  verificationPendingLevel = 'none';
+  document.getElementById('verificationSearchInput').value = '';
+  document.getElementById('verificationSearchResults').innerHTML = '<div class="verification-empty">Введите минимум 2 символа для поиска.</div>';
+  document.getElementById('verificationChoiceView').hidden = true;
+  document.getElementById('verificationConfirmView').hidden = true;
+  document.getElementById('verificationSearchView').hidden = false;
+  const modal = document.getElementById('verificationModal');
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(() => modal.classList.add('open'));
+  document.getElementById('verificationSearchInput').focus({ preventScroll:true });
+}
+
+function closeVerificationModal() {
+  const modal = document.getElementById('verificationModal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  setTimeout(() => { if (!modal.classList.contains('open')) modal.hidden = true; }, 190);
+  clearTimeout(verificationSearchTimer);
+  verificationSearchRequestId += 1;
+  verificationSelectedUser = null;
+}
+
+function selectVerificationUser(person) {
+  verificationSelectedUser = person;
+  const level = person.verification_level || (person.is_official_admin ? 'full' : 'none');
+  document.getElementById('verificationSelectedUser').innerHTML = `${avatarMarkup(person, 'avatar verification-avatar')}<span class="verification-user-copy"><span class="verification-user-title">${escapeHtml(person.display_name || person.username || 'Пользователь')}${verificationBadgeMarkup(person)}</span><span class="verification-user-handle">@${escapeHtml(person.username || '')}</span></span>`;
+  document.getElementById('verificationCurrentStatus').textContent = `Текущая верификация: ${verificationLevelName(level)}`;
+  document.getElementById('verificationRemoveChoice').hidden = level === 'none';
+  const immutable = person.verification_locked === true;
+  document.querySelectorAll('#verificationChoiceView [data-verification-choice]').forEach(button => {
+    button.disabled = immutable || button.dataset.verificationChoice === 'full' && !adminPanelAccess.canGrantFull;
+  });
+  document.getElementById('verificationCancelChoice').disabled = false;
+  document.getElementById('verificationChoiceHint').textContent = immutable
+    ? 'Изменять полную верификацию может только системный администратор.'
+    : adminPanelAccess.canGrantFull ? '' : 'Полную верификацию может выдавать только системный администратор.';
+  document.getElementById('verificationSearchView').hidden = true;
+  document.getElementById('verificationConfirmView').hidden = true;
+  document.getElementById('verificationChoiceView').hidden = false;
+}
+
+async function searchVerificationUsers(value) {
+  const query = String(value || '').trim().replace(/^@+/, '');
+  const requestId = ++verificationSearchRequestId;
+  const resultsElement = document.getElementById('verificationSearchResults');
+  if (query.length < 2) {
+    resultsElement.innerHTML = '<div class="verification-empty">Введите минимум 2 символа для поиска.</div>';
+    return;
+  }
+  resultsElement.innerHTML = '<div class="verification-empty">Ищем пользователей…</div>';
+  try {
+    const result = await api(`/api/qwant/admin/verification/search?q=${encodeURIComponent(query)}`);
+    if (requestId !== verificationSearchRequestId) return;
+    verificationCandidates = result.users;
+    resultsElement.innerHTML = result.users.length ? result.users.map(person => `
+      <button class="verification-search-result" type="button" data-verification-search-user="${escapeHtml(person.id)}">
+        ${avatarMarkup(person, 'avatar verification-avatar')}<span class="verification-user-copy"><span class="verification-user-title">${escapeHtml(person.display_name || person.username || 'Пользователь')}${verificationBadgeMarkup(person)}</span><span class="verification-user-handle">@${escapeHtml(person.username || '')}</span></span><span class="verification-user-tier">${escapeHtml(verificationLevelName(person.verification_level))}</span>
+      </button>`).join('') : '<div class="verification-empty">Пользователи не найдены.</div>';
+  } catch (error) {
+    if (requestId === verificationSearchRequestId) resultsElement.innerHTML = `<div class="verification-empty">${escapeHtml(error.message || 'Не удалось выполнить поиск')}</div>`;
+  }
+}
+
+function confirmVerificationChange(level) {
+  if (!verificationSelectedUser || !['none', 'basic', 'full'].includes(level)) return;
+  if (level === 'full' && !adminPanelAccess.canGrantFull) return;
+  verificationPendingLevel = level;
+  const name = verificationSelectedUser.display_name || verificationSelectedUser.username || 'Пользователь';
+  const action = level === 'none' ? 'снять верификацию' : `выдать ${verificationLevelName(level).toLocaleLowerCase('ru')} верификацию`;
+  document.getElementById('verificationConfirmCopy').textContent = `Уверены, что хотите ${action} у пользователя ${name}?`;
+  document.getElementById('verificationConfirmError').textContent = '';
+  document.getElementById('verificationChoiceView').hidden = true;
+  document.getElementById('verificationConfirmView').hidden = false;
+}
+
+async function applyVerificationChange() {
+  if (!verificationSelectedUser) return;
+  const button = document.getElementById('verificationConfirmApply');
+  button.disabled = true;
+  document.getElementById('verificationConfirmError').textContent = 'Сохраняем изменения…';
+  try {
+    await api(`/api/qwant/admin/verification/users/${encodeURIComponent(verificationSelectedUser.id)}`, {
+      method:'PATCH', body:JSON.stringify({ level:verificationPendingLevel })
+    });
+    const updatedLevel = verificationPendingLevel;
+    closeVerificationModal();
+    if (updatedLevel !== 'none' && updatedLevel !== verificationLevelFilter) setVerificationLevelFilter(updatedLevel);
+    else await loadVerificationUsers();
+    showMessageToast(verificationPendingLevel === 'none' ? 'Верификация снята' : 'Верификация выдана');
+  } catch(error) {
+    document.getElementById('verificationConfirmError').textContent = error.message || 'Не удалось изменить верификацию';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function openSettings(page = 'notifications') {
+  if (page === 'admin' && !adminPanelAccess.canAccess) await loadAdminPanelAccess();
+  if (page === 'admin' && !adminPanelAccess.canAccess) return showMessageToast('Нет доступа к панели администратора');
   closeDrawer();
   settingsOverlay.classList.add('open');
   settingsOverlay.setAttribute('aria-hidden', 'false');
@@ -684,6 +874,7 @@ async function openSettings(page = 'notifications') {
   await loadSettings();
   if (page === 'devices') loadDevices();
   if (page === 'plus' || page === 'coins') loadProducts();
+  if (page === 'admin') loadVerificationUsers();
 }
 
 function showSettingsPage(page) {
@@ -1055,6 +1246,7 @@ function renderProfile(person, own) {
     document.getElementById('profileBanner').classList.remove('has-banner');
   };
   document.getElementById('profileBanner').classList.toggle('has-banner', !!bannerUrl);
+  document.getElementById('accountProfileName').insertAdjacentHTML('beforeend', verificationBadgeMarkup(person, true));
   const displayNameForm = document.getElementById('accountDisplayNameForm');
   displayNameForm.hidden = !own;
   document.getElementById('accountDisplayNameInput').value = session?.displayName || session?.username || '';
@@ -1100,8 +1292,8 @@ function renderUserProfilePopup(person) {
   activeUserPopup = person;
   setAvatar(document.getElementById('userPopupAvatar'), person);
   document.getElementById('userPopupName').textContent = person.display_name || person.username || 'Пользователь';
-  document.getElementById('userPopupOfficialBadge').hidden = person.is_official_admin !== true;
-  document.getElementById('userPopupOfficialNotice').hidden = person.is_official_admin !== true;
+  document.getElementById('userPopupOfficialBadge').hidden = person.is_verified !== true && person.is_official_admin !== true;
+  document.getElementById('userPopupOfficialNotice').hidden = person.verification_level !== 'full' && person.is_official_admin !== true;
   const username = document.getElementById('userPopupHandle');
   username.textContent = person.username ? `@${person.username}` : person.is_deleted ? 'Аккаунт удалён' : '';
   username.dataset.copyUsername = person.username || '';
@@ -1357,7 +1549,7 @@ function renderChats() {
   chatList.innerHTML = filtered.length ? filtered.map(chat => `
     <button class="chat-item ${chat.id === activeId ? 'active' : ''}" data-chat="${escapeHtml(chat.id)}">
       <span class="avatar-wrap" ${!chat.isFavorites && !chat.isGroup ? `data-profile-user="${escapeHtml(chat.partner.id)}"` : ''}>${chat.isFavorites ? '<span class="avatar favorites-avatar">★</span>' : avatarMarkup(chat.partner)}${chat.online ? '<span class="online-dot"></span>' : ''}</span>
-      <span class="chat-copy"><span class="chat-top"><span class="chat-name" ${!chat.isFavorites && !chat.isGroup && chat.partner.username ? `data-copy-username="${escapeHtml(chat.partner.username)}"` : ''}>${escapeHtml(chat.name)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
+      <span class="chat-copy"><span class="chat-top"><span class="chat-name" ${!chat.isFavorites && !chat.isGroup && chat.partner.username ? `data-copy-username="${escapeHtml(chat.partner.username)}"` : ''}>${escapeHtml(chat.name)}${verificationBadgeMarkup(chat.partner)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
     </button>`).join('') : `<div class="empty-state">${query ? 'Ничего не найдено' : 'Здесь появятся ваши чаты'}</div>`;
   chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', event => {
     const copyTrigger = event.target.closest('[data-copy-username]');
@@ -1448,7 +1640,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
     return `${datePill}<div class="group-event-row ${animate ? 'message-new' : ''}"><span class="group-event-pill">${escapeHtml(eventText)}</span></div>`;
   }
   const senderLabel = chat.isGroup && !message.own && message.sender
-    ? `<button class="group-sender-name" type="button" data-copy-username="${escapeHtml(message.sender.username || '')}">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}</button>`
+    ? `<button class="group-sender-name" type="button" data-copy-username="${escapeHtml(message.sender.username || '')}">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}${verificationBadgeMarkup(message.sender)}</button>`
     : '';
   if (message.type === 'udg_gift') {
     const gift = message.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' };
@@ -1916,7 +2108,7 @@ async function loadFavoriteMessages(chat) {
     const latest = currentChat.messages.at(-1);
     currentChat.lastMessageAt = latest?.createdAt || null;
     currentChat.time = latest?.time || '';
-    currentChat.preview = latest?.text || 'Сохраняйте сообщения и заметки здесь';
+    currentChat.preview = latest?.text || (latest?.imageUrl ? '📷 Фото' : 'Сохраняйте сообщения и заметки здесь');
     cacheFavoriteMessages(currentChat);
     if (activeId === currentChat.id) {
       renderMessages(currentChat);
@@ -2037,7 +2229,8 @@ async function selectChat(id) {
   applyChatBackground(id);
   chat.unread = 0;
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
-  document.getElementById('headerName').textContent = chat.name;
+  document.getElementById('headerName').childNodes[0].textContent = chat.name;
+  document.getElementById('headerVerificationBadge').hidden = !verificationBadgeMarkup(chat.partner);
   document.getElementById('headerStatus').textContent = chat.handle;
   document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
@@ -2048,6 +2241,7 @@ async function selectChat(id) {
   document.getElementById('deleteDeletedChatStatus').textContent = '';
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
+  document.getElementById('detailName').insertAdjacentHTML('beforeend', verificationBadgeMarkup(chat.partner, true));
   document.getElementById('detailHandle').textContent = chat.handle;
   const description = document.getElementById('detailDescription');
   description.textContent = chat.partner.description || '';
@@ -2127,7 +2321,7 @@ async function searchPeople(query) {
     chatList.innerHTML = result.users.length ? result.users.map(person => `
       <button class="chat-item" data-person="${escapeHtml(person.id)}">
         <span class="avatar-wrap">${avatarMarkup(person)}</span>
-        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.display_name || person.username)}</span></span><span class="chat-preview">${person.is_bot ? 'Бот · ' : ''}<span data-copy-username="${escapeHtml(person.username)}">@${escapeHtml(person.username)}</span> · Начать переписку</span></span>
+        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.display_name || person.username)}${verificationBadgeMarkup(person)}</span></span><span class="chat-preview">${person.is_bot ? 'Бот · ' : ''}<span data-copy-username="${escapeHtml(person.username)}">@${escapeHtml(person.username)}</span> · Начать переписку</span></span>
       </button>`).join('') : '<div class="empty-state">Пользователи не найдены</div>';
     chatList.querySelectorAll('[data-person]').forEach(button => button.addEventListener('click', event => {
       const copyButton = event.target.closest('[data-copy-username]');
@@ -2400,7 +2594,8 @@ async function leaveGroup(groupId = activeId) {
       activeId = null;
       app.classList.remove('show-conversation');
       messages.replaceChildren();
-      document.getElementById('headerName').textContent = 'Выберите чат';
+      document.getElementById('headerName').childNodes[0].textContent = 'Выберите чат';
+      document.getElementById('headerVerificationBadge').hidden = true;
       document.getElementById('headerStatus').textContent = 'Qwant Messenger';
       setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
       document.getElementById('detailName').textContent = 'Qwant Messenger';
@@ -2755,7 +2950,7 @@ async function loadGroupMembers(chat) {
 }
 
 function groupMemberMarkup(member, chat) {
-  return `<div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-copy-username="${escapeHtml(member.username || '')}">${escapeHtml(member.display_name || member.username || 'Участник')}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`;
+  return `<div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-copy-username="${escapeHtml(member.username || '')}">${escapeHtml(member.display_name || member.username || 'Участник')}${verificationBadgeMarkup(member)}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`;
 }
 
 function renderFullGroupMembers() {
@@ -3268,7 +3463,7 @@ async function loadCallHistory() {
     const calls = [...result.calls].sort((left, right) => Date.parse(right.started_at) - Date.parse(left.started_at));
     list.innerHTML = calls.length ? calls.map(call => `
       <article class="call-history-row">
-        <button class="call-history-main" type="button" data-call-history-chat="${escapeHtml(call.partner.id)}" aria-label="Открыть чат с ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователем')}">${avatarMarkup(call.partner, 'avatar call-history-avatar')}<span class="call-history-copy"><span class="call-history-name">${escapeHtml(call.partner.display_name || call.partner.username || 'Пользователь')}</span><span class="call-history-meta">${call.direction === 'outgoing' ? 'Исходящий' : 'Входящий'} · ${escapeHtml(formatDateTime(call.started_at))}</span></span></button>
+        <button class="call-history-main" type="button" data-call-history-chat="${escapeHtml(call.partner.id)}" aria-label="Открыть чат с ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователем')}">${avatarMarkup(call.partner, 'avatar call-history-avatar')}<span class="call-history-copy"><span class="call-history-name">${escapeHtml(call.partner.display_name || call.partner.username || 'Пользователь')}${verificationBadgeMarkup(call.partner)}</span><span class="call-history-meta">${call.direction === 'outgoing' ? 'Исходящий' : 'Входящий'} · ${escapeHtml(formatDateTime(call.started_at))}</span></span></button>
         <span class="call-history-status ${call.status === 'missed' || call.status === 'declined' || call.status === 'ringing' ? 'missed' : ''}">${escapeHtml(callHistoryStatus(call))}</span>
       </article>`).join('') : '<div class="call-history-state">Звонков пока нет</div>';
   } catch(error) {
@@ -3643,7 +3838,8 @@ async function deleteDeletedAccountChat() {
     applyChatBackground(null);
     document.getElementById('messageForm').hidden = false;
     document.getElementById('deletedChatActions').hidden = true;
-    document.getElementById('headerName').textContent = 'Выберите чат';
+    document.getElementById('headerName').childNodes[0].textContent = 'Выберите чат';
+    document.getElementById('headerVerificationBadge').hidden = true;
     document.getElementById('headerStatus').textContent = 'Qwant Messenger';
     document.getElementById('detailName').textContent = 'Qwant Messenger';
     document.getElementById('detailHandle').textContent = 'Выберите чат';
@@ -4504,11 +4700,15 @@ async function logout() {
   if (!await confirmAction('Выйти из Qwant Messenger?', { title: 'Выйти из аккаунта' })) return;
   const finishLogout = () => {
     finishAudioCall();
+    closeVerificationModal();
+    closeSettings();
     closeUserProfilePopup();
     localStorage.removeItem('ferniex_messenger_session');
     session = null;
     accountSettings = null;
     telegramId = null;
+    adminPanelAccess = { canAccess:false, canGrantFull:false };
+    updateAdminPanelVisibility();
     chats = [];
     chatsLoadedOnce = false;
     activeId = null;
@@ -4564,7 +4764,41 @@ document.querySelectorAll('[data-settings-page]').forEach(button => button.addEv
   showSettingsPage(page);
   if (page === 'devices') loadDevices();
   if (page === 'plus' || page === 'coins') loadProducts();
+  if (page === 'admin') loadVerificationUsers();
 }));
+document.getElementById('verificationOpenSearch').addEventListener('click', openVerificationModal);
+document.getElementById('verificationTabs').addEventListener('click', event => {
+  const tab = event.target.closest('[data-verification-level]');
+  if (tab) setVerificationLevelFilter(tab.dataset.verificationLevel);
+});
+document.getElementById('verificationUserList').addEventListener('click', event => {
+  const row = event.target.closest('[data-verification-user]');
+  const person = verificationUsers.find(user => String(user.id) === String(row?.dataset.verificationUser));
+  if (person) selectVerificationUser(person);
+});
+document.getElementById('verificationSearchInput').addEventListener('input', event => {
+  clearTimeout(verificationSearchTimer);
+  verificationSearchTimer = setTimeout(() => searchVerificationUsers(event.currentTarget.value), 220);
+});
+document.getElementById('verificationSearchResults').addEventListener('click', event => {
+  const row = event.target.closest('[data-verification-search-user]');
+  const person = verificationCandidates.find(user => String(user.id) === String(row?.dataset.verificationSearchUser));
+  if (person) selectVerificationUser(person);
+});
+document.getElementById('verificationModalClose').addEventListener('click', closeVerificationModal);
+document.getElementById('verificationModal').addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeVerificationModal();
+});
+document.getElementById('verificationChoiceView').addEventListener('click', event => {
+  const choice = event.target.closest('[data-verification-choice]');
+  if (choice && !choice.disabled) confirmVerificationChange(choice.dataset.verificationChoice);
+  if (event.target.closest('#verificationCancelChoice')) closeVerificationModal();
+});
+document.getElementById('verificationConfirmCancel').addEventListener('click', () => {
+  document.getElementById('verificationConfirmView').hidden = true;
+  document.getElementById('verificationChoiceView').hidden = false;
+});
+document.getElementById('verificationConfirmApply').addEventListener('click', applyVerificationChange);
 document.getElementById('browserNotifications').addEventListener('click', async event => {
   const button = event.currentTarget;
   const enabled = button.getAttribute('aria-checked') !== 'true';
@@ -4613,6 +4847,7 @@ document.getElementById('sessionNoticeOk').addEventListener('click', () => {
   showAuth('Сессия завершена. Войдите снова.');
 });
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.getElementById('verificationModal').hidden) closeVerificationModal();
   if (photoViewer.classList.contains('open')) {
     if (event.key === 'Escape') closePhotoViewer();
     if (event.key === 'ArrowLeft') movePhotoViewer(-1);
@@ -4642,7 +4877,7 @@ async function bootstrap() {
     else await checkDeviceSession();
     if (!session) return;
     startDeviceChecks();
-    await Promise.all([loadChats(), loadSettings(), loadOwnProfile()]);
+    await Promise.all([loadChats(), loadSettings(), loadOwnProfile(), loadAdminPanelAccess()]);
     await handlePendingGroupInvite();
     hidePageLoader();
     loadProducts();
