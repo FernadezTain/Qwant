@@ -614,15 +614,62 @@
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
       .app.show-conversation .mobile-tab-bar { display: none; }
-      .mobile-tab-bar { position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; z-index: 10; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; min-height: 64px; padding: 5px; border: 1px solid color-mix(in srgb, var(--line) 75%, transparent); border-radius: 22px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 8px 28px rgba(0,0,0,.18); backdrop-filter: blur(20px); }
-      .mobile-tab { display: grid; align-content: center; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; border: 0; border-radius: 17px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; }
-      .mobile-tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-      .mobile-tab.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+      .mobile-tab-bar { --tab-offset: 100%; position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; z-index: 10; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; min-height: 64px; padding: 5px; overflow: hidden; isolation: isolate; border: 1px solid color-mix(in srgb, var(--line) 65%, transparent); border-radius: 23px; background: color-mix(in srgb, var(--surface) 66%, transparent); box-shadow: 0 10px 32px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.2); backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45); }
+      .mobile-tab-bar::before { position: absolute; top: 5px; bottom: 5px; left: 5px; z-index: -1; width: calc((100% - 10px) / 3); border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--accent) 13%, var(--surface) 55%); box-shadow: 0 3px 12px rgba(0,0,0,.08), inset 0 1px rgba(255,255,255,.18); content: ''; transform: translateX(var(--tab-offset)); transition: transform .42s cubic-bezier(.2,.85,.25,1); }
+      .mobile-tab { display: grid; align-content: center; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; border: 0; border-radius: 17px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; transition: color .22s ease; }
+      .mobile-tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .32s cubic-bezier(.2,.85,.25,1); }
+      .mobile-tab span { transition: transform .32s cubic-bezier(.2,.85,.25,1); }
+      .mobile-tab.active { color: var(--accent); }
+      .mobile-tab-bar.slide-left .mobile-tab.active svg, .mobile-tab-bar.slide-left .mobile-tab.active span { animation: tab-enter-left .34s cubic-bezier(.2,.8,.25,1) both; }
+      .mobile-tab-bar.slide-right .mobile-tab.active svg, .mobile-tab-bar.slide-right .mobile-tab.active span { animation: tab-enter-right .34s cubic-bezier(.2,.8,.25,1) both; }
+      @keyframes tab-enter-left { from { opacity: .5; transform: translateX(-10px) rotateY(-55deg); } to { opacity: 1; transform: translateX(0) rotateY(0); } }
+      @keyframes tab-enter-right { from { opacity: .5; transform: translateX(10px) rotateY(55deg); } to { opacity: 1; transform: translateX(0) rotateY(0); } }
       #menuToggle { display: none; }
       .drawer-backdrop { inset: 0 0 calc(76px + env(safe-area-inset-bottom)); }
-      .drawer { inset: auto 0 0; width: 100%; max-height: min(78dvh, 640px); border-radius: 22px 22px 0 0; transform: translateY(102%); }
-      .drawer-backdrop.open .drawer { transform: translateY(0); }
-      .drawer-cover { min-height: 125px; }
+      .drawer-backdrop { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+      .drawer { inset: 0; width: 100%; max-height: none; padding: max(9px, env(safe-area-inset-top)) 16px 18px; background: transparent; box-shadow: none; transform: translateX(16px); }
+      .drawer-backdrop.open .drawer { transform: translateX(0); }
+      .drawer-cover { min-height: 185px; margin: -9px -16px 18px; padding: 22px 24px; border-radius: 0 0 28px 28px; background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 58%), linear-gradient(145deg, color-mix(in srgb, var(--surface-soft) 82%, #647387), var(--surface-soft)); }
+      .drawer-avatar { width: 78px; height: 78px; border: 3px solid color-mix(in srgb, var(--surface) 55%, transparent); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+      .drawer-account { display: grid; gap: 5px; }
+      .drawer-name { font-size: 23px; letter-spacing: -.5px; }
+      .drawer-handle { margin-top: 0; font-size: 14px; }
+      .drawer-close { top: max(14px, env(safe-area-inset-top)); width: 38px; height: 38px; border-color: color-mix(in srgb, var(--line) 50%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 60%, transparent); backdrop-filter: blur(12px); }
+      .drawer-item { min-height: 58px; gap: 14px; padding: 0 15px; border-radius: 13px; font-size: 15px; }
+      .drawer-group { margin: 0 0 15px; padding: 0 10px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 75%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 5px 17px rgba(0,0,0,.045); }
+      .drawer-group .drawer-item { min-height: 57px; padding: 0 2px; border-radius: 0; }
+      .drawer-group .drawer-item + .drawer-item { border-top: 1px solid color-mix(in srgb, var(--line) 76%, transparent); }
+      .drawer-item svg { width: 34px; height: 34px; padding: 7px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 15%, var(--surface-soft)); color: var(--accent); }
+      .account-links .drawer-item:nth-child(2) svg { background: #e4f2ff; color: #3698ed; }
+      .account-links .drawer-item:nth-child(3) svg { background: #e5f7ea; color: #39b86a; }
+      .preference-links .drawer-item:nth-child(1) svg { background: #fff0e2; color: #ed8c38; }
+      .preference-links .drawer-item:nth-child(2) svg { background: #eee9ff; color: #8065d8; }
+      .preference-links .drawer-item:nth-child(3) svg { background: #e1f4ff; color: #299bcc; }
+      .preference-links .drawer-item:nth-child(4) svg { background: #e4f6ed; color: #36a977; }
+      .product-links .drawer-item:nth-child(1) svg { background: #fff3d4; color: #e5a326; }
+      .product-links .drawer-item:nth-child(2) svg { background: #f0e7ff; color: #8d5be0; }
+      .product-links .drawer-item:nth-child(3) svg { background: #e0f3ff; color: #398ed2; }
+      .drawer-chevron { margin-left: auto; color: var(--muted); font-size: 25px; font-weight: 300; line-height: 1; }
+      .drawer-group .drawer-switch { color: var(--muted); font-size: 13px; }
+      .drawer-item:hover { background: color-mix(in srgb, var(--surface-soft) 75%, transparent); }
+      .drawer-separator { height: 1px; margin: 13px 10px; background: color-mix(in srgb, var(--line) 80%, transparent); }
+      .drawer-spacer { min-height: 12px; }
+      .drawer-product { background: color-mix(in srgb, var(--surface-soft) 55%, transparent); }
+      .drawer-backdrop.open .drawer > .drawer-item, .drawer-backdrop.open .drawer > .drawer-separator { animation: bot-content-in .24s both; }
+      .drawer-backdrop.open .drawer > .drawer-item:nth-of-type(2) { animation-delay: .025s; }
+      .drawer-backdrop.open .drawer > .drawer-item:nth-of-type(3) { animation-delay: .05s; }
+      .settings-overlay { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); }
+      .settings-dialog { background: var(--page); }
+      .settings-header { min-height: 58px; padding: max(12px, env(safe-area-inset-top)) 16px 12px; background: color-mix(in srgb, var(--surface) 90%, transparent); }
+      .settings-heading { font-size: 17px; }
+      .settings-body { background: var(--page); }
+      .settings-nav { gap: 5px; padding: 10px 12px; background: transparent; }
+      .settings-nav-button { min-height: 39px; border-radius: 13px; background: color-mix(in srgb, var(--surface) 78%, transparent); }
+      .settings-nav-button.active { background: var(--accent-soft); }
+      .settings-content { padding: 20px 16px max(24px, env(safe-area-inset-bottom)); }
+      .settings-page-title { font-size: 24px; }
+      .setting-row { min-height: 64px; }
+      .telegram-card, .device-card, .product-card { border: 0; border-radius: 17px; background: var(--surface); }
       input, textarea, select { font-size: 16px !important; }
       .chats-head { padding: max(18px, env(safe-area-inset-top)) 18px 13px; }
       .conversation-head { min-height: 69px; padding-top: max(10px, env(safe-area-inset-top)); }
@@ -718,14 +765,22 @@
         </button>
         <button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть меню">×</button>
       </div>
-      <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты</button>
-      <button class="drawer-item" id="drawerBots" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></svg>Мои боты</button>
-      <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль</button>
-      <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z"/></svg>Настройки</button>
-      <div class="drawer-separator"></div>
-      <button class="drawer-item" id="themeToggle" type="button"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>Ночной режим<span class="drawer-switch" id="themeState">Выкл.</span></button>
-      <button class="drawer-item drawer-product" id="drawerPlus" type="button"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>Fernie+</button>
-      <button class="drawer-item drawer-product" id="drawerCoins" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg>FernieCoins<span class="drawer-switch" id="coinsMenuBalance">—</span></button>
+      <div class="drawer-group account-links">
+        <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" id="drawerBots" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></svg>Мои боты<span class="drawer-chevron">›</span></button>
+      </div>
+      <div class="drawer-group preference-links">
+        <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>Уведомления и звуки<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" type="button" data-drawer-settings="privacy"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>Конфиденциальность<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" type="button" data-drawer-settings="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M10 18.5h4"/></svg>Устройства<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" type="button" data-drawer-settings="personalization"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l1.5-1.2-1.5-2.7-1.8.6a7 7 0 0 0-2-1.2L14.8 4h-3.1l-.3 2.3a7 7 0 0 0-2 1.2l-1.8-.6-1.5 2.7 1.5 1.2a7 7 0 0 0 0 2.4l-1.5 1.2 1.5 2.7 1.8-.6a7 7 0 0 0 2 1.2l.3 2.3h3.1l.3-2.3a7 7 0 0 0 2-1.2l1.8.6 1.5-2.7-1.5-1.2A7 7 0 0 0 19 12Z"/></svg>Оформление<span class="drawer-chevron">›</span></button>
+      </div>
+      <div class="drawer-group product-links">
+        <button class="drawer-item" id="themeToggle" type="button"><svg viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>Ночной режим<span class="drawer-switch" id="themeState">Выкл.</span></button>
+        <button class="drawer-item drawer-product" id="drawerPlus" type="button"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>Fernie+<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item drawer-product" id="drawerCoins" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.7-.7-1.8-1-3.1-1-1.8 0-3 .8-3 2s1 1.8 3 2.2 3 .9 3 2.2-1.2 2.2-3.2 2.2c-1.4 0-2.7-.5-3.4-1.4M12.4 5.5v13"/></svg>FernieCoins<span class="drawer-switch" id="coinsMenuBalance">—</span></button>
+      </div>
       <div class="drawer-spacer"></div>
       <button class="drawer-item" id="drawerLogout" type="button"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6"/></svg>Выйти из аккаунта</button>
     </aside>
