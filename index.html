@@ -96,6 +96,8 @@
     .call-overlay { position: fixed; inset: 0; z-index: 105; display: grid; place-items: center; padding: 18px; background: rgba(15,20,25,.48); backdrop-filter: blur(8px); }
     .call-overlay[hidden] { display: none; }
     .call-card { width: min(100%, 340px); padding: 25px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); text-align: center; }
+    .call-card-head { display: flex; justify-content: flex-end; margin: -13px -13px 4px; }
+    .call-minimize { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 11px; background: var(--surface-soft); color: var(--muted); font-size: 21px; cursor: pointer; }
     .call-avatar { display: grid; width: 82px; height: 82px; place-items: center; margin: 0 auto 15px; border: 5px solid var(--accent-soft); border-radius: 28px; background: var(--accent); color: white; font-size: 25px; font-weight: 700; }
     .call-title { margin: 0; font-size: 19px; font-weight: 700; }
     .call-status { min-height: 20px; margin: 7px 0 22px; color: var(--muted); font-size: 12px; }
@@ -106,6 +108,14 @@
     .call-action.end { background: #c94f4a; color: white; }
     .call-action[hidden] { display: none; }
     .call-remote-audio { display: none; }
+    .call-dock { position: fixed; right: max(18px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom)); z-index: 106; display: flex; max-width: min(390px,calc(100vw - 28px)); align-items: center; gap: 9px; padding: 9px 10px 9px 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 12px 40px rgba(20,25,30,.24); }
+    .call-dock[hidden] { display: none; }
+    .call-dock-main { display: grid; min-width: 0; gap: 3px; padding: 3px 6px 3px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+    .call-dock-title { overflow: hidden; max-width: 210px; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .call-dock-status { color: var(--muted); font-size: 10px; }
+    .call-dock-end { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 13px; background: #c94f4a; color: white; cursor: pointer; }
+    .call-dock-end svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 760px) { .call-dock { right: 12px; bottom: max(82px,env(safe-area-inset-bottom)); } }
     .messages { display: flex; flex: 1; flex-direction: column; gap: 7px; overflow-y: auto; padding: 18px clamp(16px, 5vw, 65px); background-color: var(--surface-soft); background-image: radial-gradient(rgba(140, 125, 102, .095) .8px, transparent .8px); background-size: 19px 19px; }
     .messages.has-chat-wallpaper { background-image: linear-gradient(rgba(248,247,243,.25),rgba(248,247,243,.25)),var(--chat-wallpaper); background-position: center; background-size: cover; background-repeat: no-repeat; }
     .messages.has-chat-wallpaper .message-row:not(.own) .bubble { background: color-mix(in srgb,var(--bubble-incoming) 90%,transparent); backdrop-filter: blur(12px); }
@@ -919,6 +929,7 @@
 
   <div class="call-overlay" id="callOverlay" aria-hidden="true" hidden>
     <section class="call-card" role="dialog" aria-modal="true" aria-labelledby="callTitle">
+      <div class="call-card-head"><button class="call-minimize" id="callMinimize" type="button" aria-label="Свернуть звонок" title="Свернуть">−</button></div>
       <div class="call-avatar" id="callAvatar">FX</div>
       <h2 class="call-title" id="callTitle">Аудиозвонок</h2>
       <div class="call-status" id="callStatus" role="status" aria-live="polite"></div>
@@ -930,6 +941,10 @@
       </div>
       <audio class="call-remote-audio" id="callRemoteAudio" autoplay></audio>
     </section>
+  </div>
+  <div class="call-dock" id="callDock" hidden>
+    <button class="call-dock-main" id="callRestore" type="button" aria-label="Развернуть звонок"><span class="call-dock-title" id="callDockTitle">Аудиозвонок</span><span class="call-dock-status" id="callDockStatus"></span></button>
+    <button class="call-dock-end" id="callDockEnd" type="button" aria-label="Завершить звонок" title="Завершить"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
   </div>
 
   <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true">
