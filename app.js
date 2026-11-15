@@ -33,6 +33,10 @@ const emojiSearch = document.getElementById('emojiSearch');
 const emojiCategoriesElement = document.getElementById('emojiCategories');
 const emojiGrid = document.getElementById('emojiGrid');
 const pageLoader = document.getElementById('pageLoader');
+const callOverlay = document.getElementById('callOverlay');
+const callRemoteAudio = document.getElementById('callRemoteAudio');
+const callStatus = document.getElementById('callStatus');
+const startAudioCallButton = document.getElementById('startAudioCall');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 const emojiCategories = [
   { id:'smileys', label:'Смайлы', icon:'😀', items:[['😀','улыбка'],['😃','улыбка радость'],['😄','смех'],['😁','зубы'],['😆','смеюсь'],['😅','неловко пот'],['😂','слезы смех'],['🤣','катаюсь смех'],['🙂','улыбка'],['🙃','перевернутый'],['😉','подмигивание'],['😊','доволен'],['😇','ангел'],['🥰','любовь'],['😍','сердечки'],['😘','поцелуй'],['😋','вкусно'],['😛','язык'],['😜','подмигнул язык'],['🤪','сумасшедший'],['😎','круто очки'],['🤓','умный'],['🤔','думаю'],['🫡','салют'],['🤨','сомнение'],['😐','нейтрально'],['😶','без слов'],['🙄','закатил глаза'],['😏','ухмылка'],['😴','сон'],['🥱','зевота'],['😭','плачу'],['😤','злюсь'],['😡','злость'],['🤯','взрыв мозга'],['🥳','праздник'],['🤗','обнимаю'],['🫶','сердце руками']] },
@@ -93,6 +97,11 @@ let activeEmojiCategory = 'smileys';
 let fontScaleRulesApplied = false;
 let chatBackgroundDbPromise = null;
 const chatBackgroundUrls = new Map();
+let activeCall = null;
+let callSignalTimer;
+let callTimeoutTimer;
+let callSignalsPolling = false;
+let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
 
 function readSession() {
   try {
@@ -453,12 +462,14 @@ async function registerDevice() {
 }
 
 function endRevokedSession() {
+  finishAudioCall({ notify:false });
   localStorage.removeItem('ferniex_messenger_session');
   session = null;
   accountSettings = null;
   telegramId = null;
   chats = [];
   activeId = null;
+  updateCallControls();
   clearInterval(deviceCheckTimer);
   hidePageLoader();
   document.getElementById('sessionNotice').classList.add('open');
@@ -1817,6 +1828,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').textContent = chat.name;
   document.getElementById('headerStatus').textContent = chat.handle;
+  updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
   document.getElementById('attachButton').hidden = chat.isFavorites;
@@ -2158,6 +2170,243 @@ function showMessageToast(text) {
   toast.classList.add('visible');
   clearTimeout(showMessageToast.timer);
   showMessageToast.timer = setTimeout(() => toast.classList.remove('visible'), 1800);
+}
+
+function updateCallControls() {
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
+}
+
+function flushLocalCallCandidates(call) {
+  if (!call.signalingReady) return;
+  while (call.pendingLocalCandidates.length) {
+    sendCallSignal('ice', call.pendingLocalCandidates.shift(), call).catch(() => {});
+  }
+}
+
+function setCallDialog({ name, status, incoming = false, connecting = false }) {
+  document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
+  callStatus.textContent = status;
+  document.getElementById('callAvatar').textContent = initials(name || 'FX');
+  document.getElementById('callAccept').hidden = !incoming;
+  document.getElementById('callDecline').hidden = !incoming;
+  document.getElementById('callMute').hidden = !connecting;
+  document.getElementById('callEnd').hidden = incoming;
+  callOverlay.hidden = false;
+  callOverlay.setAttribute('aria-hidden', 'false');
+}
+
+async function sendCallSignal(type, payload = {}, call = activeCall) {
+  if (!call || !session?.sessionToken) return;
+  await api(`/api/social/chats/${encodeURIComponent(call.conversationId)}/call-signals`, {
+    method:'POST',
+    body:JSON.stringify({ callId:call.id, type, payload })
+  });
+}
+
+function closeCallDialog() {
+  callOverlay.hidden = true;
+  callOverlay.setAttribute('aria-hidden', 'true');
+  document.getElementById('callAccept').hidden = true;
+  document.getElementById('callDecline').hidden = true;
+  document.getElementById('callMute').hidden = true;
+  document.getElementById('callEnd').hidden = false;
+  callRemoteAudio.srcObject = null;
+}
+
+async function finishAudioCall({ notify = true, status = '' } = {}) {
+  const call = activeCall;
+  if (!call) return;
+  activeCall = null;
+  clearTimeout(callTimeoutTimer);
+  call.pendingCandidates = [];
+  if (notify) sendCallSignal('hangup', {}).catch(() => {});
+  call.peer?.close();
+  call.stream?.getTracks().forEach(track => track.stop());
+  callRemoteAudio.srcObject = null;
+  closeCallDialog();
+  updateCallControls();
+  if (status) showMessageToast(status);
+}
+
+async function createCallPeer(call) {
+  const peer = new RTCPeerConnection({ iceServers:callIceServers });
+  call.peer = peer;
+  call.stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+  if (activeCall !== call) {
+    call.stream.getTracks().forEach(track => track.stop());
+    throw new Error('Звонок завершён');
+  }
+  call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  peer.ontrack = event => {
+    callRemoteAudio.srcObject = event.streams[0];
+    callRemoteAudio.play().catch(() => {});
+  };
+  peer.onicecandidate = event => {
+    if (!event.candidate || activeCall !== call) return;
+    const candidate = event.candidate.toJSON();
+    if (!call.signalingReady) call.pendingLocalCandidates.push(candidate);
+    else sendCallSignal('ice', candidate, call).catch(() => {});
+  };
+  peer.onconnectionstatechange = () => {
+    if (activeCall !== call) return;
+    if (['failed', 'disconnected', 'closed'].includes(peer.connectionState)) {
+      finishAudioCall({ notify:peer.connectionState !== 'closed', status:'Звонок завершён: соединение потеряно.' });
+      return;
+    }
+    if (peer.connectionState === 'connected') {
+      clearTimeout(callTimeoutTimer);
+      setCallDialog({ name:call.name, status:'На связи', connecting:true });
+    }
+  };
+  return peer;
+}
+
+async function flushCallCandidates(call) {
+  while (activeCall === call && call.peer?.remoteDescription && call.pendingCandidates.length) {
+    await call.peer.addIceCandidate(call.pendingCandidates.shift());
+  }
+}
+
+async function startAudioCall() {
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (!chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot || activeCall) return;
+  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+    return showMessageToast('Браузер не поддерживает аудиозвонки.');
+  }
+  if (!window.isSecureContext) return showMessageToast('Для звонков откройте Messenger через HTTPS.');
+  const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false };
+  activeCall = call;
+  updateCallControls();
+  setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
+  try {
+    const config = await api('/api/social/calls/config');
+    if (activeCall !== call) return;
+    callIceServers = config.iceServers || callIceServers;
+    await createCallPeer(call);
+    await sendCallSignal('invite');
+    call.signalingReady = true;
+    flushLocalCallCandidates(call);
+    setCallDialog({ name:call.name, status:'Вызов…' });
+    callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Нет ответа.' }), 45000);
+  } catch (error) {
+    finishAudioCall({ notify:false });
+    showMessageToast(error.message || 'Не удалось начать звонок.');
+  }
+}
+
+async function acceptAudioCall() {
+  const call = activeCall;
+  if (!call || call.initiator) return;
+  document.getElementById('callAccept').disabled = true;
+  try {
+    callIceServers = (await api('/api/social/calls/config')).iceServers || callIceServers;
+    await createCallPeer(call);
+    await sendCallSignal('accepted');
+    clearTimeout(callTimeoutTimer);
+    call.signalingReady = true;
+    flushLocalCallCandidates(call);
+    setCallDialog({ name:call.name, status:'Подключаем…', connecting:true });
+    await flushCallCandidates(call);
+  } catch (error) {
+    await finishAudioCall({ notify:false });
+    showMessageToast(error.message || 'Не удалось ответить на звонок.');
+  } finally {
+    document.getElementById('callAccept').disabled = false;
+  }
+}
+
+async function processCallSignal(signal) {
+  const chat = chats.find(item => String(item.id) === String(signal.conversationId));
+  if (!chat || String(chat.partner.id) !== String(signal.senderId)) return;
+  let call = activeCall;
+  if (signal.type === 'invite') {
+    if (!call) {
+      const chat = chats.find(item => String(item.id) === String(signal.conversationId));
+      if (!chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot) {
+        api(`/api/social/chats/${encodeURIComponent(signal.conversationId)}/call-signals`, {
+          method:'POST', body:JSON.stringify({ callId:signal.callId, type:'declined', payload:{} })
+        }).catch(() => {});
+        return;
+      }
+      call = { id:signal.callId, conversationId:String(signal.conversationId), name:chat.name, initiator:false, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false };
+      activeCall = call;
+      updateCallControls();
+      setCallDialog({ name:call.name, status:'Входящий аудиозвонок', incoming:true });
+      callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Пропущенный звонок.' }), 45000);
+    } else if (call.id !== signal.callId) {
+      api(`/api/social/chats/${encodeURIComponent(signal.conversationId)}/call-signals`, {
+        method:'POST', body:JSON.stringify({ callId:signal.callId, type:'declined', payload:{} })
+      }).catch(() => {});
+    }
+    return;
+  }
+  if (!call || call.id !== signal.callId || call.conversationId !== String(signal.conversationId)) return;
+  if (signal.type === 'declined' || signal.type === 'hangup') {
+    await finishAudioCall({ notify:false, status:signal.type === 'declined' ? 'Звонок отклонён.' : 'Собеседник завершил звонок.' });
+    return;
+  }
+  if (signal.type === 'accepted' && call.initiator) {
+    clearTimeout(callTimeoutTimer);
+    setCallDialog({ name:call.name, status:'Подключаем…', connecting:true });
+    try {
+      const offer = await call.peer.createOffer();
+      await call.peer.setLocalDescription(offer);
+      await sendCallSignal('offer', call.peer.localDescription.toJSON());
+    } catch (error) {
+      await finishAudioCall({ status:error.message || 'Не удалось создать аудиосоединение.' });
+    }
+    return;
+  }
+  if (signal.type === 'offer' && !call.initiator && call.peer) {
+    try {
+      await call.peer.setRemoteDescription(signal.payload);
+      await flushCallCandidates(call);
+      const answer = await call.peer.createAnswer();
+      await call.peer.setLocalDescription(answer);
+      await sendCallSignal('answer', call.peer.localDescription.toJSON());
+    } catch (error) {
+      await finishAudioCall({ status:error.message || 'Не удалось принять соединение.' });
+    }
+    return;
+  }
+  if (signal.type === 'answer' && call.initiator && call.peer) {
+    try {
+      await call.peer.setRemoteDescription(signal.payload);
+      await flushCallCandidates(call);
+    } catch (error) {
+      await finishAudioCall({ status:error.message || 'Не удалось установить соединение.' });
+    }
+    return;
+  }
+  if (signal.type === 'ice' && call.peer) {
+    try {
+      if (call.peer.remoteDescription) await call.peer.addIceCandidate(signal.payload);
+      else call.pendingCandidates.push(signal.payload);
+    } catch {
+      await finishAudioCall({ status:'Ошибка сетевого соединения.' });
+    }
+  }
+}
+
+async function pollCallSignals() {
+  if (!session?.sessionToken || document.hidden || callSignalsPolling) return;
+  callSignalsPolling = true;
+  try {
+    const result = await api('/api/social/calls/signals');
+    for (const signal of result.signals || []) await processCallSignal(signal);
+  } catch {
+    if (activeCall) callStatus.textContent = 'Проблема со связью…';
+  } finally {
+    callSignalsPolling = false;
+  }
+}
+
+async function declineAudioCall() {
+  const call = activeCall;
+  if (!call) return;
+  sendCallSignal('declined', {}, call).catch(() => {});
+  await finishAudioCall({ notify:false });
 }
 
 function messageCopyText(message) {
@@ -2505,6 +2754,18 @@ async function deleteDeletedAccountChat() {
     button.disabled = false;
   }
 }
+
+startAudioCallButton.addEventListener('click', startAudioCall);
+document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
+document.getElementById('callDecline').addEventListener('click', declineAudioCall);
+document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
+document.getElementById('callMute').addEventListener('click', event => {
+  const track = activeCall?.stream?.getAudioTracks()[0];
+  if (!track) return;
+  track.enabled = !track.enabled;
+  event.currentTarget.querySelector('span').textContent = track.enabled ? 'Выключить микрофон' : 'Включить микрофон';
+  event.currentTarget.setAttribute('aria-pressed', String(!track.enabled));
+});
 
 document.getElementById('messageForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -3010,6 +3271,7 @@ messageInput.addEventListener('input', () => {
 async function logout() {
   if (!await confirmAction('Выйти из Qwant Messenger?', { title: 'Выйти из аккаунта' })) return;
   const finishLogout = () => {
+    finishAudioCall();
     localStorage.removeItem('ferniex_messenger_session');
     session = null;
     accountSettings = null;
@@ -3017,6 +3279,7 @@ async function logout() {
     chats = [];
     chatsLoadedOnce = false;
     activeId = null;
+    updateCallControls();
     clearInterval(deviceCheckTimer);
     closeDrawer();
     closeProfile();
@@ -3044,6 +3307,7 @@ document.addEventListener('visibilitychange', () => {
     checkDeviceSession();
     refreshChats();
     loadSettings();
+    pollCallSignals();
   }
 });
 
@@ -3156,3 +3420,5 @@ bootstrap();
 setInterval(() => {
   if (session?.sessionToken && !document.hidden) refreshChats();
 }, 12000);
+
+callSignalTimer = setInterval(pollCallSignals, 1200);
