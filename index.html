@@ -47,6 +47,8 @@
     .chats { display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
     .chats-head { padding: 20px 18px 13px; }
     .head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+    .head-row-actions { display: flex; gap: 6px; }
+    .head-row-actions .icon-button { width: 36px; height: 36px; }
     .head-brand { display: flex; align-items: center; gap: 11px; }
     .menu-trigger { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); cursor: pointer; transition: .18s ease; }
     .menu-trigger:hover { color: var(--ink); background: var(--surface-soft); }
@@ -169,6 +171,9 @@
       .call-action.decline svg, .call-action.end svg { background: #fb3d36; }
       .call-dock { right: 12px; bottom: max(82px,env(safe-area-inset-bottom)); }
       .call-card.is-speaking .call-avatar { box-shadow: 0 0 0 13px rgba(226,216,255,.24),0 0 0 28px rgba(226,216,255,.15); }
+      .group-modal { align-items: end; padding: 8px 8px max(8px,env(safe-area-inset-bottom)); }
+      .group-modal-card { width: 100%; max-height: 92dvh; border-radius: 22px; }
+      .group-invite-card { margin: auto; }
     }
     @keyframes call-voice-wave { 0% { opacity: .72; transform: scale(.9); } 100% { opacity: 0; transform: scale(1.16); } }
     @keyframes call-voice-bars { from { height: 4px; } to { height: 13px; } }
@@ -283,6 +288,35 @@
     .message-toast.visible { opacity: 1; transform: translate(-50%,0); }
     @keyframes context-menu-in { from { opacity: 0; transform: translateY(3px) scale(.98); } to { opacity: 1; transform: none; } }
     .bubble { max-width: min(78%, 460px); padding: 7px 10px 5px; border: 1px solid var(--bubble-incoming-border); border-radius: 14px 14px 14px 4px; background: var(--bubble-incoming); box-shadow: 0 2px 7px rgba(30,35,42,.055); color: #353a42; font-size: 12px; line-height: 1.42; overflow-wrap: anywhere; }
+    .group-sender-name { margin-bottom: 4px; color: var(--accent); font-size: 10px; font-weight: 750; }
+    .group-modal { position: fixed; inset: 0; z-index: 125; display: grid; place-items: center; padding: 18px; background: rgba(8,12,18,.62); backdrop-filter: blur(9px); }
+    .group-modal[hidden] { display: none; }
+    .group-modal-card { width: min(100%,440px); max-height: min(90dvh,740px); overflow: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 28px 90px rgba(0,0,0,.32); animation: auth-rise .22s ease both; }
+    .group-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 750; }
+    .group-modal-body { padding: 18px; }
+    .group-field { display: grid; gap: 7px; margin-bottom: 14px; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .group-field input, .group-field textarea { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; }
+    .group-field textarea { min-height: 82px; resize: vertical; }
+    .group-avatar-edit { display: flex; align-items: center; gap: 13px; margin: 3px 0 16px; }
+    .group-avatar-preview { display: grid; width: 70px; height: 70px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 23px; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 25px; font-weight: 750; }
+    .group-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .group-avatar-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .group-modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px 17px; border-top: 1px solid var(--line); }
+    .group-modal-actions button { min-height: 39px; padding: 0 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .group-modal-actions .primary { border-color: var(--accent); background: var(--accent); color: white; }
+    .group-modal-actions button:disabled { opacity: .55; cursor: wait; }
+    .group-modal-status { min-height: 17px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .group-invite-card { position: relative; width: min(100%,400px); padding: 25px; text-align: center; }
+    .group-invite-avatar { display: grid; width: 96px; height: 96px; place-items: center; overflow: hidden; margin: 5px auto 17px; border-radius: 30px; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 34px; font-weight: 750; box-shadow: 0 0 0 9px rgba(133,110,225,.1); }
+    .group-invite-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .group-invite-title { margin: 0; font-size: 22px; font-weight: 750; }
+    .group-invite-count { margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .group-invite-description { margin: 14px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+    .group-invite-status { min-height: 18px; margin: 12px 0 0; color: var(--muted); font-size: 11px; }
+    .group-invite-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 20px; }
+    .group-invite-actions button { min-height: 45px; border: 0; border-radius: 13px; background: var(--accent); color: white; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+    .group-invite-actions button.secondary { border: 1px solid var(--line); background: var(--surface-soft); color: var(--ink); }
+    .group-invite-actions button:disabled { opacity: .55; cursor: wait; }
     .own .bubble { border-color: transparent; border-radius: 14px 14px 4px 14px; background: var(--bubble-outgoing); color: var(--bubble-outgoing-ink); box-shadow: 0 3px 9px rgba(50,115,205,.18); }
     .own .gift-message-bubble { border-color: var(--line); border-radius: 17px; background: var(--surface); color: var(--ink); box-shadow: 0 4px 14px -12px rgba(35,29,21,.3); }
     .bubble-meta { display: flex; justify-content: flex-end; gap: 5px; margin-top: 2px; color: #969eaa; font-size: 9px; line-height: 1; }
@@ -359,7 +393,8 @@
     .profile-description { max-width: 100%; margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
     .profile-description[hidden] { display: none !important; }
     .profile-status { margin-top: 11px; padding: 5px 9px; border-radius: 99px; background: #eaf3eb; color: var(--green); font-size: 10px; font-weight: 600; }
-    .profile-actions { display: flex; gap: 12px; margin-top: 16px; }
+    .profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px; margin-top: 16px; }
+    .profile-actions [hidden] { display: none; }
     .profile-action { display: grid; justify-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
     .profile-action .icon-button { width: 38px; height: 38px; background: var(--surface-soft); }
     .detail-section { padding: 15px 17px; border-top: 1px solid var(--line); }
@@ -946,7 +981,7 @@
   <main class="app" id="app">
     <section class="chats" aria-label="Список чатов">
       <header class="chats-head">
-        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title">Сообщения</h1></div></div><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="head-row"><div class="head-brand"><button class="menu-trigger" id="menuToggle" type="button" aria-label="Открыть меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><div class="eyebrow">Qwant</div><h1 class="chats-title">Сообщения</h1></div></div><div class="head-row-actions"><button class="icon-button" id="newGroup" type="button" aria-label="Создать группу" title="Создать группу"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></button><button class="icon-button" id="newChat" aria-label="Новое сообщение" title="Новое сообщение"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
         <label class="search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Поиск по чатам" autocomplete="off"></label>
       </header>
       <div class="filter-row" role="group" aria-label="Фильтры чатов"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="unread">Непрочитанные</button><button class="filter" data-filter="personal">Личные</button></div>
@@ -973,7 +1008,7 @@
 
     <aside class="details" aria-label="Информация о контакте">
       <div class="details-head"><span class="details-title">Информация</span><button class="icon-button" id="detailsClose" aria-label="Закрыть информацию"><svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>
-      <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button></div></div>
+      <div class="profile"><div class="avatar" id="detailAvatar">Q</div><div class="profile-name" id="detailName">Qwant Messenger</div><div class="profile-handle" id="detailHandle">Войдите через FernieID</div><div class="profile-description" id="detailDescription" hidden></div><div class="profile-status" id="detailStatus">● защищённый доступ</div><div class="profile-actions"><button class="profile-action" id="profileMessageButton"><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg></span>Написать</button><button class="profile-action" id="profileOpenButton"><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>Профиль</button><button class="profile-action" id="groupAddMembers" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg></span>Добавить</button><button class="profile-action" id="groupInviteButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span>Ссылка</button><button class="profile-action" id="groupSettingsButton" type="button" hidden><span class="icon-button"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.6.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.6-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.9l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.6-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.6.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z"/></svg></span>Настроить</button></div></div>
       <div class="detail-section chat-appearance" id="chatAppearance" hidden><div class="section-label">Оформление чата</div><div class="chat-wallpaper-preview" id="chatWallpaperPreview"><span>Фон по умолчанию</span></div><input id="chatWallpaperInput" type="file" accept="image/*" hidden><div class="chat-wallpaper-actions"><button class="settings-button" id="chooseChatWallpaper" type="button">Своё фото</button><button class="settings-button" id="removeChatWallpaper" type="button" hidden>Сбросить</button></div><div class="settings-status" id="chatWallpaperStatus" role="status" aria-live="polite"></div></div>
       <div class="detail-section"><div class="section-label"><span>Общие медиа</span><span id="mediaCount">0</span></div><div class="media-grid" id="mediaGrid"></div><div class="details-empty" id="mediaEmpty">Нет фото в переписке</div></div>
       <div class="detail-section"><div class="section-label"><span>Ссылки</span><span id="linkCount">0</span></div><div class="shared-links" id="sharedLinks"></div><div class="details-empty" id="linksEmpty">Ссылок пока нет</div></div>
@@ -985,6 +1020,47 @@
       <button class="mobile-tab" type="button" data-mobile-tab="settings" aria-label="Настройки"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.88 2h-3.76a.5.5 0 0 0-.49.42L9.27 4.96a7.28 7.28 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.72 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.06.94c0 .32.02.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.76c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.22.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg><span>Настройки</span></button>
     </nav>
   </main>
+
+  <div class="group-modal" id="groupCreateModal" hidden>
+    <form class="group-modal-card" id="groupCreateForm" role="dialog" aria-modal="true" aria-labelledby="groupCreateTitle">
+      <header class="group-modal-head"><span id="groupCreateTitle">Новая группа</span><button class="icon-button" id="groupCreateClose" type="button" aria-label="Закрыть">×</button></header>
+      <div class="group-modal-body">
+        <div class="group-avatar-edit"><div class="group-avatar-preview" id="groupCreateAvatarPreview">G</div><div class="group-avatar-actions"><label class="settings-button" for="groupCreateAvatarInput">Выбрать аватар</label><input id="groupCreateAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="settings-button" id="groupCreateAvatarRemove" type="button">Убрать</button></div></div>
+        <label class="group-field">Название группы<input id="groupCreateName" maxlength="60" required placeholder="Например, Друзья"></label>
+        <label class="group-field">Описание<textarea id="groupCreateDescription" maxlength="500" placeholder="О чём эта группа"></textarea></label>
+        <label class="group-field">Участники по NickName<input id="groupCreateMembers" required placeholder="username1, username2"></label>
+        <div class="group-modal-status" id="groupCreateStatus" role="status" aria-live="polite"></div>
+      </div>
+      <footer class="group-modal-actions"><button id="groupCreateCancel" type="button">Отмена</button><button class="primary" type="submit">Создать группу</button></footer>
+    </form>
+  </div>
+
+  <div class="group-modal" id="groupSettingsModal" hidden>
+    <form class="group-modal-card" id="groupSettingsForm" role="dialog" aria-modal="true" aria-labelledby="groupSettingsTitle">
+      <header class="group-modal-head"><span id="groupSettingsTitle">Настройки группы</span><button class="icon-button" id="groupSettingsClose" type="button" aria-label="Закрыть">×</button></header>
+      <div class="group-modal-body">
+        <div class="group-avatar-edit"><div class="group-avatar-preview" id="groupSettingsAvatarPreview">G</div><div class="group-avatar-actions"><label class="settings-button" for="groupSettingsAvatarInput">Выбрать аватар</label><input id="groupSettingsAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="settings-button" id="groupSettingsAvatarRemove" type="button">Убрать</button></div></div>
+        <label class="group-field">Название<input id="groupSettingsName" maxlength="60" required></label>
+        <label class="group-field">Описание<textarea id="groupSettingsDescription" maxlength="500"></textarea></label>
+        <div class="group-field">Ссылка-приглашение<input id="groupInviteUrl" type="text" readonly></div>
+        <div class="group-avatar-actions"><button class="settings-button" id="groupInviteCopy" type="button">Копировать ссылку</button><button class="settings-button" id="groupInviteShare" type="button">Поделиться</button></div>
+        <div class="group-modal-status" id="groupSettingsStatus" role="status" aria-live="polite"></div>
+      </div>
+      <footer class="group-modal-actions"><button id="groupSettingsCancel" type="button">Закрыть</button><button class="primary" type="submit">Сохранить</button></footer>
+    </form>
+  </div>
+
+  <div class="group-modal" id="groupInviteModal" hidden>
+    <section class="group-modal-card group-invite-card" role="dialog" aria-modal="true" aria-labelledby="groupInviteTitle">
+      <button class="icon-button" id="groupInviteClose" type="button" aria-label="Закрыть" style="position:absolute;top:14px;right:14px">×</button>
+      <div class="group-invite-avatar" id="groupInviteAvatar">G</div>
+      <h2 class="group-invite-title" id="groupInviteTitle">Группа</h2>
+      <div class="group-invite-count" id="groupInviteCount"></div>
+      <p class="group-invite-description" id="groupInviteDescription" hidden></p>
+      <div class="group-invite-status" id="groupInviteStatus" role="status" aria-live="polite"></div>
+      <div class="group-invite-actions"><button id="groupInviteJoin" type="button">Вступить</button><button class="secondary" id="groupInviteOpen" type="button" hidden>Открыть чат</button></div>
+    </section>
+  </div>
 
   <div class="call-overlay" id="callOverlay" aria-hidden="true" hidden>
     <section class="call-card" role="dialog" aria-modal="true" aria-labelledby="callTitle">
@@ -1236,6 +1312,6 @@
     </div>
   </section>
 
-  <script src="/app.js?v=call-ui-2" defer></script>
+  <script src="/app.js?v=group-invites-2" defer></script>
 </body>
 </html>
