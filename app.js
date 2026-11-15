@@ -35,6 +35,7 @@ const emojiGrid = document.getElementById('emojiGrid');
 const pageLoader = document.getElementById('pageLoader');
 const callOverlay = document.getElementById('callOverlay');
 const callRemoteAudio = document.getElementById('callRemoteAudio');
+const callRingtone = document.getElementById('callRingtone');
 const callStatus = document.getElementById('callStatus');
 const startAudioCallButton = document.getElementById('startAudioCall');
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
@@ -100,9 +101,12 @@ const chatBackgroundUrls = new Map();
 let activeCall = null;
 let callSignalTimer;
 let callTimeoutTimer;
+let callDurationTimer;
+let callVoiceFrame;
 let callSignalsPolling = false;
 let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
 const pendingCallCandidates = new Map();
+let callVoiceContext = null;
 
 function readSession() {
   try {
@@ -2185,12 +2189,100 @@ function flushLocalCallCandidates(call) {
   }
 }
 
+function formatCallDuration(startedAt) {
+  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function updateCallDuration() {
+  if (!activeCall?.connectedAt) return;
+  const duration = formatCallDuration(activeCall.connectedAt);
+  document.getElementById('callDuration').textContent = duration;
+  document.getElementById('callDuration').hidden = false;
+  const status = callStatus.textContent;
+  document.getElementById('callDockStatus').textContent = `${status} · ${duration}`;
+}
+
+function setCallStatus(status) {
+  callStatus.textContent = status;
+  document.getElementById('callDockStatus').textContent = activeCall?.connectedAt
+    ? `${status} · ${formatCallDuration(activeCall.connectedAt)}`
+    : status;
+}
+
+function setCallSpeaking(speaking) {
+  document.getElementById('callVoiceIndicator').classList.toggle('is-speaking', speaking);
+  document.querySelector('.call-card').classList.toggle('is-speaking', speaking);
+  document.getElementById('callDock').classList.toggle('is-speaking', speaking);
+}
+
+function prepareCallVoiceContext(call) {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  try {
+    call.voiceContext ||= new AudioContext();
+    call.voiceContext.resume().catch(() => {});
+  } catch {}
+}
+
+async function monitorCallVoice(call) {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  try {
+    call.voiceContext ||= new AudioContext();
+    call.voiceAnalyser = call.voiceContext.createAnalyser();
+    call.voiceAnalyser.fftSize = 512;
+    call.voiceContext.createMediaStreamSource(call.stream).connect(call.voiceAnalyser);
+    await call.voiceContext.resume();
+    if (activeCall !== call) return;
+    const samples = new Uint8Array(call.voiceAnalyser.fftSize);
+    let activeFrames = 0;
+    let quietFrames = 0;
+    const detectVoice = () => {
+      if (activeCall !== call || !call.voiceAnalyser) return;
+      call.voiceAnalyser.getByteTimeDomainData(samples);
+      const level = Math.sqrt(samples.reduce((sum, sample) => sum + (sample - 128) ** 2, 0) / samples.length);
+      const muted = call.stream.getAudioTracks().every(track => !track.enabled);
+      if (!muted && level > 3.8) {
+        activeFrames += 1;
+        quietFrames = 0;
+      } else {
+        quietFrames += 1;
+        activeFrames = 0;
+      }
+      if (activeFrames >= 3) setCallSpeaking(true);
+      if (quietFrames >= 10 || muted) setCallSpeaking(false);
+      callVoiceFrame = requestAnimationFrame(detectVoice);
+    };
+    detectVoice();
+  } catch {}
+}
+
+function startCallDuration(call) {
+  if (!call.connectedAt) call.connectedAt = Date.now();
+  clearInterval(callDurationTimer);
+  updateCallDuration();
+  callDurationTimer = setInterval(updateCallDuration, 1000);
+}
+
+function startIncomingRingtone() {
+  callRingtone.currentTime = 0;
+  callRingtone.play().catch(() => {});
+}
+
+function stopIncomingRingtone() {
+  callRingtone.pause();
+  callRingtone.currentTime = 0;
+}
+
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
-  callStatus.textContent = status;
+  setCallStatus(status);
   setAvatar(document.getElementById('callAvatar'), activeCall?.partner || { display_name:name || 'FX' });
   document.getElementById('callDockTitle').textContent = name || 'Аудиозвонок';
-  document.getElementById('callDockStatus').textContent = status;
+  document.getElementById('callVoiceIndicator').hidden = !connecting;
+  document.querySelector('.call-card').classList.toggle('is-ringing', incoming);
+  if (activeCall?.connectedAt) updateCallDuration();
   document.getElementById('callAccept').hidden = !incoming;
   document.getElementById('callDecline').hidden = !incoming;
   document.getElementById('callMute').hidden = !connecting;
@@ -2226,7 +2318,16 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   activeCall = null;
   clearTimeout(callTimeoutTimer);
   clearTimeout(call.disconnectTimer);
+  clearTimeout(call.recoveryTimer);
+  clearInterval(callDurationTimer);
+  cancelAnimationFrame(callVoiceFrame);
+  stopIncomingRingtone();
+  setCallSpeaking(false);
+  call.voiceAnalyser = null;
+  call.voiceContext?.close().catch(() => {});
   call.pendingCandidates = [];
+    document.getElementById('callDuration').hidden = true;
+    document.getElementById('callVoiceIndicator').hidden = true;
   if (notify) sendCallSignal('hangup', {}).catch(() => {});
   call.peer?.close();
   call.stream?.getTracks().forEach(track => track.stop());
@@ -2245,6 +2346,7 @@ function createCallPeer(call, stream) {
     throw new Error('Звонок завершён');
   }
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  monitorCallVoice(call);
   peer.ontrack = event => {
     callRemoteAudio.srcObject = event.streams[0];
     callRemoteAudio.play().catch(() => {});
@@ -2261,7 +2363,7 @@ function createCallPeer(call, stream) {
       clearTimeout(call.disconnectTimer);
       call.disconnectTimer = setTimeout(() => {
         if (activeCall === call && peer.connectionState === 'disconnected') {
-          callStatus.textContent = 'Связь нестабильна, пытаемся восстановить…';
+            setCallStatus('Связь нестабильна, пытаемся восстановить…');
           if (call.initiator && !call.iceRestarted) {
             call.iceRestarted = true;
             call.peer.createOffer({ iceRestart:true }).then(async offer => {
@@ -2282,7 +2384,7 @@ function createCallPeer(call, stream) {
     if (peer.connectionState === 'failed') {
       if (call.initiator && !call.iceRestarted) {
         call.iceRestarted = true;
-        callStatus.textContent = 'Пытаемся восстановить соединение…';
+        setCallStatus('Пытаемся восстановить соединение…');
         call.peer.createOffer({ iceRestart:true }).then(async offer => {
           if (activeCall !== call) return;
           await call.peer.setLocalDescription(offer);
@@ -2307,6 +2409,7 @@ function createCallPeer(call, stream) {
       clearTimeout(callTimeoutTimer);
       clearTimeout(call.disconnectTimer);
       clearTimeout(call.recoveryTimer);
+      startCallDuration(call);
       setCallDialog({ name:call.name, status:'На связи', connecting:true });
     }
   };
@@ -2329,6 +2432,7 @@ async function startAudioCall() {
   const call = { id:crypto.randomUUID(), conversationId:String(chat.id), name:chat.name, partner:chat.partner, initiator:true, peer:null, stream:null, pendingCandidates:[], pendingLocalCandidates:[], signalingReady:false, minimized:false };
   activeCall = call;
   updateCallControls();
+  prepareCallVoiceContext(call);
   setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
   try {
     const [stream, config] = await Promise.all([
@@ -2355,6 +2459,8 @@ async function startAudioCall() {
 async function acceptAudioCall() {
   const call = activeCall;
   if (!call || call.initiator) return;
+  stopIncomingRingtone();
+  prepareCallVoiceContext(call);
   document.getElementById('callAccept').disabled = true;
   try {
     const [stream, config] = await Promise.all([
@@ -2399,6 +2505,7 @@ async function processCallSignal(signal) {
       activeCall = call;
       updateCallControls();
       setCallDialog({ name:call.name, status:'Входящий аудиозвонок', incoming:true });
+      startIncomingRingtone();
       callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Пропущенный звонок.' }), 45000);
       const candidates = pendingCallCandidates.get(call.id) || [];
       pendingCallCandidates.delete(call.id);
@@ -2474,8 +2581,7 @@ async function pollCallSignals() {
     for (const signal of result.signals || []) await processCallSignal(signal);
   } catch {
     if (activeCall) {
-      callStatus.textContent = 'Проблема со связью…';
-      document.getElementById('callDockStatus').textContent = callStatus.textContent;
+      setCallStatus('Проблема со связью…');
     }
   } finally {
     callSignalsPolling = false;
@@ -2839,6 +2945,9 @@ startAudioCallButton.addEventListener('click', startAudioCall);
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
 document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
+document.addEventListener('pointerdown', () => {
+  if (activeCall && !activeCall.initiator && !activeCall.peer && callRingtone.paused) startIncomingRingtone();
+}, { passive:true });
 document.getElementById('callMinimize').addEventListener('click', () => {
   if (!activeCall) return;
   activeCall.minimized = true;
