@@ -1100,6 +1100,8 @@ function renderUserProfilePopup(person) {
   activeUserPopup = person;
   setAvatar(document.getElementById('userPopupAvatar'), person);
   document.getElementById('userPopupName').textContent = person.display_name || person.username || 'Пользователь';
+  document.getElementById('userPopupOfficialBadge').hidden = person.is_official_admin !== true;
+  document.getElementById('userPopupOfficialNotice').hidden = person.is_official_admin !== true;
   const username = document.getElementById('userPopupHandle');
   username.textContent = person.username ? `@${person.username}` : person.is_deleted ? 'Аккаунт удалён' : '';
   username.dataset.copyUsername = person.username || '';
