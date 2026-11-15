@@ -76,6 +76,7 @@ let pendingChallenge = null;
 let authFlowUsername = '';
 let pendingSignupPassword = '';
 let refreshing = false;
+let awaySince = null;
 let chatsLoadedOnce = false;
 let chatListRevision = 0;
 let chatListRequestId = 0;
@@ -110,6 +111,7 @@ let callTimeoutTimer;
 let callDurationTimer;
 let callVoiceFrame;
 let callSignalsPolling = false;
+let callHistoryRequestId = 0;
 let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
 const pendingCallCandidates = new Map();
 let callVoiceContext = null;
@@ -1139,7 +1141,10 @@ function renderUserProfilePopup(person) {
   activeUserPopup = person;
   setAvatar(document.getElementById('userPopupAvatar'), person);
   document.getElementById('userPopupName').textContent = person.display_name || person.username || 'Пользователь';
-  document.getElementById('userPopupHandle').textContent = person.username ? `@${person.username}` : person.is_deleted ? 'Аккаунт удалён' : '';
+  const username = document.getElementById('userPopupHandle');
+  username.textContent = person.username ? `@${person.username}` : person.is_deleted ? 'Аккаунт удалён' : '';
+  username.dataset.copyUsername = person.username || '';
+  username.hidden = !person.username;
   document.getElementById('userPopupDescription').textContent = person.description || 'Описание не указано';
   const banner = document.getElementById('userPopupBanner');
   const bannerUrl = safeImageUrl(person.banner_url || person.bannerUrl);
@@ -1380,18 +1385,26 @@ function createFavoritesChat(previous = null) {
 
 function renderChats() {
   closeChatContextMenu();
-  const query = searchInput.value.trim().toLocaleLowerCase('ru');
+  const query = searchInput.value.trim().replace(/^@+/, '').toLocaleLowerCase('ru');
   const filtered = chats.filter(chat => {
     const matchesQuery = `${chat.name} ${chat.preview} ${chat.handle}`.toLocaleLowerCase('ru').includes(query);
-    const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' ? chat.unread > 0 : chat.personal);
+    const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' ? chat.unread > 0 : activeFilter === 'groups' ? chat.isGroup : chat.personal);
     return matchesQuery && matchesFilter;
-  }).sort((left, right) => Number(right.isFavorites) - Number(left.isFavorites) || Number(right.pinned) - Number(left.pinned));
+  }).sort((left, right) => Number(right.pinned) - Number(left.pinned)
+    || (Date.parse(right.lastMessageAt) || 0) - (Date.parse(left.lastMessageAt) || 0)
+    || Number(right.isFavorites) - Number(left.isFavorites));
   chatList.innerHTML = filtered.length ? filtered.map(chat => `
     <button class="chat-item ${chat.id === activeId ? 'active' : ''}" data-chat="${escapeHtml(chat.id)}">
       <span class="avatar-wrap" ${!chat.isFavorites && !chat.isGroup ? `data-profile-user="${escapeHtml(chat.partner.id)}"` : ''}>${chat.isFavorites ? '<span class="avatar favorites-avatar">★</span>' : avatarMarkup(chat.partner)}${chat.online ? '<span class="online-dot"></span>' : ''}</span>
-      <span class="chat-copy"><span class="chat-top"><span class="chat-name" ${!chat.isFavorites && !chat.isGroup ? `data-profile-user="${escapeHtml(chat.partner.id)}"` : ''}>${escapeHtml(chat.name)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
+      <span class="chat-copy"><span class="chat-top"><span class="chat-name" ${!chat.isFavorites && !chat.isGroup && chat.partner.username ? `data-copy-username="${escapeHtml(chat.partner.username)}"` : ''}>${escapeHtml(chat.name)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
     </button>`).join('') : `<div class="empty-state">${query ? 'Ничего не найдено' : 'Здесь появятся ваши чаты'}</div>`;
   chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', event => {
+    const copyTrigger = event.target.closest('[data-copy-username]');
+    if (copyTrigger) {
+      event.stopPropagation();
+      copyUsername(copyTrigger.dataset.copyUsername);
+      return;
+    }
     const profileTrigger = event.target.closest('[data-profile-user]');
     if (profileTrigger) {
       event.stopPropagation();
@@ -1462,7 +1475,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
     return `${datePill}<div class="group-event-row ${animate ? 'message-new' : ''}"><span class="group-event-pill">${escapeHtml(eventText)}</span></div>`;
   }
   const senderLabel = chat.isGroup && !message.own && message.sender
-    ? `<button class="group-sender-name" type="button" data-profile-user="${escapeHtml(message.sender.id)}">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}</button>`
+    ? `<button class="group-sender-name" type="button" data-copy-username="${escapeHtml(message.sender.username || '')}">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}</button>`
     : '';
   if (message.type === 'udg_gift') {
     const gift = message.gift || { model_name: 'Подарок UDG', collection_name: 'Детали подарка недоступны' };
@@ -2019,6 +2032,7 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
+  closeCallHistory();
   if (!chat.isFavorites && !chat.isGroup) {
     chatListRevision += 1;
     api(`/api/social/chats/${encodeURIComponent(chat.id)}/unhide`, { method: 'POST' }).catch(() => {});
@@ -2034,6 +2048,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').textContent = chat.name;
   document.getElementById('headerStatus').textContent = chat.handle;
+  document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
@@ -2063,7 +2078,7 @@ async function selectChat(id) {
   renderMessages(chat, true);
   renderSharedDetails(chat);
   renderChats();
-  const activeTab = document.querySelector(`[data-mobile-tab="${chat.isFavorites ? 'favorites' : 'chats'}"]`);
+  const activeTab = document.querySelector('[data-mobile-tab="chats"]');
   if (activeTab) setMobileTabActive(activeTab);
   const conversation = document.querySelector('.conversation');
   conversation.classList.remove('chat-opening');
@@ -2074,32 +2089,64 @@ async function selectChat(id) {
   else loadChatMessages(chat);
 }
 
-async function refreshChats() {
+async function refreshChats(showUpdate = false) {
   if (refreshing) return;
   refreshing = true;
   const shouldRefreshConversation = isConversationVisible();
+  const previousChats = new Map(chats.map(chat => [String(chat.id), {
+    unread:chat.unread,
+    lastMessageAt:Date.parse(chat.lastMessageAt) || 0
+  }]));
+  const chatsTitle = document.querySelector('.chats-title');
+  if (showUpdate) {
+    chatsTitle.textContent = 'Обновление';
+    chatsTitle.classList.add('is-updating');
+  }
   try {
     await loadChats();
+    const hasNewMessages = chats.some(chat => {
+      const previous = previousChats.get(String(chat.id));
+      return previous
+        ? chat.unread > previous.unread || (Date.parse(chat.lastMessageAt) || 0) > previous.lastMessageAt
+        : !chat.isFavorites && Boolean(chat.lastMessageAt);
+    });
+    if (showUpdate && !hasNewMessages) {
+      chatsTitle.classList.remove('is-updating');
+      chatsTitle.textContent = 'Сообщения';
+    }
     if (shouldRefreshConversation && activeId) {
       const chat = chats.find(item => item.id === activeId);
       if (chat?.isFavorites) await loadFavoriteMessages(chat);
       else if (chat) await loadChatMessages(chat);
     }
   } finally {
+    if (showUpdate) {
+      chatsTitle.classList.remove('is-updating');
+      chatsTitle.textContent = 'Сообщения';
+    }
     refreshing = false;
   }
 }
 
 async function searchPeople(query) {
+  query = String(query || '').trim().replace(/^@+/, '');
   if (!session?.sessionToken || !query) return;
   try {
     const result = await api(`/api/social/chat-users?q=${encodeURIComponent(query)}`);
     chatList.innerHTML = result.users.length ? result.users.map(person => `
       <button class="chat-item" data-person="${escapeHtml(person.id)}">
         <span class="avatar-wrap">${avatarMarkup(person)}</span>
-        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.display_name || person.username)}</span></span><span class="chat-preview">${person.is_bot ? 'Бот · ' : ''}@${escapeHtml(person.username)} · Начать переписку</span></span>
+        <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(person.display_name || person.username)}</span></span><span class="chat-preview">${person.is_bot ? 'Бот · ' : ''}<span data-copy-username="${escapeHtml(person.username)}">@${escapeHtml(person.username)}</span> · Начать переписку</span></span>
       </button>`).join('') : '<div class="empty-state">Пользователи не найдены</div>';
-    chatList.querySelectorAll('[data-person]').forEach(button => button.addEventListener('click', () => openChat(button.dataset.person)));
+    chatList.querySelectorAll('[data-person]').forEach(button => button.addEventListener('click', event => {
+      const copyButton = event.target.closest('[data-copy-username]');
+      if (copyButton) {
+        event.stopPropagation();
+        copyUsername(copyButton.dataset.copyUsername);
+        return;
+      }
+      openChat(button.dataset.person);
+    }));
   } catch (error) {
     chatList.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
@@ -2121,7 +2168,7 @@ async function openChat(recipientId) {
 }
 
 async function findGroupMemberIds(input) {
-  const usernames = [...new Set(String(input || '').split(',').map(value => value.trim().replace(/^@/, '')).filter(Boolean))];
+  const usernames = [...new Set(String(input || '').split(',').map(value => value.trim().replace(/^@+/, '')).filter(Boolean))];
   if (!usernames.length) throw new Error('Введите хотя бы один NickName');
   const matches = await Promise.all(usernames.map(async username => {
     const result = await api(`/api/social/chat-users?q=${encodeURIComponent(username)}`);
@@ -2172,6 +2219,7 @@ function renderGroupMemberResults(people) {
 }
 
 async function searchGroupInvitees(query) {
+  query = String(query || '').trim().replace(/^@+/, '');
   const requestId = ++groupMemberSearchRequestId;
   const results = document.getElementById('groupMemberResults');
   if(query.length < 2) {
@@ -2352,29 +2400,31 @@ async function addGroupMembers() {
   }
 }
 
-async function leaveGroup() {
-  const chat = chats.find(item => String(item.id) === String(activeId) && item.isGroup);
+async function leaveGroup(groupId = activeId) {
+  const chat = chats.find(item => String(item.id) === String(groupId) && item.isGroup);
   if (!chat || !await confirmAction(`Покинуть группу «${chat.name}»?`, { title:'Покинуть группу', danger:true })) return;
   try {
     await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/members/me`, { method:'DELETE' });
-    activeId = null;
+    if (String(activeId) === String(chat.id)) {
+      activeId = null;
+      app.classList.remove('show-conversation');
+      messages.replaceChildren();
+      document.getElementById('headerName').textContent = 'Выберите чат';
+      document.getElementById('headerStatus').textContent = 'Qwant Messenger';
+      setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
+      document.getElementById('detailName').textContent = 'Qwant Messenger';
+      document.getElementById('detailHandle').textContent = 'Выберите чат';
+      document.getElementById('detailStatus').textContent = '● защищённый доступ';
+      document.getElementById('profileMessageButton').hidden = false;
+      document.getElementById('profileOpenButton').hidden = false;
+      document.getElementById('chatAppearance').hidden = true;
+      document.getElementById('groupMembersSection').hidden = true;
+      document.getElementById('groupAddMembers').hidden = true;
+      document.getElementById('groupInviteButton').hidden = true;
+      document.getElementById('groupSettingsButton').hidden = true;
+      updateCallControls();
+    }
     await loadChats();
-    app.classList.remove('show-conversation');
-    messages.replaceChildren();
-    document.getElementById('headerName').textContent = 'Выберите чат';
-    document.getElementById('headerStatus').textContent = 'Qwant Messenger';
-    setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
-    document.getElementById('detailName').textContent = 'Qwant Messenger';
-    document.getElementById('detailHandle').textContent = 'Выберите чат';
-    document.getElementById('detailStatus').textContent = '● защищённый доступ';
-    document.getElementById('profileMessageButton').hidden = false;
-    document.getElementById('profileOpenButton').hidden = false;
-    document.getElementById('chatAppearance').hidden = true;
-    document.getElementById('groupMembersSection').hidden = true;
-    document.getElementById('groupAddMembers').hidden = true;
-    document.getElementById('groupInviteButton').hidden = true;
-    document.getElementById('groupSettingsButton').hidden = true;
-    updateCallControls();
     showMessageToast('Вы покинули группу');
   } catch(error) {
     showMessageToast(error.message || 'Не удалось покинуть группу');
@@ -2540,16 +2590,16 @@ function closeChatContextMenu() {
 
 function openChatContextMenu(chatId, x, y) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || chat.isFavorites || chat.isGroup) return;
+  if (!chat || chat.isFavorites) return;
   closeMessageMenu();
   const menu = document.getElementById('chatContextMenu');
   menu.innerHTML = `
     <div class="context-menu-date">${escapeHtml(chat.name)}</div>
     <div class="context-menu-divider"></div>
     <button class="context-menu-action" type="button" data-chat-action="pin"><svg viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4 2 2-2 2-4-4-5 5M8 8l2-2 2 2 4-4 1-4"/></svg>${chat.pinned ? 'Открепить' : 'Закрепить'}</button>
-    <button class="context-menu-action" type="button" data-chat-action="unread"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></svg>Пометить как непрочитанное</button>
-    <button class="context-menu-action" type="button" data-chat-action="clear"><svg viewBox="0 0 24 24"><path d="m4 16 8-8 4 4-8 8H4zM13 7l2-2 4 4-2 2M4 20h16"/></svg>Очистить историю</button>
-    <button class="context-menu-action danger" type="button" data-chat-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить чат</button>`;
+    ${chat.isGroup
+      ? '<button class="context-menu-action danger" type="button" data-chat-action="leave"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6"/></svg>Покинуть группу</button>'
+      : '<button class="context-menu-action" type="button" data-chat-action="unread"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></svg>Пометить как непрочитанное</button><button class="context-menu-action" type="button" data-chat-action="clear"><svg viewBox="0 0 24 24"><path d="m4 16 8-8 4 4-8 8H4zM13 7l2-2 4 4-2 2M4 20h16"/></svg>Очистить историю</button><button class="context-menu-action danger" type="button" data-chat-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить чат</button>'}`;
   menu.dataset.chatId = String(chat.id);
   menu.classList.add('open');
   const bounds = menu.getBoundingClientRect();
@@ -2646,6 +2696,7 @@ async function clearChatHistory(chatId) {
 async function handleChatMenuAction(action, chatId) {
   closeChatContextMenu();
   if (action === 'pin') togglePinnedChat(chatId);
+  if (action === 'leave') await leaveGroup(chatId);
   if (action === 'unread') await markChatUnread(chatId);
   if (action === 'clear') await clearChatHistory(chatId);
   if (action === 'delete') await hideChatFromList(chatId);
@@ -2657,6 +2708,29 @@ function showMessageToast(text) {
   toast.classList.add('visible');
   clearTimeout(showMessageToast.timer);
   showMessageToast.timer = setTimeout(() => toast.classList.remove('visible'), 1800);
+}
+
+async function copyUsername(username) {
+  const value = `@${String(username || '').trim().replace(/^@+/, '')}`;
+  if (value === '@') return;
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value);
+    else throw new Error('Буфер обмена недоступен');
+    showMessageToast('Имя пользователя скопировано');
+  } catch {
+    const input = document.createElement('textarea');
+    input.value = value;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.append(input);
+    let copied = false;
+    try {
+      input.select();
+      copied = document.execCommand('copy');
+    } catch {}
+    input.remove();
+    showMessageToast(copied ? 'Имя пользователя скопировано' : 'Не удалось скопировать имя пользователя');
+  }
 }
 
 function updateCallControls() {
@@ -2678,7 +2752,7 @@ async function loadGroupMembers(chat) {
     document.getElementById('groupMemberCount').textContent = result.members.length;
     chat.memberCount = result.members.length;
     list.innerHTML = result.members.length ? result.members.map(member => `
-      <div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-profile-user="${escapeHtml(member.id)}">${escapeHtml(member.display_name || member.username || 'Участник')}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`).join('') : '<div class="group-member-list-state">Список участников пуст</div>';
+      <div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-copy-username="${escapeHtml(member.username || '')}">${escapeHtml(member.display_name || member.username || 'Участник')}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`).join('') : '<div class="group-member-list-state">Список участников пуст</div>';
   } catch(error) {
     if(String(activeId) === String(chat.id)) list.innerHTML = `<div class="group-member-list-state">${escapeHtml(error.message || 'Не удалось загрузить участников')}</div>`;
   }
@@ -2859,7 +2933,9 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   const voiceIndicator = document.getElementById('callVoiceIndicator');
   if (durationElement) durationElement.hidden = true;
   if (voiceIndicator) voiceIndicator.hidden = true;
-  if (notify) sendCallSignal('hangup', {}, call).catch(() => {});
+  if (notify) sendCallSignal('hangup', {}, call).then(() => {
+    if (app.classList.contains('show-call-history')) loadCallHistory();
+  }).catch(() => {});
   call.peer?.close();
   call.stream?.getTracks().forEach(track => track.stop());
   callRemoteAudio.srcObject = null;
@@ -3127,6 +3203,55 @@ async function pollCallSignals() {
   } finally {
     callSignalsPolling = false;
   }
+}
+
+function callHistoryStatus(call) {
+  if (call.status === 'missed') return call.direction === 'incoming' ? 'Пропущенный звонок' : 'Нет ответа';
+  if (call.status === 'declined') return 'Звонок отклонён';
+  if (call.status === 'completed') {
+    const seconds = Number(call.duration_seconds) || 0;
+    return seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : 'Завершён';
+  }
+  return call.status === 'ringing' ? 'Нет ответа' : 'Звонок не завершён';
+}
+
+async function loadCallHistory() {
+  const list = document.getElementById('callHistoryList');
+  const requestId = ++callHistoryRequestId;
+  list.innerHTML = '<div class="call-history-state">Загружаем историю звонков…</div>';
+  try {
+    const result = await api('/api/social/calls/history');
+    if (requestId !== callHistoryRequestId) return;
+    const calls = [...result.calls].sort((left, right) => Date.parse(right.started_at) - Date.parse(left.started_at));
+    list.innerHTML = calls.length ? calls.map(call => `
+      <article class="call-history-row">
+        <button class="call-history-main" type="button" data-call-history-chat="${escapeHtml(call.partner.id)}" aria-label="Открыть чат с ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователем')}">${avatarMarkup(call.partner, 'avatar call-history-avatar')}<span class="call-history-copy"><span class="call-history-name">${escapeHtml(call.partner.display_name || call.partner.username || 'Пользователь')}</span><span class="call-history-meta">${call.direction === 'outgoing' ? 'Исходящий' : 'Входящий'} · ${escapeHtml(formatDateTime(call.started_at))}</span></span></button>
+        <span class="call-history-status ${call.status === 'missed' || call.status === 'declined' ? 'missed' : ''}">${escapeHtml(callHistoryStatus(call))}</span>
+        <button class="call-history-redial" type="button" data-call-history-redial="${escapeHtml(call.partner.id)}" aria-label="Позвонить ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователю')}" title="Позвонить"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
+      </article>`).join('') : '<div class="call-history-state">Звонков пока нет</div>';
+  } catch(error) {
+    if (requestId === callHistoryRequestId) list.innerHTML = `<div class="call-history-state">${escapeHtml(error.message || 'Не удалось загрузить историю звонков')}</div>`;
+  }
+}
+
+async function openCallHistoryChat(userId, redial = false) {
+  closeCallHistory();
+  await openChat(userId);
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (redial && String(chat?.partner.id) === String(userId)) await startAudioCall();
+}
+
+function openCallHistory() {
+  closeDrawer();
+  app.classList.remove('show-conversation');
+  app.classList.add('show-call-history');
+  document.getElementById('callHistory').hidden = false;
+  loadCallHistory();
+}
+
+function closeCallHistory() {
+  app.classList.remove('show-call-history');
+  document.getElementById('callHistory').hidden = true;
 }
 
 async function declineAudioCall() {
@@ -3489,12 +3614,21 @@ async function deleteDeletedAccountChat() {
 }
 
 startAudioCallButton.addEventListener('click', startAudioCall);
+document.getElementById('callHistoryRefresh').addEventListener('click', loadCallHistory);
+document.getElementById('callHistoryList').addEventListener('click', event => {
+  const redialButton = event.target.closest('[data-call-history-redial]');
+  if (redialButton) return openCallHistoryChat(redialButton.dataset.callHistoryRedial, true);
+  const chatButton = event.target.closest('[data-call-history-chat]');
+  if (chatButton) openCallHistoryChat(chatButton.dataset.callHistoryChat);
+});
 document.getElementById('newGroup').addEventListener('click', createGroupChat);
 document.getElementById('groupAddMembers').addEventListener('click', addGroupMembers);
 document.getElementById('groupLeaveButton').addEventListener('click', leaveGroup);
 document.getElementById('groupMemberList').addEventListener('click', event => {
   const removeButton = event.target.closest('[data-remove-member]');
   if (removeButton) return removeGroupMember(removeButton.dataset.removeMember);
+  const copyButton = event.target.closest('[data-copy-username]');
+  if (copyButton) return copyUsername(copyButton.dataset.copyUsername);
   const profileButton = event.target.closest('[data-profile-user]');
   if (profileButton) openUserProfilePopup(profileButton.dataset.profileUser);
 });
@@ -3720,7 +3854,7 @@ document.getElementById('cancelReply').addEventListener('click', clearReply);
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
   if (searchUsers) {
-    const query = searchInput.value.trim();
+    const query = searchInput.value.trim().replace(/^@+/, '');
     if (query.length < 2) {
       chatList.innerHTML = '<div class="empty-state">Введите минимум 2 символа</div>';
       return;
@@ -3742,6 +3876,7 @@ document.getElementById('backToChats').addEventListener('click', () => {
   const chat = chats.find(item => String(item.id) === String(activeId));
   if (chat && !chat.isFavorites && !chat.isGroup) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
   app.classList.remove('show-conversation');
+  closeCallHistory();
   document.querySelector('.conversation').classList.remove('favorites-chat', 'chat-opening');
   document.getElementById('attachButton').hidden = false;
   messageInput.placeholder = 'Написать сообщение…';
@@ -3751,16 +3886,12 @@ document.getElementById('backToChats').addEventListener('click', () => {
 document.querySelectorAll('[data-mobile-tab]').forEach(button => button.addEventListener('click', () => {
   const tab = button.dataset.mobileTab;
   setMobileTabActive(button);
-  if (tab === 'favorites') {
-    closeDrawer();
-    searchUsers = false;
-    searchInput.value = '';
-    searchInput.placeholder = 'Поиск по чатам';
-    const favoriteChat = chats.find(chat => chat.isFavorites);
-    if (favoriteChat && activeId !== favoriteChat.id) selectChat(favoriteChat.id);
+  if (tab === 'calls') {
+    openCallHistory();
     return;
   }
   if (tab === 'chats') {
+    closeCallHistory();
     closeDrawer();
     if (app.classList.contains('show-conversation')) document.getElementById('backToChats').click();
     searchUsers = false;
@@ -3942,6 +4073,11 @@ profileScreen.addEventListener('click', event => {
 });
 document.getElementById('userPopupClose').addEventListener('click', closeUserProfilePopup);
 document.getElementById('userProfilePopup').addEventListener('click', event => {
+  const copyButton = event.target.closest('[data-copy-username]');
+  if (copyButton) {
+    copyUsername(copyButton.dataset.copyUsername);
+    return;
+  }
   if (event.target.id === 'userProfilePopup') closeUserProfilePopup();
 });
 document.getElementById('userPopupWrite').addEventListener('click', () => {
@@ -3996,6 +4132,12 @@ document.addEventListener('keydown', event => {
   }
 });
 messages.addEventListener('click', event => {
+  const copyButton = event.target.closest('[data-copy-username]');
+  if (copyButton) {
+    event.preventDefault();
+    copyUsername(copyButton.dataset.copyUsername);
+    return;
+  }
   const profileButton = event.target.closest('[data-profile-user]');
   if (profileButton) {
     event.preventDefault();
@@ -4191,7 +4333,12 @@ document.getElementById('detailsToggle').addEventListener('click', () => {
   if (window.matchMedia('(max-width: 1180px)').matches) app.classList.add('show-details');
   else app.classList.remove('details-hidden');
 });
-document.getElementById('chatProfileButton').addEventListener('click', () => {
+document.getElementById('chatProfileButton').addEventListener('click', event => {
+  const copyButton = event.target.closest('[data-copy-username]');
+  if (copyButton?.dataset.copyUsername) {
+    copyUsername(copyButton.dataset.copyUsername);
+    return;
+  }
   const chat = chats.find(item => String(item.id) === String(activeId));
   if (!chat) return;
   if (!chat.isGroup) {
@@ -4302,10 +4449,16 @@ document.addEventListener('keydown', event => {
 });
 
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    awaySince ||= Date.now();
+    return;
+  }
   if (activeCall && !document.hidden) keepCallScreenAwake(activeCall);
-  if (session?.sessionToken && !document.hidden) {
+  if (session?.sessionToken) {
+    const wasAway = awaySince !== null && Date.now() - awaySince >= 30000;
+    awaySince = null;
     checkDeviceSession();
-    refreshChats();
+    refreshChats(wasAway);
     loadSettings();
     pollCallSignals();
   }
