@@ -1062,6 +1062,77 @@ function mapChat(row) {
   };
 }
 
+function favoritesChatId() {
+  return `favorites-${session.userId}`;
+}
+
+function favoritesCacheKey() {
+  return `ferniex_messenger_favorites_${session.userId}`;
+}
+
+function mapFavoriteMessages(rows, chatId = favoritesChatId()) {
+  return rows.map(row => ({
+    id: String(row.id),
+    conversationId: chatId,
+    text: row.body,
+    imageUrl: '',
+    localImage: false,
+    type: 'text',
+    gift: null,
+    replyToMessageId: null,
+    replyText: '',
+    replySender: '',
+    createdAt: row.created_at,
+    time: formatTime(row.created_at),
+    readAt: row.created_at,
+    albumId: '',
+    own: true,
+    favoriteMessage: true
+  }));
+}
+
+function readFavoriteMessageCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(favoritesCacheKey()) || '[]');
+    return Array.isArray(cached) ? cached : [];
+  } catch {
+    return [];
+  }
+}
+
+function cacheFavoriteMessages(chat) {
+  try {
+    localStorage.setItem(favoritesCacheKey(), JSON.stringify(chat.messages
+      .filter(message => message.favoriteMessage)
+      .map(message => ({ id: message.id, body: message.text, created_at: message.createdAt }))));
+  } catch {}
+}
+
+function createFavoritesChat(previous = null) {
+  const id = favoritesChatId();
+  const cachedRows = previous?.messagesLoaded ? null : readFavoriteMessageCache();
+  const cachedMessages = previous?.messagesLoaded ? previous.messages : mapFavoriteMessages(cachedRows, id);
+  const latest = cachedMessages.at(-1);
+  return {
+    id,
+    partner: { ...session, display_name: 'Избранное' },
+    name: 'Избранное',
+    handle: 'Личные заметки · видны только вам',
+    initials: '★',
+    color: '#5288e8',
+    lastMessageAt: latest?.createdAt || null,
+    time: latest?.time || '',
+    preview: latest?.text || 'Сохраняйте сообщения и заметки здесь',
+    unread: 0,
+    pinned: true,
+    online: false,
+    personal: true,
+    isFavorites: true,
+    messages: cachedMessages,
+    messagesLoaded: true
+  };
+}
+
 function renderChats() {
   closeChatContextMenu();
   const query = searchInput.value.trim().toLocaleLowerCase('ru');
@@ -1069,10 +1140,10 @@ function renderChats() {
     const matchesQuery = `${chat.name} ${chat.preview} ${chat.handle}`.toLocaleLowerCase('ru').includes(query);
     const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' ? chat.unread > 0 : chat.personal);
     return matchesQuery && matchesFilter;
-  }).sort((left, right) => Number(right.pinned) - Number(left.pinned));
+  }).sort((left, right) => Number(right.isFavorites) - Number(left.isFavorites) || Number(right.pinned) - Number(left.pinned));
   chatList.innerHTML = filtered.length ? filtered.map(chat => `
     <button class="chat-item ${chat.id === activeId ? 'active' : ''}" data-chat="${escapeHtml(chat.id)}">
-      <span class="avatar-wrap">${avatarMarkup(chat.partner)}${chat.online ? '<span class="online-dot"></span>' : ''}</span>
+      <span class="avatar-wrap">${chat.isFavorites ? '<span class="avatar favorites-avatar">★</span>' : avatarMarkup(chat.partner)}${chat.online ? '<span class="online-dot"></span>' : ''}</span>
       <span class="chat-copy"><span class="chat-top"><span class="chat-name">${escapeHtml(chat.name)}</span><span class="chat-time">${chat.pinned ? '<span class="pin" title="Закреплено">⌖</span> ' : ''}${escapeHtml(chat.time)}</span></span><span class="chat-bottom"><span class="chat-preview">${escapeHtml(chat.preview)}</span>${chat.unread ? `<span class="unread">${chat.unread}</span>` : ''}</span></span>
     </button>`).join('') : `<div class="empty-state">${query ? 'Ничего не найдено' : 'Здесь появятся ваши чаты'}</div>`;
   chatList.querySelectorAll('[data-chat]').forEach(button => button.addEventListener('click', () => {
@@ -1158,7 +1229,7 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   </div>`;
 }
 
-function renderMessages(chat) {
+function renderMessages(chat, animateRecent = false) {
   if (!chat.messages.length) {
     messages.innerHTML = '<div class="empty-state">Здесь пока нет сообщений.<br>Напишите первым.</div>';
     return;
@@ -1168,9 +1239,10 @@ function renderMessages(chat) {
   const markup = [];
   while (index < chat.messages.length) {
     const album = photoAlbumAt(chat.messages, index);
+    const animate = animateRecent && index >= Math.max(0, chat.messages.length - 8);
     markup.push(album.length > 1
-      ? photoAlbumMarkup(chat, album, previousDate)
-      : messageMarkup(chat, album[0], previousDate));
+      ? photoAlbumMarkup(chat, album, previousDate, animate)
+      : messageMarkup(chat, album[0], previousDate, animate));
     previousDate = dateLabel(album[0].createdAt);
     index += album.length;
   }
@@ -1361,6 +1433,10 @@ function readImageFile(file) {
 }
 
 async function openPhotoFiles(fileList) {
+  if (chats.find(chat => chat.id === activeId)?.isFavorites) {
+    showMessageToast('Избранное предназначено для личных текстовых заметок');
+    return;
+  }
   const files = Array.from(fileList || []);
   if (!files.length) return;
   const valid = files.filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 8 * 1024 * 1024);
@@ -1549,6 +1625,30 @@ async function loadChatMessages(chat, showLoader = false) {
   }
 }
 
+async function loadFavoriteMessages(chat) {
+  try {
+    const result = await api('/api/social/favorites/messages');
+    const currentChat = chats.find(item => item.id === chat.id);
+    if (!currentChat?.isFavorites) return;
+    currentChat.messages = mapFavoriteMessages(result.messages, currentChat.id);
+    currentChat.messagesLoaded = true;
+    const latest = currentChat.messages.at(-1);
+    currentChat.lastMessageAt = latest?.createdAt || null;
+    currentChat.time = latest?.time || '';
+    currentChat.preview = latest?.text || 'Сохраняйте сообщения и заметки здесь';
+    cacheFavoriteMessages(currentChat);
+    if (activeId === currentChat.id) {
+      renderMessages(currentChat);
+      renderSharedDetails(currentChat);
+    }
+    renderChats();
+  } catch (error) {
+    if (activeId === chat.id && !chat.messagesLoaded) {
+      messages.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    }
+  }
+}
+
 function renderSharedDetails(chat) {
   const media = chat.messages.filter(message => message.imageUrl && safeImageUrl(message.imageUrl));
   const links = [];
@@ -1594,8 +1694,9 @@ async function loadChats() {
       });
     }
     const loadedIds = new Set(nextChats.map(chat => chat.id));
-    const pendingChat = chats.find(chat => chat.id === activeId && !chat.lastMessageAt && !loadedIds.has(chat.id));
-    chats = pendingChat ? [...nextChats, pendingChat] : nextChats;
+    const pendingChat = chats.find(chat => !chat.isFavorites && chat.id === activeId && !chat.lastMessageAt && !loadedIds.has(chat.id));
+    const favoriteChat = createFavoritesChat(previousChats.get(favoritesChatId()));
+    chats = [favoriteChat, ...(pendingChat ? [...nextChats, pendingChat] : nextChats)];
     renderChats();
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       activeId = null;
@@ -1610,7 +1711,8 @@ async function loadChats() {
     if (firstLoad && !activeId && chats.length && !window.matchMedia('(max-width: 760px)').matches) {
       const requestedChatId = new URLSearchParams(window.location.search).get('chatId');
       const requestedChat = requestedChatId && chats.find(chat => String(chat.id) === requestedChatId);
-      await selectChat(requestedChat?.id || chats[0].id);
+      const defaultChat = chats.find(chat => !chat.isFavorites) || chats[0];
+      await selectChat(requestedChat?.id || defaultChat.id);
     }
     if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
   } catch (error) {
@@ -1632,12 +1734,14 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
-  chatListRevision += 1;
-  await api(`/api/social/chats/${encodeURIComponent(chat.id)}/unhide`, { method: 'POST' }).catch(() => {});
-  chatListRevision += 1;
+  if (!chat.isFavorites) {
+    chatListRevision += 1;
+    api(`/api/social/chats/${encodeURIComponent(chat.id)}/unhide`, { method: 'POST' }).catch(() => {});
+  }
   if (activeId !== id) clearReply();
   closeMessageMenu();
   activeId = id;
+  document.querySelector('.conversation').classList.toggle('favorites-chat', chat.isFavorites);
   document.getElementById('chatAppearance').hidden = false;
   document.getElementById('chatWallpaperStatus').textContent = '';
   applyChatBackground(id);
@@ -1647,6 +1751,8 @@ async function selectChat(id) {
   document.getElementById('headerStatus').textContent = chat.handle;
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
+  document.getElementById('attachButton').hidden = chat.isFavorites;
+  messageInput.placeholder = chat.isFavorites ? 'Сообщение для себя…' : 'Написать сообщение…';
   document.getElementById('deleteDeletedChatStatus').textContent = '';
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
   document.getElementById('detailName').textContent = chat.name;
@@ -1654,24 +1760,25 @@ async function selectChat(id) {
   const description = document.getElementById('detailDescription');
   description.textContent = chat.partner.description || '';
   description.hidden = !chat.partner.description;
-  document.getElementById('detailStatus').textContent = chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
+  document.getElementById('detailStatus').textContent = chat.isFavorites ? '● личные заметки' : chat.partner.is_deleted ? '● удаленный аккаунт' : chat.partner.is_bot ? '● бот Qwant' : '● личный чат';
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
   document.getElementById('mediaCount').textContent = '0';
   document.getElementById('linkCount').textContent = '0';
   document.getElementById('mediaEmpty').hidden = false;
   document.getElementById('linksEmpty').hidden = false;
-  if (chat.messagesLoaded) {
-    renderMessages(chat);
-    renderSharedDetails(chat);
-  } else {
-    messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
-  }
+  renderMessages(chat, true);
+  renderSharedDetails(chat);
   renderChats();
-  const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
-  if (chatsTab) setMobileTabActive(chatsTab);
+  const activeTab = document.querySelector(`[data-mobile-tab="${chat.isFavorites ? 'favorites' : 'chats'}"]`);
+  if (activeTab) setMobileTabActive(activeTab);
+  const conversation = document.querySelector('.conversation');
+  conversation.classList.remove('chat-opening');
+  void conversation.offsetWidth;
+  if (window.matchMedia('(max-width: 760px)').matches) conversation.classList.add('chat-opening');
   app.classList.add('show-conversation');
-  await loadChatMessages(chat, !chat.messagesLoaded);
+  if (chat.isFavorites) loadFavoriteMessages(chat);
+  else loadChatMessages(chat);
 }
 
 async function refreshChats() {
@@ -1682,7 +1789,8 @@ async function refreshChats() {
     await loadChats();
     if (shouldRefreshConversation && activeId) {
       const chat = chats.find(item => item.id === activeId);
-      if (chat) await loadChatMessages(chat);
+      if (chat?.isFavorites) await loadFavoriteMessages(chat);
+      else if (chat) await loadChatMessages(chat);
     }
   } finally {
     refreshing = false;
@@ -1865,7 +1973,7 @@ function closeChatContextMenu() {
 
 function openChatContextMenu(chatId, x, y) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat) return;
+  if (!chat || chat.isFavorites) return;
   closeMessageMenu();
   const menu = document.getElementById('chatContextMenu');
   menu.innerHTML = `
@@ -1884,7 +1992,7 @@ function openChatContextMenu(chatId, x, y) {
 
 function togglePinnedChat(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || !session?.userId) return;
+  if (!chat || chat.isFavorites || !session?.userId) return;
   chat.pinned = !chat.pinned;
   if (chat.pinned) pinnedChatIds.add(String(chat.id));
   else pinnedChatIds.delete(String(chat.id));
@@ -1895,7 +2003,7 @@ function togglePinnedChat(chatId) {
 
 async function markChatUnread(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat) return;
+  if (!chat || chat.isFavorites) return;
   try {
     const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/unread`, { method:'POST' });
     if (activeId === chat.id) {
@@ -1914,7 +2022,7 @@ async function markChatUnread(chatId) {
 
 async function hideChatFromList(chatId) {
   const chat = chats.find(item => String(item.id) === String(chatId));
-  if (!chat || !await confirmAction(`Удалить чат «${chat.name}» из списка и очистить переписку?`, { title: 'Удалить чат', danger: true })) return;
+  if (!chat || chat.isFavorites || !await confirmAction(`Удалить чат «${chat.name}» из списка и очистить переписку?`, { title: 'Удалить чат', danger: true })) return;
   chatListRevision += 1;
   chatHistoryVersions.set(String(chat.id), (chatHistoryVersions.get(String(chat.id)) || 0) + 1);
   try {
@@ -2035,10 +2143,11 @@ function openMessageMenu(messageId, x, y) {
   const imageAction = messageImageUrl(message)
     ? '<button class="context-menu-action" type="button" data-message-action="copy-image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>Копировать изображение</button>'
     : '<button class="context-menu-action" type="button" data-message-action="copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Скопировать сообщение</button>';
+  const replyAction = chat.isFavorites ? '' : '<button class="context-menu-action" type="button" data-message-action="reply"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v2"/></svg>Ответить</button>';
   menu.innerHTML = `
     <div class="context-menu-date">${escapeHtml(timestamp)}${message.readAt && message.own ? '　✓✓' : ''}</div>
     <div class="context-menu-divider"></div>
-    <button class="context-menu-action" type="button" data-message-action="reply"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v2"/></svg>Ответить</button>
+    ${replyAction}
     ${imageAction}
     ${message.own ? '<button class="context-menu-action danger" type="button" data-message-action="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>Удалить</button>' : ''}`;
   menu.classList.add('open');
@@ -2083,12 +2192,84 @@ async function deleteMessage(messageId) {
   const message = chat?.messages.find(item => String(item.id) === String(messageId));
   if (!chat || !message?.own || !await confirmAction('Удалить это сообщение?', { title: 'Удалить сообщение', danger: true })) return;
   try {
-    await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages/${encodeURIComponent(message.id)}`, { method: 'DELETE' });
-    await loadChatMessages(chat);
-    await loadChats();
+    if (chat.isFavorites) {
+      if (!String(message.id).startsWith('favorite-pending-')) {
+        await api(`/api/social/favorites/messages/${encodeURIComponent(message.id)}`, { method: 'DELETE' });
+      }
+      chat.messages = chat.messages.filter(item => String(item.id) !== String(message.id));
+      const latest = chat.messages.at(-1);
+      chat.lastMessageAt = latest?.createdAt || null;
+      chat.preview = latest?.text || 'Сохраняйте сообщения и заметки здесь';
+      chat.time = latest?.time || '';
+      cacheFavoriteMessages(chat);
+      renderMessages(chat);
+      renderChats();
+    } else {
+      await api(`/api/social/chats/${encodeURIComponent(chat.id)}/messages/${encodeURIComponent(message.id)}`, { method: 'DELETE' });
+      await loadChatMessages(chat);
+      await loadChats();
+    }
     showMessageToast('Сообщение удалено');
   } catch (error) {
     showMessageToast(error.message);
+  }
+}
+
+async function sendFavoriteMessage(body, existingMessage = null, focusComposer = true) {
+  const chat = chats.find(item => item.id === favoritesChatId());
+  body = String(body || '').trim();
+  if (!chat || !body) return false;
+  const pending = existingMessage || {
+    id:`favorite-pending-${crypto.randomUUID()}`,
+    conversationId:chat.id,
+    text:body,
+    imageUrl:'',
+    type:'text',
+    gift:null,
+    createdAt:new Date().toISOString(),
+    time:formatTime(new Date()),
+    readAt:new Date().toISOString(),
+    albumId:'',
+    own:true,
+    favoriteMessage:true
+  };
+  pending.sendStatus = 'sending';
+  chat.messages = chat.messages.filter(item => String(item.id) !== String(pending.id));
+  chat.messages.push(pending);
+  chat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+  chat.messagesLoaded = true;
+  chat.preview = body;
+  chat.lastMessageAt = pending.createdAt;
+  chat.time = pending.time;
+  messageInput.value = '';
+  clearReply();
+  if (activeId === chat.id) renderMessages(chat);
+  renderChats();
+  try {
+    const result = await api('/api/social/favorites/messages', {
+      method:'POST',
+      body:JSON.stringify({ body })
+    });
+    const sent = mapFavoriteMessages([result.message], chat.id)[0];
+    const currentChat = chats.find(item => item.id === chat.id) || chat;
+    currentChat.messages = currentChat.messages.filter(item => String(item.id) !== String(pending.id) && String(item.id) !== String(sent.id));
+    currentChat.messages.push(sent);
+    currentChat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+    currentChat.messagesLoaded = true;
+    currentChat.preview = sent.text;
+    currentChat.lastMessageAt = sent.createdAt;
+    currentChat.time = sent.time;
+    cacheFavoriteMessages(currentChat);
+    if (activeId === currentChat.id) renderMessages(currentChat);
+    renderChats();
+    if (focusComposer && activeId === currentChat.id) messageInput.focus();
+    return true;
+  } catch (error) {
+    pending.sendStatus = 'failed';
+    const currentChat = chats.find(item => item.id === chat.id) || chat;
+    if (activeId === currentChat.id) renderMessages(currentChat);
+    showMessageToast(error.message || 'Не удалось сохранить заметку');
+    return false;
   }
 }
 
@@ -2097,6 +2278,13 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
   const chat = chats.find(item => item.id === conversationId);
   body = String(body || '').trim();
   if (!chat || (!body && !imageBase64)) return false;
+  if (chat.isFavorites) {
+    if (imageBase64) {
+      showMessageToast('В Избранное можно отправлять только текст');
+      return false;
+    }
+    return sendFavoriteMessage(body, existingMessage, focusComposer);
+  }
   const createdAt = existingMessage?.createdAt || new Date().toISOString();
   const replied = !existingMessage && replyToMessageId
     ? chat.messages.find(message => String(message.id) === String(replyToMessageId))
@@ -2283,16 +2471,25 @@ document.querySelectorAll('.filter').forEach(button => button.addEventListener('
 }));
 
 document.getElementById('backToChats').addEventListener('click', () => {
-  if (activeId) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
+  if (activeId && !String(activeId).startsWith('favorites-')) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
   app.classList.remove('show-conversation');
+  document.querySelector('.conversation').classList.remove('favorites-chat', 'chat-opening');
+  document.getElementById('attachButton').hidden = false;
+  messageInput.placeholder = 'Написать сообщение…';
+  const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
+  if (chatsTab) setMobileTabActive(chatsTab);
 });
 document.querySelectorAll('[data-mobile-tab]').forEach(button => button.addEventListener('click', () => {
   const tab = button.dataset.mobileTab;
   setMobileTabActive(button);
-  if (tab === 'contacts') {
+  if (tab === 'favorites') {
     closeDrawer();
-    if (app.classList.contains('show-conversation')) document.getElementById('backToChats').click();
-    return document.getElementById('newChat').click();
+    searchUsers = false;
+    searchInput.value = '';
+    searchInput.placeholder = 'Поиск по чатам';
+    const favoriteChat = chats.find(chat => chat.isFavorites);
+    if (favoriteChat && activeId !== favoriteChat.id) selectChat(favoriteChat.id);
+    return;
   }
   if (tab === 'chats') {
     closeDrawer();
@@ -2328,12 +2525,6 @@ drawerBackdrop.addEventListener('click', event => {
     const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
     if (chatsTab) setMobileTabActive(chatsTab);
   }
-});
-document.getElementById('drawerNewChat').addEventListener('click', () => {
-  closeDrawer();
-  const contactsTab = document.querySelector('[data-mobile-tab="contacts"]');
-  if (contactsTab) setMobileTabActive(contactsTab);
-  document.getElementById('newChat').click();
 });
 document.getElementById('drawerProfileButton').addEventListener('click', () => {
   closeDrawer();
