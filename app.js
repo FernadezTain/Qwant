@@ -470,7 +470,9 @@ async function checkDeviceSession() {
 
 function startDeviceChecks() {
   clearInterval(deviceCheckTimer);
-  deviceCheckTimer = setInterval(checkDeviceSession, 8000);
+  deviceCheckTimer = setInterval(() => {
+    if (!document.hidden) checkDeviceSession();
+  }, 30000);
 }
 
 function setSwitch(button, checked, disabled = false) {
@@ -1580,7 +1582,7 @@ async function loadChats() {
     }
     const firstLoad = !chatsLoadedOnce;
     chatsLoadedOnce = true;
-    if (firstLoad && !activeId && chats.length) {
+    if (firstLoad && !activeId && chats.length && !window.matchMedia('(max-width: 760px)').matches) {
       const requestedChatId = new URLSearchParams(window.location.search).get('chatId');
       const requestedChat = requestedChatId && chats.find(chat => String(chat.id) === requestedChatId);
       await selectChat(requestedChat?.id || chats[0].id);
@@ -1637,6 +1639,7 @@ async function selectChat(id) {
     messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
   }
   renderChats();
+  document.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button.dataset.mobileTab === 'chats'));
   app.classList.add('show-conversation');
   await loadChatMessages(chat, !chat.messagesLoaded);
 }
@@ -2219,6 +2222,28 @@ document.getElementById('backToChats').addEventListener('click', () => {
   if (activeId) api(`/api/social/chats/${encodeURIComponent(activeId)}/presence`, { method: 'DELETE' }).catch(() => {});
   app.classList.remove('show-conversation');
 });
+document.querySelectorAll('[data-mobile-tab]').forEach(button => button.addEventListener('click', () => {
+  const tab = button.dataset.mobileTab;
+  if (tab === 'calls') return showMessageToast('Раздел звонков пока недоступен');
+  document.querySelectorAll('[data-mobile-tab]').forEach(item => item.classList.toggle('active', item === button));
+  if (tab === 'contacts') {
+    if (app.classList.contains('show-conversation')) document.getElementById('backToChats').click();
+    return document.getElementById('newChat').click();
+  }
+  if (tab === 'chats') {
+    closeDrawer();
+    if (app.classList.contains('show-conversation')) document.getElementById('backToChats').click();
+    searchUsers = false;
+    searchInput.value = '';
+    searchInput.placeholder = 'Поиск по чатам';
+    renderChats();
+    return;
+  }
+  if (tab === 'settings') {
+    if (drawerBackdrop.classList.contains('open')) closeDrawer();
+    else openDrawer();
+  }
+}));
 document.getElementById('newChat').addEventListener('click', () => {
   searchUsers = true;
   searchInput.value = '';
@@ -2228,6 +2253,8 @@ document.getElementById('newChat').addEventListener('click', () => {
 });
 document.getElementById('menuToggle').addEventListener('click', openDrawer);
 document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
 drawerBackdrop.addEventListener('click', event => {
   if (event.target === drawerBackdrop) closeDrawer();
 });
@@ -2680,12 +2707,10 @@ document.addEventListener('keydown', event => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (session?.sessionToken) {
+  if (session?.sessionToken && !document.hidden) {
     checkDeviceSession();
-    if (!document.hidden) {
-      refreshChats();
-      loadSettings();
-    }
+    refreshChats();
+    loadSettings();
   }
 });
 
@@ -2785,8 +2810,5 @@ async function bootstrap() {
 bootstrap();
 
 setInterval(() => {
-  if (session?.sessionToken) {
-    checkDeviceSession();
-    refreshChats();
-  }
-}, 8000);
+  if (session?.sessionToken && !document.hidden) refreshChats();
+}, 12000);
