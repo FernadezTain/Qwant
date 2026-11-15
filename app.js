@@ -1,6 +1,5 @@
 const app = document.getElementById('app');
 const conversationWindow = document.querySelector('.conversation');
-const conversationDragHandle = document.getElementById('conversationDragHandle');
 const authScreen = document.getElementById('authScreen');
 const nicknameForm = document.getElementById('nicknameForm');
 const loginForm = document.getElementById('loginForm');
@@ -68,7 +67,7 @@ let pendingPhotos = [];
 let pendingPhotoConversationId = null;
 let chats = [];
 let activeId = null;
-let conversationDrag = null;
+let callDockDrag = null;
 let activeFilter = 'all';
 let searchUsers = false;
 let searchTimer;
@@ -125,6 +124,7 @@ let createdGroupForInvite = null;
 let selectedGroupInvitees = new Map();
 let groupMemberSearchTimer;
 let groupMemberSearchRequestId = 0;
+let activeGroupMembers = [];
 
 function readSession() {
   try {
@@ -991,47 +991,6 @@ function setMobileTabActive(tab) {
   nav.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button === tab));
 }
 
-function constrainConversationWindow() {
-  if (!conversationWindow.classList.contains('is-floating')) return;
-  const bounds = conversationWindow.getBoundingClientRect();
-  conversationWindow.style.left = `${Math.max(0, Math.min(bounds.left, window.innerWidth - bounds.width))}px`;
-  conversationWindow.style.top = `${Math.max(0, Math.min(bounds.top, window.innerHeight - bounds.height))}px`;
-}
-
-function restoreConversationWindow() {
-  conversationDrag = null;
-  conversationWindow.classList.remove('is-floating', 'chat-opening');
-  conversationWindow.style.removeProperty('left');
-  conversationWindow.style.removeProperty('top');
-}
-
-conversationDragHandle.addEventListener('pointerdown', event => {
-  if (event.pointerType === 'touch' || window.matchMedia('(max-width: 760px)').matches) return;
-  const bounds = conversationWindow.getBoundingClientRect();
-  conversationWindow.classList.add('is-floating');
-  conversationWindow.classList.remove('chat-opening');
-  conversationWindow.style.left = `${bounds.left}px`;
-  conversationWindow.style.top = `${bounds.top}px`;
-  conversationDrag = { pointerId:event.pointerId, offsetX:event.clientX - bounds.left, offsetY:event.clientY - bounds.top };
-  conversationDragHandle.setPointerCapture(event.pointerId);
-  event.preventDefault();
-});
-
-conversationDragHandle.addEventListener('pointermove', event => {
-  if (!conversationDrag || event.pointerId !== conversationDrag.pointerId) return;
-  const maxLeft = Math.max(0, window.innerWidth - conversationWindow.offsetWidth);
-  const maxTop = Math.max(0, window.innerHeight - conversationWindow.offsetHeight);
-  conversationWindow.style.left = `${Math.max(0, Math.min(event.clientX - conversationDrag.offsetX, maxLeft))}px`;
-  conversationWindow.style.top = `${Math.max(0, Math.min(event.clientY - conversationDrag.offsetY, maxTop))}px`;
-});
-
-for (const eventName of ['pointerup', 'pointercancel']) {
-  conversationDragHandle.addEventListener(eventName, () => { conversationDrag = null; });
-}
-
-conversationDragHandle.addEventListener('dblclick', restoreConversationWindow);
-window.addEventListener('resize', constrainConversationWindow);
-
 window.addEventListener('resize', () => {
   const activeTab = document.querySelector('.mobile-tab.active');
   if (activeTab) setMobileTabActive(activeTab);
@@ -1465,6 +1424,18 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
   const day = dateLabel(message.createdAt);
   const datePill = day === previousDate ? '' : `<div class="date-pill">${escapeHtml(day)}</div>`;
   const replyQuote = message.replyText ? `<div class="reply-quote"><b>${escapeHtml(message.replySender || 'Ответ')}</b>${escapeHtml(message.replyText)}</div>` : '';
+  if (message.type === 'call_event') {
+    const title = message.event.status === 'completed'
+      ? `${message.event.direction === 'outgoing' ? 'Исходящий' : 'Входящий'} звонок`
+      : message.event.status === 'declined'
+        ? message.event.direction === 'outgoing' ? 'Отменённый звонок' : 'Отклонённый звонок'
+        : message.event.status === 'missed' || message.event.status === 'ringing'
+          ? message.event.direction === 'incoming' ? 'Пропущенный звонок' : 'Нет ответа'
+          : 'Звонок';
+    const seconds = Number(message.event.durationSeconds) || 0;
+    const duration = seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : '';
+    return `${datePill}<div class="call-event-row ${message.own ? 'outgoing' : 'incoming'} ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}"><article class="call-event-card"><svg class="call-event-icon" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span class="call-event-copy"><span class="call-event-title">${escapeHtml(title)}</span><span class="call-event-meta">${escapeHtml(message.time)}${duration ? ` · ${duration}` : ''}</span></span></article></div>`;
+  }
   if (message.type === 'group_event') {
     const actor = message.event?.actor?.display_name || (message.event?.actor?.username ? `@${message.event.actor.username}` : 'Участник');
     const target = message.event?.target?.display_name || (message.event?.target?.username ? `@${message.event.target.username}` : 'Участник');
@@ -1509,16 +1480,17 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
 }
 
 function renderMessages(chat, animateRecent = false) {
-  if (!chat.messages.length) {
+  const timeline = [...chat.messages, ...(chat.callEvents || [])].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+  if (!timeline.length) {
     messages.innerHTML = '<div class="empty-state">Здесь пока нет сообщений.<br>Напишите первым.</div>';
     return;
   }
   let previousDate = '';
   let index = 0;
   const markup = [];
-  while (index < chat.messages.length) {
-    const album = photoAlbumAt(chat.messages, index);
-    const animate = animateRecent && index >= Math.max(0, chat.messages.length - 8);
+  while (index < timeline.length) {
+    const album = photoAlbumAt(timeline, index);
+    const animate = animateRecent && index >= Math.max(0, timeline.length - 8);
     markup.push(album.length > 1
       ? photoAlbumMarkup(chat, album, previousDate, animate)
       : messageMarkup(chat, album[0], previousDate, animate));
@@ -1816,6 +1788,20 @@ function mapMessages(rows) {
   });
 }
 
+function mapCallEvents(calls) {
+  return calls.filter(call => ['completed', 'missed', 'declined'].includes(call.status)).map(call => {
+    const createdAt = call.ended_at || call.started_at;
+    return {
+      id:`call-${call.call_id}`,
+      type:'call_event',
+      own:call.direction === 'outgoing',
+      createdAt,
+      time:formatTime(createdAt),
+      event:{ status:call.status, direction:call.direction, durationSeconds:call.duration_seconds }
+    };
+  }).sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+}
+
 function mergeLocalMessages(chat, latest) {
   const localMessages = chat.messages.filter(message => message.localMessage && ['sending', 'failed'].includes(message.sendStatus));
   const matched = new Set();
@@ -1891,11 +1877,18 @@ async function loadChatMessages(chat, showLoader = false) {
     messages.innerHTML = '<div class="messages-loading"><span class="loading-spinner"></span><span>Загружаем переписку</span><span class="loading-dots"><i></i><i></i><i></i></span></div>';
   }
   try {
-    const result = await api(chat.isGroup
-      ? `/api/social/group-chats/${encodeURIComponent(chat.id)}/messages`
-      : `/api/social/chats/${encodeURIComponent(chat.id)}/messages`);
+    const [result, callResult] = await Promise.all([
+      api(chat.isGroup
+        ? `/api/social/group-chats/${encodeURIComponent(chat.id)}/messages`
+        : `/api/social/chats/${encodeURIComponent(chat.id)}/messages`),
+      chat.isGroup ? Promise.resolve({ calls:[] }) : api(`/api/social/calls/history?conversationId=${encodeURIComponent(chat.id)}`).catch(() => ({ calls:[] }))
+    ]);
     if (activeId !== chat.id || historyVersion !== (chatHistoryVersions.get(String(chat.id)) || 0)) return;
+    const callEvents = mapCallEvents(callResult.calls || []);
+    const callsChanged = JSON.stringify(chat.callEvents || []) !== JSON.stringify(callEvents);
+    chat.callEvents = callEvents;
     const changed = updateMessages(chat, mapMessages(result.messages));
+    if (callsChanged && !changed) renderMessages(chat);
     if (changed) renderSharedDetails(chat);
     if (chat.isGroup) {
       await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/read`, { method:'POST' }).catch(() => {});
@@ -2032,6 +2025,7 @@ async function loadChats() {
 async function selectChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
+  closeFullGroupMembers();
   closeCallHistory();
   if (!chat.isFavorites && !chat.isGroup) {
     chatListRevision += 1;
@@ -2745,17 +2739,56 @@ async function loadGroupMembers(chat) {
   const list = document.getElementById('groupMemberList');
   section.hidden = !chat?.isGroup;
   if(!chat?.isGroup) return;
+  activeGroupMembers = [];
+  document.getElementById('groupMembersShowAll').hidden = true;
   list.innerHTML = '<div class="group-member-list-state">Загрузка участников…</div>';
   try {
     const result = await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/members`);
     if(String(activeId) !== String(chat.id)) return;
+    activeGroupMembers = result.members;
     document.getElementById('groupMemberCount').textContent = result.members.length;
+    document.getElementById('groupMembersFullCount').textContent = result.members.length;
     chat.memberCount = result.members.length;
-    list.innerHTML = result.members.length ? result.members.map(member => `
-      <div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-copy-username="${escapeHtml(member.username || '')}">${escapeHtml(member.display_name || member.username || 'Участник')}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`).join('') : '<div class="group-member-list-state">Список участников пуст</div>';
+    list.innerHTML = result.members.length ? result.members.slice(0, 6).map(member => groupMemberMarkup(member, chat)).join('') : '<div class="group-member-list-state">Список участников пуст</div>';
+    document.getElementById('groupMembersShowAll').hidden = result.members.length <= 6;
+    if (!document.getElementById('groupMembersFull').hidden) renderFullGroupMembers();
   } catch(error) {
     if(String(activeId) === String(chat.id)) list.innerHTML = `<div class="group-member-list-state">${escapeHtml(error.message || 'Не удалось загрузить участников')}</div>`;
   }
+}
+
+function groupMemberMarkup(member, chat) {
+  return `<div class="group-member-card"><button class="group-member-profile-trigger" type="button" data-profile-user="${escapeHtml(member.id)}" aria-label="Открыть профиль">${avatarMarkup(member, 'group-member-avatar')}</button><span class="group-member-meta"><button class="group-member-name-button" type="button" data-copy-username="${escapeHtml(member.username || '')}">${escapeHtml(member.display_name || member.username || 'Участник')}</button><span class="group-member-card-role">${member.role === 'admin' ? 'Администратор' : member.username ? `@${escapeHtml(member.username)}` : 'Участник'}</span></span>${chat.isAdmin && member.role !== 'admin' ? `<button class="group-member-remove" type="button" data-remove-member="${escapeHtml(member.id)}" aria-label="Исключить ${escapeHtml(member.display_name || member.username || 'участника')}">Исключить</button>` : ''}</div>`;
+}
+
+function renderFullGroupMembers() {
+  const query = document.getElementById('groupMembersSearch').value.trim().replace(/^@+/, '').toLocaleLowerCase('ru');
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  const members = activeGroupMembers.filter(member => `${member.username || ''} ${member.display_name || ''}`.toLocaleLowerCase('ru').includes(query));
+  document.getElementById('groupMembersFullList').innerHTML = members.length
+    ? members.map(member => groupMemberMarkup(member, chat || { isAdmin:false })).join('')
+    : '<div class="group-member-list-state">Участники не найдены</div>';
+}
+
+function openFullGroupMembers() {
+  if (!activeGroupMembers.length) return;
+  const details = document.querySelector('.details');
+  document.getElementById('groupMembersSearch').value = '';
+  renderFullGroupMembers();
+  document.getElementById('groupMembersFull').hidden = false;
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    details.classList.add('show-all-members');
+    document.getElementById('detailsTitle').textContent = 'Все участники';
+    document.getElementById('detailsClose').setAttribute('aria-label', 'Назад к информации о группе');
+    document.getElementById('groupMembersSearch').focus({ preventScroll:true });
+  }
+}
+
+function closeFullGroupMembers() {
+  document.getElementById('groupMembersFull').hidden = true;
+  document.querySelector('.details').classList.remove('show-all-members');
+  document.getElementById('detailsTitle').textContent = 'Информация';
+  document.getElementById('detailsClose').setAttribute('aria-label', 'Закрыть информацию');
 }
 
 function flushLocalCallCandidates(call) {
@@ -2901,6 +2934,17 @@ async function sendCallSignal(type, payload = {}, call = activeCall) {
     method:'POST',
     body:JSON.stringify({ callId:call.id, type, payload })
   });
+  if (['invite', 'accepted', 'declined', 'hangup'].includes(type)) refreshCallEvents(call.conversationId).catch(() => {});
+}
+
+async function refreshCallEvents(conversationId) {
+  const chat = chats.find(item => String(item.id) === String(conversationId));
+  if (!chat || chat.isGroup || !session?.sessionToken) return;
+  const result = await api(`/api/social/calls/history?conversationId=${encodeURIComponent(conversationId)}`);
+  const callEvents = mapCallEvents(result.calls || []);
+  if (JSON.stringify(chat.callEvents || []) === JSON.stringify(callEvents)) return;
+  chat.callEvents = callEvents;
+  if (String(activeId) === String(conversationId)) renderMessages(chat);
 }
 
 function closeCallDialog() {
@@ -2934,13 +2978,14 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   if (durationElement) durationElement.hidden = true;
   if (voiceIndicator) voiceIndicator.hidden = true;
   if (notify) sendCallSignal('hangup', {}, call).then(() => {
-    if (app.classList.contains('show-call-history')) loadCallHistory();
+    if (app.classList.contains('show-call-history') || document.getElementById('callHistory').classList.contains('is-dialog')) loadCallHistory();
   }).catch(() => {});
   call.peer?.close();
   call.stream?.getTracks().forEach(track => track.stop());
   callRemoteAudio.srcObject = null;
   closeCallDialog();
   updateCallControls();
+  refreshCallEvents(call.conversationId).catch(() => {});
   if (status) showMessageToast(status);
 }
 
@@ -3206,13 +3251,14 @@ async function pollCallSignals() {
 }
 
 function callHistoryStatus(call) {
-  if (call.status === 'missed') return call.direction === 'incoming' ? 'Пропущенный звонок' : 'Нет ответа';
-  if (call.status === 'declined') return 'Звонок отклонён';
+  if (call.status === 'missed') return call.direction === 'incoming' ? 'Пропущенный · неуспешный' : 'Нет ответа · неуспешный';
+  if (call.status === 'declined') return 'Отклонён · неуспешный';
   if (call.status === 'completed') {
     const seconds = Number(call.duration_seconds) || 0;
-    return seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : 'Завершён';
+    const duration = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    return `Успешный · ${duration}`;
   }
-  return call.status === 'ringing' ? 'Нет ответа' : 'Звонок не завершён';
+  return call.status === 'ringing' ? 'Нет ответа · неуспешный' : 'Не завершён';
 }
 
 async function loadCallHistory() {
@@ -3226,32 +3272,40 @@ async function loadCallHistory() {
     list.innerHTML = calls.length ? calls.map(call => `
       <article class="call-history-row">
         <button class="call-history-main" type="button" data-call-history-chat="${escapeHtml(call.partner.id)}" aria-label="Открыть чат с ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователем')}">${avatarMarkup(call.partner, 'avatar call-history-avatar')}<span class="call-history-copy"><span class="call-history-name">${escapeHtml(call.partner.display_name || call.partner.username || 'Пользователь')}</span><span class="call-history-meta">${call.direction === 'outgoing' ? 'Исходящий' : 'Входящий'} · ${escapeHtml(formatDateTime(call.started_at))}</span></span></button>
-        <span class="call-history-status ${call.status === 'missed' || call.status === 'declined' ? 'missed' : ''}">${escapeHtml(callHistoryStatus(call))}</span>
-        <button class="call-history-redial" type="button" data-call-history-redial="${escapeHtml(call.partner.id)}" aria-label="Позвонить ${escapeHtml(call.partner.display_name || call.partner.username || 'пользователю')}" title="Позвонить"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
+        <span class="call-history-status ${call.status === 'missed' || call.status === 'declined' || call.status === 'ringing' ? 'missed' : ''}">${escapeHtml(callHistoryStatus(call))}</span>
       </article>`).join('') : '<div class="call-history-state">Звонков пока нет</div>';
   } catch(error) {
     if (requestId === callHistoryRequestId) list.innerHTML = `<div class="call-history-state">${escapeHtml(error.message || 'Не удалось загрузить историю звонков')}</div>`;
   }
 }
 
-async function openCallHistoryChat(userId, redial = false) {
+async function openCallHistoryChat(userId) {
   closeCallHistory();
   await openChat(userId);
-  const chat = chats.find(item => String(item.id) === String(activeId));
-  if (redial && String(chat?.partner.id) === String(userId)) await startAudioCall();
 }
 
 function openCallHistory() {
   closeDrawer();
-  app.classList.remove('show-conversation');
-  app.classList.add('show-call-history');
-  document.getElementById('callHistory').hidden = false;
+  const history = document.getElementById('callHistory');
+  const desktop = window.matchMedia('(min-width: 761px)').matches;
+  history.classList.toggle('is-dialog', desktop);
+  history.setAttribute('aria-hidden', 'false');
+  history.querySelector('[role="dialog"]').setAttribute('aria-modal', String(desktop));
+  if (!desktop) {
+    app.classList.remove('show-conversation');
+    app.classList.add('show-call-history');
+  }
+  history.hidden = false;
   loadCallHistory();
 }
 
 function closeCallHistory() {
+  const history = document.getElementById('callHistory');
   app.classList.remove('show-call-history');
-  document.getElementById('callHistory').hidden = true;
+  history.hidden = true;
+  history.classList.remove('is-dialog');
+  history.setAttribute('aria-hidden', 'true');
+  history.querySelector('[role="dialog"]').setAttribute('aria-modal', 'false');
 }
 
 async function declineAudioCall() {
@@ -3615,23 +3669,37 @@ async function deleteDeletedAccountChat() {
 
 startAudioCallButton.addEventListener('click', startAudioCall);
 document.getElementById('callHistoryRefresh').addEventListener('click', loadCallHistory);
+document.getElementById('callHistoryOpen').addEventListener('click', openCallHistory);
+document.getElementById('callHistoryClose').addEventListener('click', closeCallHistory);
+document.getElementById('callHistory').addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeCallHistory();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.getElementById('callHistory').hidden) closeCallHistory();
+});
 document.getElementById('callHistoryList').addEventListener('click', event => {
-  const redialButton = event.target.closest('[data-call-history-redial]');
-  if (redialButton) return openCallHistoryChat(redialButton.dataset.callHistoryRedial, true);
   const chatButton = event.target.closest('[data-call-history-chat]');
   if (chatButton) openCallHistoryChat(chatButton.dataset.callHistoryChat);
 });
 document.getElementById('newGroup').addEventListener('click', createGroupChat);
 document.getElementById('groupAddMembers').addEventListener('click', addGroupMembers);
 document.getElementById('groupLeaveButton').addEventListener('click', leaveGroup);
-document.getElementById('groupMemberList').addEventListener('click', event => {
-  const removeButton = event.target.closest('[data-remove-member]');
-  if (removeButton) return removeGroupMember(removeButton.dataset.removeMember);
-  const copyButton = event.target.closest('[data-copy-username]');
-  if (copyButton) return copyUsername(copyButton.dataset.copyUsername);
-  const profileButton = event.target.closest('[data-profile-user]');
-  if (profileButton) openUserProfilePopup(profileButton.dataset.profileUser);
+for (const list of [document.getElementById('groupMemberList'), document.getElementById('groupMembersFullList')]) {
+  list.addEventListener('click', event => {
+    const removeButton = event.target.closest('[data-remove-member]');
+    if (removeButton) return removeGroupMember(removeButton.dataset.removeMember);
+    const copyButton = event.target.closest('[data-copy-username]');
+    if (copyButton) return copyUsername(copyButton.dataset.copyUsername);
+    const profileButton = event.target.closest('[data-profile-user]');
+    if (profileButton) openUserProfilePopup(profileButton.dataset.profileUser);
+  });
+}
+document.getElementById('groupMembersShowAll').addEventListener('click', openFullGroupMembers);
+document.getElementById('groupMembersFullClose').addEventListener('click', closeFullGroupMembers);
+document.getElementById('groupMembersFull').addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeFullGroupMembers();
 });
+document.getElementById('groupMembersSearch').addEventListener('input', renderFullGroupMembers);
 document.getElementById('groupSettingsButton').addEventListener('click', openGroupSettings);
 document.getElementById('groupInviteButton').addEventListener('click', () => shareGroupInvite(chats.find(item => item.id === activeId)));
 document.getElementById('groupInviteJoin').addEventListener('click', joinInvitedGroup);
@@ -3831,6 +3899,29 @@ document.getElementById('callRestore').addEventListener('click', () => {
   document.getElementById('callDock').hidden = true;
 });
 document.getElementById('callDockEnd').addEventListener('click', () => finishAudioCall());
+const callDock = document.getElementById('callDock');
+const callDockDragHandle = document.getElementById('callDockDrag');
+callDockDragHandle.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  const bounds = callDock.getBoundingClientRect();
+  callDock.style.left = `${bounds.left}px`;
+  callDock.style.top = `${bounds.top}px`;
+  callDock.style.right = 'auto';
+  callDock.style.bottom = 'auto';
+  callDockDrag = { pointerId:event.pointerId, offsetX:event.clientX - bounds.left, offsetY:event.clientY - bounds.top };
+  callDockDragHandle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+callDockDragHandle.addEventListener('pointermove', event => {
+  if (!callDockDrag || callDockDrag.pointerId !== event.pointerId) return;
+  const maxLeft = Math.max(0, window.innerWidth - callDock.offsetWidth);
+  const maxTop = Math.max(0, window.innerHeight - callDock.offsetHeight);
+  callDock.style.left = `${Math.max(0, Math.min(event.clientX - callDockDrag.offsetX, maxLeft))}px`;
+  callDock.style.top = `${Math.max(0, Math.min(event.clientY - callDockDrag.offsetY, maxTop))}px`;
+});
+for (const eventName of ['pointerup', 'pointercancel']) {
+  callDockDragHandle.addEventListener(eventName, () => { callDockDrag = null; });
+}
 document.getElementById('callMute').addEventListener('click', event => {
   const track = activeCall?.stream?.getAudioTracks()[0];
   if (!track) return;
@@ -4357,6 +4448,10 @@ showGroupMembersButton.addEventListener('click', () => {
   document.getElementById('groupMembersSection').scrollIntoView({ behavior:'smooth', block:'start' });
 });
 document.getElementById('detailsClose').addEventListener('click', () => {
+  if (document.querySelector('.details').classList.contains('show-all-members')) {
+    closeFullGroupMembers();
+    return;
+  }
   if (window.matchMedia('(max-width: 1180px)').matches) app.classList.remove('show-details');
   else app.classList.add('details-hidden');
 });
@@ -4416,7 +4511,6 @@ async function logout() {
   if (!await confirmAction('Выйти из Qwant Messenger?', { title: 'Выйти из аккаунта' })) return;
   const finishLogout = () => {
     finishAudioCall();
-    restoreConversationWindow();
     closeUserProfilePopup();
     localStorage.removeItem('ferniex_messenger_session');
     session = null;
@@ -4532,6 +4626,7 @@ document.addEventListener('keydown', event => {
     if (event.key === 'ArrowRight') movePhotoViewer(1);
     return;
   }
+  if (event.key === 'Escape' && !document.getElementById('groupMembersFull').hidden) closeFullGroupMembers();
   if (event.key === 'Escape') closeSettings();
   if (event.key === 'Escape') closeGift();
   if (event.key === 'Escape') closePhotoSend();
