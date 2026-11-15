@@ -303,10 +303,35 @@
     .group-avatar-actions { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 7px; }
     .group-avatar-actions .settings-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; white-space: nowrap; }
     .group-modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px 17px; border-top: 1px solid var(--line); }
+    .group-modal-actions[hidden] { display: none; }
     .group-modal-actions button { min-height: 39px; padding: 0 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     .group-modal-actions .primary { border-color: var(--accent); background: var(--accent); color: white; }
     .group-modal-actions button:disabled { opacity: .55; cursor: wait; }
     .group-modal-status { min-height: 17px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .group-create-step { animation: group-step-in .24s cubic-bezier(.2,.8,.2,1) both; }
+    .group-create-step[hidden] { display: none; }
+    .group-invite-step { padding: 18px; animation: group-step-in .3s cubic-bezier(.2,.8,.2,1) both; }
+    .group-invite-step[hidden] { display: none; }
+    .group-invite-heading { margin: 0; font-size: 19px; font-weight: 750; }
+    .group-invite-copy { margin: 6px 0 15px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .group-invite-search { width: 100%; min-height: 43px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; }
+    .group-selected-members { display: flex; flex-wrap: wrap; gap: 7px; margin: 11px 0; }
+    .group-selected-member { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; padding: 3px 8px 3px 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); color: var(--ink); font-size: 11px; font-weight: 650; }
+    .group-selected-avatar { display: grid; width: 26px; height: 26px; flex: 0 0 26px; place-items: center; overflow: hidden; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 9px; font-weight: 750; }
+    .group-selected-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    .group-selected-remove { display: grid; width: 19px; height: 19px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb,var(--muted) 15%,transparent); color: var(--muted); cursor: pointer; }
+    .group-member-results { display: grid; max-height: 250px; gap: 3px; overflow: auto; margin: 7px -6px 0; padding: 4px 6px; }
+    .group-member-option { display: flex; width: 100%; min-height: 54px; align-items: center; gap: 11px; padding: 6px 9px; border: 0; border-radius: 12px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+    .group-member-option:hover { background: var(--surface-soft); }
+    .group-member-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 750; }
+    .group-member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .group-member-copy { display: grid; min-width: 0; gap: 3px; }
+    .group-member-name { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .group-member-handle { color: var(--muted); font-size: 10px; }
+    .group-member-state { padding: 14px 8px; color: var(--muted); font-size: 11px; text-align: center; }
+    .group-create-step.is-leaving { animation: group-step-out .15s ease both; }
+    @keyframes group-step-in { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
+    @keyframes group-step-out { to { opacity:0; transform:translateX(-10px); } }
     .group-invite-card { position: relative; width: min(100%,400px); padding: 25px; text-align: center; }
     .group-invite-avatar { display: grid; width: 96px; height: 96px; place-items: center; overflow: hidden; margin: 5px auto 17px; border-radius: 30px; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 34px; font-weight: 750; box-shadow: 0 0 0 9px rgba(133,110,225,.1); }
     .group-invite-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1025,14 +1050,24 @@
   <div class="group-modal" id="groupCreateModal" hidden>
     <form class="group-modal-card" id="groupCreateForm" role="dialog" aria-modal="true" aria-labelledby="groupCreateTitle">
       <header class="group-modal-head"><span id="groupCreateTitle">Новая группа</span><button class="icon-button" id="groupCreateClose" type="button" aria-label="Закрыть">×</button></header>
+      <div class="group-create-step" id="groupCreateDetailsStep">
       <div class="group-modal-body">
         <div class="group-avatar-edit"><div class="group-avatar-preview" id="groupCreateAvatarPreview">G</div><div class="group-avatar-actions"><label class="settings-button" for="groupCreateAvatarInput">Выбрать аватар</label><input id="groupCreateAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="settings-button" id="groupCreateAvatarRemove" type="button">Убрать</button></div></div>
         <label class="group-field">Название группы<input id="groupCreateName" maxlength="60" required placeholder="Например, Друзья"></label>
         <label class="group-field">Описание<textarea id="groupCreateDescription" maxlength="500" placeholder="О чём эта группа"></textarea></label>
-        <label class="group-field">Участники по NickName<input id="groupCreateMembers" required placeholder="username1, username2"></label>
         <div class="group-modal-status" id="groupCreateStatus" role="status" aria-live="polite"></div>
       </div>
-      <footer class="group-modal-actions"><button id="groupCreateCancel" type="button">Отмена</button><button class="primary" type="submit">Создать группу</button></footer>
+      <footer class="group-modal-actions"><button id="groupCreateCancel" type="button">Отмена</button><button class="primary" type="submit">Создать</button></footer>
+      </div>
+      <section class="group-invite-step" id="groupCreateInviteStep" hidden>
+        <h2 class="group-invite-heading">Пригласите первых участников!</h2>
+        <p class="group-invite-copy">Найдите людей по NickName и выберите, кого добавить. Этот шаг можно пропустить.</p>
+        <input class="group-invite-search" id="groupMemberSearch" type="search" autocomplete="off" placeholder="Введите NickName человека">
+        <div class="group-selected-members" id="groupSelectedMembers"></div>
+        <div class="group-member-results" id="groupMemberResults"><div class="group-member-state">Начните вводить NickName</div></div>
+        <div class="group-modal-status" id="groupInviteStepStatus" role="status" aria-live="polite"></div>
+      </section>
+      <footer class="group-modal-actions" id="groupInviteStepActions" hidden><button id="groupInviteSkip" type="button">Пропустить</button><button class="primary" id="groupInviteAddSelected" type="button" disabled>Добавить выбранных</button></footer>
     </form>
   </div>
 
