@@ -4148,12 +4148,23 @@ searchInput.addEventListener('input', () => {
   renderChats();
 });
 
+function updateFilterIndicator(button = document.querySelector('.filter.active')) {
+  const track = document.getElementById('chatFilterTrack');
+  if (!button || !track) return;
+  const trackLeft = track.getBoundingClientRect().left + track.clientLeft;
+  track.style.setProperty('--filter-offset', `${button.getBoundingClientRect().left - trackLeft}px`);
+  track.style.setProperty('--filter-width', `${button.offsetWidth}px`);
+}
+
 document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
   document.querySelector('.filter.active')?.classList.remove('active');
   button.classList.add('active');
   activeFilter = button.dataset.filter;
+  updateFilterIndicator(button);
   renderChats();
 }));
+updateFilterIndicator();
+window.addEventListener('resize', () => updateFilterIndicator());
 
 document.getElementById('backToChats').addEventListener('click', () => {
   const chat = chats.find(item => String(item.id) === String(activeId));
