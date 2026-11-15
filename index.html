@@ -34,9 +34,13 @@
 
     * { box-sizing: border-box; cursor: default; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
     *:not(input):not(textarea)::selection { background: transparent; color: inherit; }
+    .messages .bubble, .messages .bubble * { user-select: text !important; -webkit-user-select: text !important; }
+    .messages .bubble::selection, .messages .bubble *::selection { background: color-mix(in srgb,var(--accent) 34%,white); color: var(--ink); }
     button:focus:not(:focus-visible) { outline: none; }
     button:focus-visible { outline: 2px solid color-mix(in srgb,var(--accent) 70%,white); outline-offset: 2px; }
     input, textarea { cursor: text; user-select: text; -webkit-user-select: text; }
+    #messageInput { cursor: text; user-select: text !important; -webkit-user-select: text !important; }
+    #messageInput::selection { background: color-mix(in srgb,var(--accent) 34%,white); color: var(--ink); }
     select, select *, button, button *, a, a *, label[for] { cursor: pointer; }
     body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
     button, input { font: inherit; }
