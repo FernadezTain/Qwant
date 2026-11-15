@@ -2184,14 +2184,7 @@ async function loadChats() {
       document.getElementById('deletedChatActions').hidden = true;
       app.classList.remove('show-conversation');
     }
-    const firstLoad = !chatsLoadedOnce;
     chatsLoadedOnce = true;
-    if (firstLoad && !activeId && chats.length && !window.matchMedia('(max-width: 760px)').matches) {
-      const requestedChatId = new URLSearchParams(window.location.search).get('chatId');
-      const requestedChat = requestedChatId && chats.find(chat => String(chat.id) === requestedChatId);
-      const defaultChat = chats.find(chat => !chat.isFavorites) || chats[0];
-      await selectChat(requestedChat?.id || defaultChat.id);
-    }
     if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
   } catch (error) {
     if (requestId !== chatListRequestId || revision !== chatListRevision) return;
@@ -2922,6 +2915,45 @@ function updateCallControls() {
   startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.isGroup || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
   startAudioCallButton.hidden = false;
   showGroupMembersButton.hidden = !chat?.isGroup;
+}
+
+function closeActiveChat() {
+  if (!activeId) return;
+  closeFullGroupMembers();
+  closeCallHistory();
+  clearReply();
+  closeMessageMenu();
+  closeChatContextMenu();
+  activeId = null;
+  document.getElementById('chatAppearance').hidden = true;
+  applyChatBackground(null);
+  document.getElementById('messageForm').hidden = false;
+  document.getElementById('deletedChatActions').hidden = true;
+  document.getElementById('headerName').childNodes[0].textContent = 'Выберите чат';
+  document.getElementById('headerVerificationBadge').hidden = true;
+  document.getElementById('headerStatus').textContent = 'Qwant Messenger';
+  document.getElementById('headerStatus').dataset.copyUsername = '';
+  setAvatar(document.getElementById('headerAvatar'), { username: 'Qwant' });
+  document.getElementById('detailName').textContent = 'Qwant Messenger';
+  document.getElementById('detailHandle').textContent = 'Выберите чат';
+  document.getElementById('detailStatus').textContent = '● защищённый доступ';
+  setAvatar(document.getElementById('detailAvatar'), { username: 'Qwant' });
+  document.getElementById('profileMessageButton').hidden = false;
+  document.getElementById('profileOpenButton').hidden = false;
+  document.getElementById('groupAddMembers').hidden = true;
+  document.getElementById('groupInviteButton').hidden = true;
+  document.getElementById('groupSettingsButton').hidden = true;
+  document.getElementById('groupMembersSection').hidden = true;
+  document.getElementById('mediaGrid').replaceChildren();
+  document.getElementById('sharedLinks').replaceChildren();
+  document.getElementById('mediaCount').textContent = '0';
+  document.getElementById('linkCount').textContent = '0';
+  document.getElementById('mediaEmpty').hidden = false;
+  document.getElementById('linksEmpty').hidden = false;
+  messages.innerHTML = '<div class="empty-state">Выберите чат, чтобы начать переписку.</div>';
+  app.classList.remove('show-conversation');
+  updateCallControls();
+  renderChats();
 }
 
 async function loadGroupMembers(chat) {
@@ -4849,6 +4881,10 @@ document.addEventListener('keydown', event => {
     if (event.key === 'Escape') closePhotoViewer();
     if (event.key === 'ArrowLeft') movePhotoViewer(-1);
     if (event.key === 'ArrowRight') movePhotoViewer(1);
+    return;
+  }
+  if (event.key === 'Escape' && activeId) {
+    closeActiveChat();
     return;
   }
   if (event.key === 'Escape' && !document.getElementById('groupMembersFull').hidden) closeFullGroupMembers();
