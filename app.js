@@ -1284,7 +1284,7 @@ function mapFavoriteMessages(rows, chatId = favoritesChatId()) {
     id: String(row.id),
     conversationId: chatId,
     text: row.body,
-    imageUrl: '',
+    imageUrl: row.image_url || '',
     localImage: false,
     type: 'text',
     gift: null,
@@ -1313,7 +1313,7 @@ function cacheFavoriteMessages(chat) {
   try {
     localStorage.setItem(favoritesCacheKey(), JSON.stringify(chat.messages
       .filter(message => message.favoriteMessage)
-      .map(message => ({ id: message.id, body: message.text, created_at: message.createdAt }))));
+      .map(message => ({ id: message.id, body: message.text, image_url: message.localImage ? '' : message.imageUrl, created_at: message.createdAt }))));
   } catch {}
 }
 
@@ -1331,7 +1331,7 @@ function createFavoritesChat(previous = null) {
     color: '#5288e8',
     lastMessageAt: latest?.createdAt || null,
     time: latest?.time || '',
-    preview: latest?.text || 'Сохраняйте сообщения и заметки здесь',
+    preview: latest?.text || (latest?.imageUrl ? '📷 Фото' : 'Сохраняйте сообщения и заметки здесь'),
     unread: 0,
     pinned: true,
     online: false,
@@ -1684,11 +1684,6 @@ function readImageFile(file) {
 }
 
 async function openPhotoFiles(fileList) {
-  const chat = chats.find(item => item.id === activeId);
-  if (chat?.isFavorites) {
-    showMessageToast('Избранное предназначено для личных текстовых заметок');
-    return;
-  }
   const files = Array.from(fileList || []);
   if (!files.length) return;
   const valid = files.filter(file => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 8 * 1024 * 1024);
@@ -2046,7 +2041,7 @@ async function selectChat(id) {
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
-  document.getElementById('attachButton').hidden = chat.isFavorites;
+  document.getElementById('attachButton').hidden = false;
   messageInput.placeholder = chat.isFavorites ? 'Сообщение для себя…' : chat.isGroup ? 'Сообщение в группу…' : 'Написать сообщение…';
   document.getElementById('deleteDeletedChatStatus').textContent = '';
   setAvatar(document.getElementById('detailAvatar'), chat.partner);
@@ -2730,7 +2725,7 @@ async function copyUsername(username) {
 function updateCallControls() {
   const chat = chats.find(item => String(item.id) === String(activeId));
   startAudioCallButton.disabled = !session?.sessionToken || !chat || chat.isFavorites || chat.isGroup || chat.partner.is_deleted || chat.partner.is_bot || Boolean(activeCall);
-  startAudioCallButton.hidden = Boolean(chat?.isGroup);
+  startAudioCallButton.hidden = false;
   showGroupMembersButton.hidden = !chat?.isGroup;
 }
 
@@ -3440,15 +3435,16 @@ async function deleteMessage(messageId) {
   }
 }
 
-async function sendFavoriteMessage(body, existingMessage = null, focusComposer = true) {
+async function sendFavoriteMessage(body, imageBase64 = '', existingMessage = null, focusComposer = true) {
   const chat = chats.find(item => item.id === favoritesChatId());
   body = String(body || '').trim();
-  if (!chat || !body) return false;
+  if (!chat || (!body && !imageBase64)) return false;
   const pending = existingMessage || {
     id:`favorite-pending-${crypto.randomUUID()}`,
     conversationId:chat.id,
     text:body,
-    imageUrl:'',
+    imageUrl:imageBase64,
+    localImage:Boolean(imageBase64),
     type:'text',
     gift:null,
     createdAt:new Date().toISOString(),
@@ -3463,7 +3459,7 @@ async function sendFavoriteMessage(body, existingMessage = null, focusComposer =
   chat.messages.push(pending);
   chat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
   chat.messagesLoaded = true;
-  chat.preview = body;
+  chat.preview = body || (imageBase64 ? '📷 Фото' : 'Сохраняйте сообщения и заметки здесь');
   chat.lastMessageAt = pending.createdAt;
   chat.time = pending.time;
   messageInput.value = '';
@@ -3473,15 +3469,16 @@ async function sendFavoriteMessage(body, existingMessage = null, focusComposer =
   try {
     const result = await api('/api/social/favorites/messages', {
       method:'POST',
-      body:JSON.stringify({ body })
+      body:JSON.stringify({ body, ...(imageBase64 ? { imageBase64 } : {}) })
     });
     const sent = mapFavoriteMessages([result.message], chat.id)[0];
+    sent.albumId = pending.albumId || '';
     const currentChat = chats.find(item => item.id === chat.id) || chat;
     currentChat.messages = currentChat.messages.filter(item => String(item.id) !== String(pending.id) && String(item.id) !== String(sent.id));
     currentChat.messages.push(sent);
     currentChat.messages.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
     currentChat.messagesLoaded = true;
-    currentChat.preview = sent.text;
+    currentChat.preview = sent.text || (sent.imageUrl ? '📷 Фото' : 'Сохраняйте сообщения и заметки здесь');
     currentChat.lastMessageAt = sent.createdAt;
     currentChat.time = sent.time;
     cacheFavoriteMessages(currentChat);
@@ -3504,11 +3501,7 @@ async function sendMessage(body, imageBase64 = '', existingMessage = null, focus
   body = String(body || '').trim();
   if (!chat || (!body && !imageBase64)) return false;
   if (chat.isFavorites) {
-    if (imageBase64) {
-      showMessageToast('В Избранное можно отправлять только текст');
-      return false;
-    }
-    return sendFavoriteMessage(body, existingMessage, focusComposer);
+    return sendFavoriteMessage(body, imageBase64, existingMessage, focusComposer);
   }
   const createdAt = existingMessage?.createdAt || new Date().toISOString();
   const replied = !existingMessage && replyToMessageId
@@ -3667,7 +3660,10 @@ async function deleteDeletedAccountChat() {
   }
 }
 
-startAudioCallButton.addEventListener('click', startAudioCall);
+startAudioCallButton.addEventListener('click', () => {
+  closeDrawer();
+  startAudioCall();
+});
 document.getElementById('callHistoryRefresh').addEventListener('click', loadCallHistory);
 document.getElementById('callHistoryOpen').addEventListener('click', openCallHistory);
 document.getElementById('callHistoryClose').addEventListener('click', closeCallHistory);
@@ -4003,11 +3999,6 @@ document.getElementById('newChat').addEventListener('click', () => {
   searchInput.focus();
 });
 document.getElementById('menuToggle').addEventListener('click', openDrawer);
-document.getElementById('drawerClose').addEventListener('click', () => {
-  closeDrawer();
-  const chatsTab = document.querySelector('[data-mobile-tab="chats"]');
-  if (chatsTab) setMobileTabActive(chatsTab);
-});
 document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
 document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
 drawerBackdrop.addEventListener('click', event => {
