@@ -534,12 +534,32 @@
     .coins-balance-mark { color: #e6a51c; font-size: 40px; line-height: 1; }
     .coins-balance-value { font-size: 30px; font-weight: 750; }
     .coins-balance-label { color: var(--muted); font-size: 12px; }
+    .coins-open-button { width: 100%; min-height: 46px; }
     .product-feature-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
     .product-feature { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
     .product-feature-icon { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: #f0e9ff; color: #805de0; font-size: 18px; }
     .product-feature strong { display: block; font-size: 12px; }
     .product-feature span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
     .product-note { margin: 12px 4px; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
+    .coins-activity { margin-top: 24px; }
+    .coins-activity-title { margin: 0 0 12px; font-size: 15px; font-weight: 750; }
+    .coins-transaction-filters { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 4px; margin-bottom: 12px; padding: 4px; overflow-x: auto; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
+    .coins-transaction-filter { min-height: 36px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 650; white-space: nowrap; cursor: pointer; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+    .coins-transaction-filter.active { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px rgba(20,18,14,.12); }
+    .coins-transaction-list { overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); }
+    .coins-transaction { display: flex; min-height: 70px; align-items: center; gap: 12px; padding: 11px 13px; animation: auth-rise .24s ease both; }
+    .coins-transaction + .coins-transaction { border-top: 1px solid var(--line); }
+    .coins-transaction-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 13px; background: color-mix(in srgb, var(--accent) 12%, var(--surface-soft)); color: var(--accent); font-size: 18px; }
+    .coins-transaction-icon.credit { background: #e5f7ec; color: #2eaa67; }
+    .coins-transaction-icon.debit { background: #fff0ed; color: #dc5d57; }
+    .coins-transaction-copy { min-width: 0; flex: 1; }
+    .coins-transaction-title { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .coins-transaction-meta { overflow: hidden; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+    .coins-transaction-amount { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-weight: 750; text-align: right; }
+    .coins-transaction-amount.credit { color: #2eaa67; }
+    .coins-transaction-amount.debit { color: #dc5d57; }
+    .coins-transaction-status { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; font-weight: 500; }
+    .coins-transaction-state { padding: 25px 14px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
     .settings-status { min-height: 18px; margin-top: 12px; color: var(--muted); font-size: 10px; }
     .session-notice { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(36,35,32,.42); opacity: 0; visibility: hidden; transition: .2s; }
     .session-notice.open { opacity: 1; visibility: visible; }
@@ -742,6 +762,16 @@
       .product-feature strong { display: block; font-size: 15px; }
       .product-feature span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
       .product-note { margin: 14px 4px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
+      .coins-activity { margin-top: 26px; }
+      .coins-activity-title { font-size: 18px; }
+      .coins-transaction-filters { position: sticky; top: calc(58px + env(safe-area-inset-top)); z-index: 1; grid-template-columns: repeat(3, max-content); justify-content: start; width: max-content; max-width: 100%; margin-left: -2px; border: 0; background: color-mix(in srgb, var(--surface) 72%, transparent); backdrop-filter: blur(14px); }
+      .coins-transaction-filter { min-height: 39px; padding: 0 15px; font-size: 13px; }
+      .coins-transaction-list { border: 0; border-radius: 19px; box-shadow: 0 5px 20px rgba(22,18,35,.07); }
+      .coins-transaction { min-height: 76px; gap: 13px; padding: 12px 14px; }
+      .coins-transaction-icon { width: 46px; height: 46px; border-radius: 15px; font-size: 21px; }
+      .coins-transaction-title { font-size: 14px; }
+      .coins-transaction-meta { font-size: 11px; }
+      .coins-transaction-amount { font-size: 14px; }
       input, textarea, select { font-size: 16px !important; }
       .chats-head { padding: max(18px, env(safe-area-inset-top)) 18px 13px; }
       .conversation-head { min-height: 69px; padding-top: max(10px, env(safe-area-inset-top)); }
@@ -893,8 +923,16 @@
           <section class="settings-page" data-settings-content="coins">
             <div class="product-hero coins-hero"><div class="product-hero-symbol">✦</div><h2 class="product-hero-title">FernieCoins</h2><p class="product-hero-copy">Баланс валюты вашего аккаунта FernieID.</p></div>
             <div class="coins-balance-card"><span class="coins-balance-mark">✦</span><strong class="coins-balance-value" id="coinsBalance">Загружаем баланс…</strong><span class="coins-balance-label">Ваш баланс</span></div>
-            <p class="product-note">Пополнение и история операций доступны в FernieID.</p>
-            <button class="settings-button" id="openFernieIdCoins" type="button" style="width:100%;min-height:46px">Открыть FernieID</button>
+            <button class="settings-button coins-open-button" id="openFernieIdCoins" type="button">Открыть FernieID</button>
+            <section class="coins-activity" aria-label="История FernieCoins">
+              <h3 class="coins-activity-title">Недавние операции</h3>
+              <nav class="coins-transaction-filters" id="coinsTransactionFilters" aria-label="Фильтр операций">
+                <button class="coins-transaction-filter active" type="button" data-coins-filter="all">Все операции</button>
+                <button class="coins-transaction-filter" type="button" data-coins-filter="credit">Пополнения</button>
+                <button class="coins-transaction-filter" type="button" data-coins-filter="debit">Списания</button>
+              </nav>
+              <div class="coins-transaction-list" id="coinsTransactionList" aria-live="polite"><div class="coins-transaction-state">Загружаем историю операций…</div></div>
+            </section>
           </section>
         </div>
       </div>
