@@ -1995,9 +1995,12 @@ async function createGroupChat() {
   document.getElementById('groupCreateTitle').textContent = 'Новая группа';
   document.getElementById('groupCreateDetailsStep').hidden = false;
   document.getElementById('groupCreateDetailsStep').classList.remove('is-leaving');
-  document.getElementById('groupInviteStep').hidden = true;
-  document.getElementById('groupInviteStepActions').hidden = true;
-  document.querySelector('#groupCreateDetailsStep .group-modal-actions').hidden = false;
+  const inviteStep = document.getElementById('groupInviteStep');
+  if(inviteStep) inviteStep.hidden = true;
+  const inviteActions = document.getElementById('groupInviteStepActions');
+  if(inviteActions) inviteActions.hidden = true;
+  const detailsActions = document.querySelector('#groupCreateDetailsStep .group-modal-actions');
+  if(detailsActions) detailsActions.hidden = false;
   document.getElementById('groupCreateForm').reset();
   renderGroupAvatar('groupCreateAvatarPreview', '', 'G');
   document.getElementById('groupCreateStatus').textContent = '';
@@ -3390,9 +3393,13 @@ document.getElementById('groupCreateForm').addEventListener('submit', async even
     await new Promise(resolve => setTimeout(resolve, 150));
     detailsStep.hidden = true;
     detailsStep.classList.remove('is-leaving');
-    document.getElementById('groupInviteStep').hidden = false;
-    document.getElementById('groupInviteStepActions').hidden = false;
-    document.getElementById('groupCreateForm').querySelector('.group-modal-actions').hidden = true;
+    const inviteStep = document.getElementById('groupInviteStep');
+    const inviteActions = document.getElementById('groupInviteStepActions');
+    const detailsActions = document.querySelector('#groupCreateDetailsStep .group-modal-actions');
+    if(!inviteStep || !inviteActions || !detailsActions) throw new Error('Не удалось открыть список участников');
+    inviteStep.hidden = false;
+    inviteActions.hidden = false;
+    detailsActions.hidden = true;
     document.getElementById('groupInviteStepStatus').textContent = '';
     document.getElementById('groupMemberSearch').focus();
   } catch(error) {
