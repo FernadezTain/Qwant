@@ -85,12 +85,16 @@
     .pin { color: #a9a49a; font-size: 11px; }
 
     .conversation { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
+    .conversation.is-floating { position: fixed; z-index: 25; top: 16px; left: 16px; width: min(660px,calc(100vw - 32px)); height: min(76dvh,calc(100dvh - 32px)); min-height: min(360px,calc(100dvh - 32px)); margin: 0; border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,.32); transform: none !important; animation: none !important; }
     .conversation.chat-opening { animation: conversation-enter .34s cubic-bezier(.18,.85,.25,1) both; }
     @keyframes conversation-enter { from { opacity: .76; transform: translateX(18px) scale(.99); } to { opacity: 1; transform: translateX(0) scale(1); } }
     .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
     .person.open-chat-profile { padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
     .person.open-chat-profile:hover .person-name { color: var(--accent); }
+    .conversation-drag-handle { display: grid; width: 30px; height: 34px; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: grab; touch-action: none; }
+    .conversation-drag-handle:active { cursor: grabbing; background: var(--surface-soft); }
+    .conversation-drag-handle svg { width: 18px; height: 18px; fill: currentColor; }
     .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
     .person-name { font-size: 14px; font-weight: 700; }
     .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
@@ -514,6 +518,10 @@
     .profile-screen .profile-name { margin: 0; font-size: clamp(21px, 4vw, 29px); font-weight: 750; letter-spacing: -.5px; }
     .profile-username { margin-top: 5px; color: var(--muted); font-size: 13px; }
     .profile-info { padding: 0 30px 26px; }
+    .profile-media-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .profile-media-actions[hidden] { display: none; }
+    .profile-media-actions .settings-button { min-height: 36px; }
+    .profile-media-actions .profile-edit-status { flex-basis: 100%; }
     .profile-screen .profile-card-meta { color: var(--muted); font-size: 12px; }
     .profile-screen .profile-description { margin-top: 15px; font-size: 13px; line-height: 1.65; }
     .user-profile-popup { position: fixed; inset: 0; z-index: 115; display: grid; place-items: center; padding: 18px; background: rgba(11,16,24,.52); opacity: 0; visibility: hidden; transition: opacity .18s,visibility .18s; backdrop-filter: blur(7px); }
@@ -881,6 +889,8 @@
       .chats { bottom: calc(76px + env(safe-area-inset-bottom)); }
       .chats { z-index: 2; }
       .conversation { z-index: 1; }
+      .conversation-drag-handle { display: none; }
+      .conversation.is-floating { position: absolute; inset: 0; width: auto; height: auto; min-height: 0; border-radius: 0; }
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
       .app.show-conversation .mobile-tab-bar { display: none; }
@@ -1053,6 +1063,7 @@
       <header class="conversation-head">
         <button class="mobile-back" id="backToChats" aria-label="Назад к чатам"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
         <button class="person open-chat-profile" id="chatProfileButton" type="button" aria-label="Открыть профиль или информацию о чате"><div class="avatar" id="headerAvatar">Q</div><div><div class="person-name" id="headerName">Выберите чат</div><div class="person-status" id="headerStatus">Qwant Messenger</div></div></button>
+        <button class="conversation-drag-handle" id="conversationDragHandle" type="button" aria-label="Переместить окно переписки" title="Перетащите, чтобы переместить; двойной щелчок — вернуть на место"><svg viewBox="0 0 12 20"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="10" r="1.4"/><circle cx="9" cy="10" r="1.4"/><circle cx="3" cy="17" r="1.4"/><circle cx="9" cy="17" r="1.4"/></svg></button>
         <div class="head-actions">
           <button class="icon-button call-start" id="startAudioCall" aria-label="Позвонить" title="Аудиозвонок" type="button" disabled hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
           <button class="icon-button group-members-toggle" id="showGroupMembers" aria-label="Участники чата" title="Участники чата" type="button" hidden><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/></svg></button>
@@ -1302,6 +1313,7 @@
       <div class="profile-banner" id="profileBanner"><img id="profileBannerImage" alt="" hidden></div>
       <div class="profile-main"><div class="avatar" id="accountProfileAvatar">FX</div><div class="profile-main-copy"><h1 class="profile-name" id="accountProfileName">—</h1><div class="profile-username" id="profileUsername">—</div></div></div>
       <div class="profile-info"><div class="profile-card-meta" id="accountProfileId">—</div><div class="profile-description" id="accountProfileDescription" hidden></div>
+        <div class="profile-media-actions" id="profileMediaActions" hidden><label class="settings-button" for="profileAvatarInput">Изменить аватар</label><input id="profileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><label class="settings-button" for="profileBannerInput">Изменить баннер</label><input id="profileBannerInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><div class="profile-edit-status" id="profileMediaStatus" role="status" aria-live="polite"></div></div>
         <form class="profile-edit-form" id="accountDisplayNameForm" hidden><label for="accountDisplayNameInput">Отображаемое имя<input id="accountDisplayNameInput" maxlength="40" required></label><button class="settings-button" type="submit">Сохранить имя</button><div class="profile-edit-status" id="accountDisplayNameStatus" role="status"></div></form>
       </div>
     </article>
