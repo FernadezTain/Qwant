@@ -2197,23 +2197,28 @@ function formatCallDuration(startedAt) {
 function updateCallDuration() {
   if (!activeCall?.connectedAt) return;
   const duration = formatCallDuration(activeCall.connectedAt);
-  document.getElementById('callDuration').textContent = duration;
-  document.getElementById('callDuration').hidden = false;
+  const durationElement = document.getElementById('callDuration');
+  if (durationElement) {
+    durationElement.textContent = duration;
+    durationElement.hidden = false;
+  }
   const status = callStatus.textContent;
-  document.getElementById('callDockStatus').textContent = `${status} · ${duration}`;
+  const dockStatus = document.getElementById('callDockStatus');
+  if (dockStatus) dockStatus.textContent = `${status} · ${duration}`;
 }
 
 function setCallStatus(status) {
   callStatus.textContent = status;
-  document.getElementById('callDockStatus').textContent = activeCall?.connectedAt
+  const dockStatus = document.getElementById('callDockStatus');
+  if (dockStatus) dockStatus.textContent = activeCall?.connectedAt
     ? `${status} · ${formatCallDuration(activeCall.connectedAt)}`
     : status;
 }
 
 function setCallSpeaking(speaking) {
-  document.getElementById('callVoiceIndicator').classList.toggle('is-speaking', speaking);
-  document.querySelector('.call-card').classList.toggle('is-speaking', speaking);
-  document.getElementById('callDock').classList.toggle('is-speaking', speaking);
+  document.getElementById('callVoiceIndicator')?.classList.toggle('is-speaking', speaking);
+  document.querySelector('.call-card')?.classList.toggle('is-speaking', speaking);
+  document.getElementById('callDock')?.classList.toggle('is-speaking', speaking);
 }
 
 function prepareCallVoiceContext(call) {
@@ -2280,13 +2285,18 @@ function setCallDialog({ name, status, incoming = false, connecting = false }) {
   setCallStatus(status);
   setAvatar(document.getElementById('callAvatar'), activeCall?.partner || { display_name:name || 'FX' });
   document.getElementById('callDockTitle').textContent = name || 'Аудиозвонок';
-  document.getElementById('callVoiceIndicator').hidden = !connecting;
-  document.querySelector('.call-card').classList.toggle('is-ringing', incoming);
+  const voiceIndicator = document.getElementById('callVoiceIndicator');
+  if (voiceIndicator) voiceIndicator.hidden = !connecting;
+  document.querySelector('.call-card')?.classList.toggle('is-ringing', incoming);
   if (activeCall?.connectedAt) updateCallDuration();
-  document.getElementById('callAccept').hidden = !incoming;
-  document.getElementById('callDecline').hidden = !incoming;
-  document.getElementById('callMute').hidden = !connecting;
-  document.getElementById('callEnd').hidden = incoming;
+  const acceptButton = document.getElementById('callAccept');
+  const declineButton = document.getElementById('callDecline');
+  const muteButton = document.getElementById('callMute');
+  const endButton = document.getElementById('callEnd');
+  if (acceptButton) acceptButton.hidden = !incoming;
+  if (declineButton) declineButton.hidden = !incoming;
+  if (muteButton) muteButton.hidden = !connecting;
+  if (endButton) endButton.hidden = incoming;
   const minimized = activeCall?.minimized === true;
   callOverlay.hidden = minimized;
   callOverlay.setAttribute('aria-hidden', String(minimized));
@@ -2326,8 +2336,10 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   call.voiceAnalyser = null;
   call.voiceContext?.close().catch(() => {});
   call.pendingCandidates = [];
-    document.getElementById('callDuration').hidden = true;
-    document.getElementById('callVoiceIndicator').hidden = true;
+    const durationElement = document.getElementById('callDuration');
+    const voiceIndicator = document.getElementById('callVoiceIndicator');
+    if (durationElement) durationElement.hidden = true;
+    if (voiceIndicator) voiceIndicator.hidden = true;
   if (notify) sendCallSignal('hangup', {}).catch(() => {});
   call.peer?.close();
   call.stream?.getTracks().forEach(track => track.stop());
