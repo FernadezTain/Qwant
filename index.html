@@ -62,9 +62,11 @@
     .filter { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; }
     .filter.active { border-color: var(--ink); background: var(--ink); color: white; }
     .chat-list { flex: 1; overflow-y: auto; padding: 2px 9px 10px; }
-    .chat-item { display: flex; width: 100%; align-items: center; gap: 11px; padding: 11px 10px; border: 0; border-radius: 15px; background: transparent; text-align: left; cursor: pointer; transition: background .16s ease; }
+    .chat-item { display: flex; width: 100%; align-items: center; gap: 11px; padding: 11px 10px; border: 0; border-radius: 15px; background: transparent; text-align: left; cursor: pointer; transition: background .2s ease, transform .2s cubic-bezier(.2,.8,.2,1); }
     .chat-item:hover { background: var(--surface-soft); }
+    .chat-item:active { transform: scale(.985); }
     .chat-item.active { background: var(--accent-soft); }
+    .favorites-avatar { border: 0; border-radius: 50%; background: linear-gradient(145deg,#76a9ff,#4477dc); color: white; font-size: 25px; box-shadow: 0 5px 13px rgba(67,120,222,.24); }
     .avatar-wrap { position: relative; flex: 0 0 auto; }
     .avatar { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 17px; background: #e8d5c8; color: #765548; font-size: 15px; font-weight: 700; line-height: 1; text-align: center; object-fit: cover; }
     .avatar.round { border-radius: 50%; }
@@ -78,6 +80,8 @@
     .pin { color: #a9a49a; font-size: 11px; }
 
     .conversation { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; }
+    .conversation.chat-opening { animation: conversation-enter .34s cubic-bezier(.18,.85,.25,1) both; }
+    @keyframes conversation-enter { from { opacity: .76; transform: translateX(18px) scale(.99); } to { opacity: 1; transform: translateX(0) scale(1); } }
     .conversation-head { z-index: 1; display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 19px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--surface) 94%,transparent); }
     .person { display: flex; min-width: 0; align-items: center; gap: 12px; }
     .person .avatar { width: 43px; height: 43px; border-radius: 15px; }
@@ -100,12 +104,13 @@
     .message-row.own { justify-content: flex-end; }
     .message-avatar { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 10px; background: #e8d5c8; color: #765548; font-size: 10px; font-weight: 700; line-height: 1; text-align: center; object-fit: cover; }
     .messages-loading { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 12px; }
+    .messages-loading > span:last-child { animation: loading-pulse 1.2s ease-in-out infinite; }
     .loading-spinner { width: 27px; height: 27px; border: 2px solid rgba(182,79,63,.18); border-top-color: var(--accent); border-radius: 50%; animation: loading-spin .8s linear infinite; }
     .loading-dots { display: inline-flex; gap: 4px; }
     .loading-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: loading-pulse 1s ease-in-out infinite; }
     .loading-dots i:nth-child(2) { animation-delay: .14s; }
     .loading-dots i:nth-child(3) { animation-delay: .28s; }
-    .message-new { animation: message-enter .26s ease both; }
+    .message-new { animation: message-enter .34s cubic-bezier(.18,.85,.25,1) both; }
     .message-row.gift-message-row { align-items: flex-end; }
     .gift-message-bubble { width: min(100%, 300px); max-width: min(82vw, 300px); padding: 0; overflow: hidden; border-radius: 17px; background: var(--surface); }
     .gift-message-label { padding: 10px 13px 0; color: var(--muted); font-size: 10px; font-weight: 700; text-align: center; }
@@ -207,6 +212,7 @@
     .deleted-chat-status { width: 100%; color: var(--muted); font-size: 10px; text-align: center; }
     .composer { display: flex; min-height: 48px; align-items: center; gap: 8px; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
     .composer .icon-button { width: 34px; height: 34px; border: 0; background: transparent; }
+    .favorites-chat #attachButton { display: none; }
     .composer input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
     .composer input::placeholder { color: #a4a198; }
     .send-button { display: grid; width: 37px; height: 37px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 12px; background: var(--ink); color: white; cursor: pointer; transition: transform .15s, background .15s; }
@@ -302,7 +308,7 @@
     .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
     .drawer-backdrop.open { opacity: 1; visibility: visible; }
-    .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; padding: 0 12px 14px; overflow-y: auto; background: var(--surface); color: var(--ink); box-shadow: 16px 0 45px rgba(0,0,0,.16); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+    .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; align-items: stretch; padding: 0 12px 14px; overflow-y: auto; background: var(--surface); color: var(--ink); box-shadow: 16px 0 45px rgba(0,0,0,.16); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
     .drawer-backdrop.open .drawer { transform: translateX(0); }
     .drawer-cover { position: relative; display: flex; min-height: 145px; align-items: flex-end; justify-content: space-between; margin: 0 -12px 8px; padding: 18px 22px; overflow: hidden; background: radial-gradient(circle at 20% 20%, rgba(181,198,177,.55), transparent 58%), linear-gradient(140deg, #f1e8dc, #e8eee6); }
     .drawer-banner { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -317,9 +323,12 @@
     .drawer-cover.has-banner .drawer-name { color: white; text-shadow: 0 1px 5px rgba(0,0,0,.45); }
     .drawer-cover.has-banner .drawer-handle { color: rgba(255,255,255,.82); text-shadow: 0 1px 5px rgba(0,0,0,.45); }
     .drawer-close { position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(54,48,38,.08); border-radius: 50%; background: rgba(255,255,255,.62); color: var(--muted); cursor: pointer; }
-    .drawer-item { display: flex; min-height: 48px; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer; }
+    .drawer-item { display: flex; width: 100%; min-height: 48px; flex: 0 0 auto; align-items: center; gap: 16px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer; }
     .drawer-item:hover { background: var(--surface-soft); }
     .drawer-item svg { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .drawer-group { width: 100%; flex: 0 0 auto; }
+    .drawer-group .drawer-item { width: 100%; }
+    @media (min-width: 761px) { .preference-links [data-drawer-settings] { display: none; } }
     .drawer-separator { height: 1px; margin: 8px 0; background: var(--line); }
     .drawer-spacer { flex: 1; min-height: 35px; }
     .drawer-product { background: linear-gradient(110deg,rgba(255,255,255,.07),transparent); }
@@ -641,6 +650,8 @@
       .mobile-tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .32s cubic-bezier(.2,.85,.25,1); }
       .mobile-tab span { transition: transform .32s cubic-bezier(.2,.85,.25,1); }
       .mobile-tab.active { color: var(--accent); }
+      .mobile-tab[data-mobile-tab="favorites"].active { color: #4c80e6; }
+      .mobile-tab[data-mobile-tab="favorites"].active svg { fill: currentColor; stroke: currentColor; }
       .mobile-tab-bar.slide-left .mobile-tab.active svg, .mobile-tab-bar.slide-left .mobile-tab.active span { animation: tab-enter-left .34s cubic-bezier(.2,.8,.25,1) both; }
       .mobile-tab-bar.slide-right .mobile-tab.active svg, .mobile-tab-bar.slide-right .mobile-tab.active span { animation: tab-enter-right .34s cubic-bezier(.2,.8,.25,1) both; }
       @keyframes tab-enter-left { from { opacity: .5; transform: translateX(-10px) rotateY(-55deg); } to { opacity: 1; transform: translateX(0) rotateY(0); } }
@@ -736,6 +747,7 @@
       .conversation-head { min-height: 69px; padding-top: max(10px, env(safe-area-inset-top)); }
       .mobile-back { display: grid; width: 34px; height: 34px; margin-left: -5px; border: 0; border-radius: 11px; background: transparent; color: var(--accent); cursor: pointer; }
       .mobile-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+      .favorites-chat #messageSearchButton, .favorites-chat #detailsToggle { display: none; }
       .person { flex: 1; }
       .messages { padding: 18px 14px; }
       .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
@@ -810,7 +822,7 @@
       <div class="detail-foot">Личные сообщения защищены</div>
     </aside>
     <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Основная навигация">
-      <button class="mobile-tab" type="button" data-mobile-tab="contacts" aria-label="Контакты"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><span>Контакты</span></button>
+      <button class="mobile-tab" type="button" data-mobile-tab="favorites" aria-label="Избранное"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg><span>Избранное</span></button>
       <button class="mobile-tab active" type="button" data-mobile-tab="chats" aria-label="Чаты"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg><span>Чаты</span></button>
       <button class="mobile-tab" type="button" data-mobile-tab="settings" aria-label="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z"/></svg><span>Настройки</span></button>
     </nav>
@@ -828,11 +840,10 @@
       </div>
       <div class="drawer-group account-links">
         <button class="drawer-item" id="drawerProfile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Мой профиль<span class="drawer-chevron">›</span></button>
-        <button class="drawer-item" id="drawerNewChat" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20ZM17 8h5M19.5 5.5v5"/></svg>Контакты<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" id="drawerBots" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></svg>Мои боты<span class="drawer-chevron">›</span></button>
       </div>
       <div class="drawer-group preference-links">
-        <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>Уведомления и звуки<span class="drawer-chevron">›</span></button>
+        <button class="drawer-item" id="drawerSettings" type="button"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>Настройки<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="privacy"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>Конфиденциальность<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M10 18.5h4"/></svg>Устройства<span class="drawer-chevron">›</span></button>
         <button class="drawer-item" type="button" data-drawer-settings="personalization"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l1.5-1.2-1.5-2.7-1.8.6a7 7 0 0 0-2-1.2L14.8 4h-3.1l-.3 2.3a7 7 0 0 0-2 1.2l-1.8-.6-1.5 2.7 1.5 1.2a7 7 0 0 0 0 2.4l-1.5 1.2 1.5 2.7 1.8-.6a7 7 0 0 0 2 1.2l.3 2.3h3.1l.3-2.3a7 7 0 0 0 2-1.2l1.8.6 1.5-2.7-1.5-1.2A7 7 0 0 0 19 12Z"/></svg>Оформление<span class="drawer-chevron">›</span></button>
