@@ -990,6 +990,7 @@
 
     @media (max-width: 1180px) {
       .app { grid-template-columns: 300px minmax(340px, 1fr); }
+      .app.no-active-chat { grid-template-columns: 300px minmax(0,1fr); }
       .details { display: none; }
       .app.show-details .details { position: fixed; z-index: 15; top: 14px; right: 14px; bottom: 14px; display: flex; width: min(330px, calc(100vw - 28px)); box-shadow: 0 20px 70px rgba(0,0,0,.28); }
       .app.show-details .details.show-all-members { z-index: 30; top: 0; right: 0; bottom: 0; left: 0; width: 100%; border: 0; border-radius: 0; }
@@ -1026,7 +1027,7 @@
       .chats { bottom: calc(76px + env(safe-area-inset-bottom)); }
       .chats { z-index: 2; }
       .conversation { z-index: 1; }
-      .app.no-active-chat .chats { inset: 10px 10px calc(76px + env(safe-area-inset-bottom) + 10px); width: auto; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); }
+      .app.no-active-chat .chats { inset: 0 0 calc(76px + env(safe-area-inset-bottom)); width: auto; border: 0; border-radius: 0; box-shadow: none; }
       .app.no-active-chat .conversation { display: none; }
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
