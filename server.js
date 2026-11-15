@@ -112,7 +112,7 @@ app.use('/api/social', async (req, res) => {
     res.status(response.status);
     const contentType = response.headers.get('content-type');
     if (contentType) res.type(contentType);
-    res.send(await response.text());
+    res.send(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
     console.error('FernieID social request failed:', error.message);
     res.status(502).json({ success: false, error: 'Не удалось загрузить данные Messenger. Попробуйте ещё раз.' });
