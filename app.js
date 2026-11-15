@@ -2272,7 +2272,12 @@ function startCallDuration(call) {
 
 function startIncomingRingtone() {
   callRingtone.currentTime = 0;
-  callRingtone.play().catch(() => {});
+  callRingtone.play().catch(error => {
+    if (error.name === 'AbortError' || !activeCall || activeCall.initiator || activeCall.peer) return;
+    setCallStatus(error.name === 'NotAllowedError'
+      ? 'Нажмите на экран, чтобы включить звук вызова'
+      : 'Не удалось воспроизвести звук вызова');
+  });
 }
 
 function stopIncomingRingtone() {
