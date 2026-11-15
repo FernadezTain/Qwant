@@ -48,6 +48,9 @@ let session = readSession();
 let pinnedChatIds = new Set(readPinnedChatIds());
 let accountSettings = null;
 let telegramId = null;
+let fernieCoinTransactions = [];
+let activeCoinsFilter = 'all';
+let coinsTransactionsRequestId = 0;
 let deviceCheckTimer;
 let activeGift = null;
 let photoViewerItems = [];
@@ -555,18 +558,76 @@ async function revokeDevice(deviceId, button) {
 }
 
 async function loadProducts() {
+  const requestId = ++coinsTransactionsRequestId;
   try {
-    const data = await api('/api/qwant/account');
+    const [data, transactionData] = await Promise.all([
+      api('/api/qwant/account'),
+      api('/api/qwant/transactions')
+    ]);
+    if (requestId !== coinsTransactionsRequestId) return;
     const plus = data.ferniePlus;
     const expires = plus?.end_time ? formatDateTime(Number(plus.end_time) * 1000) : '';
     document.getElementById('plusStatus').textContent = plus?.active ? `Подписка активна${expires ? ` до ${expires}` : ''}` : 'Подписка не активна';
     const coins = data.fernieCoins;
     document.getElementById('coinsBalance').textContent = coins === null || coins === undefined ? 'Баланс недоступен' : `${new Intl.NumberFormat('ru-RU').format(coins)} FernieCoins`;
     document.getElementById('coinsMenuBalance').textContent = coins === null || coins === undefined ? '—' : new Intl.NumberFormat('ru-RU').format(coins);
+    fernieCoinTransactions = transactionData.transactions || [];
+    renderCoinTransactions(transactionData.telegramLinked === false
+      ? 'Привяжите Telegram в FernieID, чтобы видеть операции.'
+      : 'Операций пока нет.');
   } catch (error) {
+    if (requestId !== coinsTransactionsRequestId) return;
     document.getElementById('plusStatus').textContent = error.message;
     document.getElementById('coinsBalance').textContent = 'Баланс временно недоступен';
+    document.getElementById('coinsMenuBalance').textContent = '—';
+    fernieCoinTransactions = [];
+    renderCoinTransactions(error.message || 'Не удалось загрузить историю FernieCoins.');
   }
+}
+
+function coinTransactionInfo(transaction) {
+  const types = {
+    buy_fc: { title:'Покупка FernieCoins', direction:'credit', icon:'↙' },
+    sell_fc: { title:'Продажа FernieCoins', direction:'debit', icon:'↗' },
+    receive_fc: { title:'Перевод получен', direction:'credit', icon:'↓' },
+    send_fc: { title:'Перевод отправлен', direction:'debit', icon:'↑' },
+    buy_gift: { title:'Покупка подарка', direction:'debit', icon:'🎁' },
+    sell_gift: { title:'Продажа подарка', direction:'credit', icon:'🎁' },
+    receive_gift: { title:'Подарок получен', direction:'neutral', icon:'🎁' },
+    send_gift: { title:'Подарок отправлен', direction:'neutral', icon:'🎁' }
+  };
+  return types[transaction.type] || { title:'Операция FernieCoins', direction:'neutral', icon:'✦' };
+}
+
+function coinTransactionDate(value) {
+  const number = Number(value);
+  const date = new Date(Number.isFinite(number) && number < 1e12 ? number * 1000 : value);
+  return Number.isNaN(date.getTime()) ? 'Дата неизвестна' : new Intl.DateTimeFormat('ru', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }).format(date);
+}
+
+function renderCoinTransactions(emptyMessage = 'Операций пока нет.') {
+  const list = document.getElementById('coinsTransactionList');
+  const filtered = fernieCoinTransactions.filter(transaction => {
+    if (activeCoinsFilter === 'all') return true;
+    return coinTransactionInfo(transaction).direction === activeCoinsFilter;
+  });
+  if (!filtered.length) {
+    list.innerHTML = `<div class="coins-transaction-state">${escapeHtml(fernieCoinTransactions.length ? 'В этой категории операций нет.' : emptyMessage)}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(transaction => {
+    const info = coinTransactionInfo(transaction);
+    const amount = Number(transaction.fc_amount) || 0;
+    const failed = transaction.status === 'failed';
+    const sign = info.direction === 'credit' ? '+' : info.direction === 'debit' ? '−' : '';
+    const amountText = amount ? `${sign}${new Intl.NumberFormat('ru-RU').format(amount)} FC` : info.direction === 'neutral' ? 'Подарок' : '—';
+    const detail = transaction.item_name || transaction.details || (info.direction === 'neutral' ? 'Подарок UDG' : 'Операция баланса');
+    return `<article class="coins-transaction">
+      <span class="coins-transaction-icon ${info.direction}">${info.icon}</span>
+      <div class="coins-transaction-copy"><div class="coins-transaction-title">${escapeHtml(info.title)}</div><div class="coins-transaction-meta">${escapeHtml(detail)} · ${escapeHtml(coinTransactionDate(transaction.created_at))}</div></div>
+      <div class="coins-transaction-amount ${failed ? '' : info.direction}">${failed ? 'Отклонена' : escapeHtml(amountText)}<span class="coins-transaction-status">${failed ? escapeHtml(transaction.details || 'Не выполнена') : 'Успешно'}</span></div>
+    </article>`;
+  }).join('');
 }
 
 async function openSettings(page = 'notifications') {
@@ -3028,6 +3089,13 @@ document.getElementById('fontScale').addEventListener('change', event => {
 });
 document.getElementById('openFernieIdPlus').addEventListener('click', () => window.open('https://ferniex-id.vercel.app/', '_blank', 'noopener,noreferrer'));
 document.getElementById('openFernieIdCoins').addEventListener('click', () => window.open('https://ferniex-id.vercel.app/', '_blank', 'noopener,noreferrer'));
+document.getElementById('coinsTransactionFilters').addEventListener('click', event => {
+  const button = event.target.closest('[data-coins-filter]');
+  if (!button) return;
+  activeCoinsFilter = button.dataset.coinsFilter;
+  document.querySelectorAll('[data-coins-filter]').forEach(filter => filter.classList.toggle('active', filter === button));
+  renderCoinTransactions();
+});
 document.getElementById('sessionNoticeOk').addEventListener('click', () => {
   document.getElementById('sessionNotice').classList.remove('open');
   document.getElementById('sessionNotice').setAttribute('aria-hidden', 'true');
