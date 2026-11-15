@@ -949,8 +949,17 @@ function closeDrawer() {
 
 function setMobileTabActive(tab) {
   const nav = document.getElementById('mobileTabBar');
+  const navBounds = nav.getBoundingClientRect();
+  const tabBounds = tab.getBoundingClientRect();
+  nav.style.setProperty('--tab-offset', `${tabBounds.left - navBounds.left - nav.clientLeft}px`);
+  nav.style.setProperty('--tab-width', `${tabBounds.width}px`);
   nav.querySelectorAll('[data-mobile-tab]').forEach(button => button.classList.toggle('active', button === tab));
 }
+
+window.addEventListener('resize', () => {
+  const activeTab = document.querySelector('.mobile-tab.active');
+  if (activeTab) setMobileTabActive(activeTab);
+});
 
 async function loadOwnProfile() {
   const userId = session?.userId;
