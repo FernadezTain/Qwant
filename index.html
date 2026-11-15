@@ -32,7 +32,10 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    * { box-sizing: border-box; cursor: default; user-select: none; -webkit-user-select: none; }
+    * { box-sizing: border-box; cursor: default; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    *:not(input):not(textarea)::selection { background: transparent; color: inherit; }
+    button:focus:not(:focus-visible) { outline: none; }
+    button:focus-visible { outline: 2px solid color-mix(in srgb,var(--accent) 70%,white); outline-offset: 2px; }
     input, textarea { cursor: text; user-select: text; -webkit-user-select: text; }
     select, select *, button, button *, a, a *, label[for] { cursor: pointer; }
     body { min-width: 320px; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; background: var(--page); color: var(--ink); }
@@ -306,6 +309,11 @@
     .dark-theme .gift-preview-specs, .dark-theme .gift-detail-table { border-color: var(--line); }
     .dark-theme .composer { background: var(--surface-soft); }
     .dark-theme .composer input, .dark-theme .search input { color: var(--ink); }
+    .dark-theme .search input::placeholder, .dark-theme .composer input::placeholder { color: #b2bfcc; opacity: 1; }
+    .dark-theme .filter.active { border-color: #405a74; background: #30465e; color: #f4f7fb; }
+    .dark-theme .send-button, .dark-theme .app-dialog-actions .settings-button { border-color: #397bb8; background: #397bb8; color: #fff; }
+    .dark-theme .settings-nav-button { color: #aebdcd; }
+    .dark-theme .settings-nav-button.active { background: color-mix(in srgb,var(--accent) 18%,var(--surface)); color: #e1d6ff; }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(10,15,20,.48); opacity: 0; visibility: hidden; transition: opacity .22s, visibility .22s; }
     .drawer-backdrop.open { opacity: 1; visibility: visible; }
     .drawer { position: absolute; inset: 0 auto 0 0; display: flex; width: min(320px, 88vw); flex-direction: column; align-items: stretch; padding: 0 12px 14px; overflow-y: auto; background: var(--surface); color: var(--ink); box-shadow: 16px 0 45px rgba(0,0,0,.16); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
@@ -487,8 +495,8 @@
     .settings-nav-button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font-size: 12px; text-align: left; cursor: pointer; transition: .16s ease; }
     .settings-nav-button:hover { background: var(--surface); color: var(--ink); }
     .settings-nav-button.active { background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px -10px rgba(20,18,14,.35); font-weight: 700; }
-    .settings-nav-icon { width: 18px; text-align: center; font-size: 15px; }
-    .settings-nav-icon svg { width: 17px; height: 17px; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-nav-icon { display: inline-grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; }
+    .settings-nav-icon svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .settings-content { overflow: auto; padding: clamp(18px,4vw,32px); }
     .settings-page { display: none; max-width: 620px; animation: auth-rise .24s ease both; }
     .settings-page.active { display: block; }
@@ -697,18 +705,13 @@
       .app.show-conversation .chats { display: none; }
       .app.show-conversation .conversation { z-index: 3; }
       .app.show-conversation .mobile-tab-bar { display: none; }
-      .mobile-tab-bar { --tab-offset: 100%; position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; z-index: 10; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; min-height: 64px; padding: 5px; overflow: hidden; isolation: isolate; border: 1px solid color-mix(in srgb, var(--line) 65%, transparent); border-radius: 23px; background: color-mix(in srgb, var(--surface) 66%, transparent); box-shadow: 0 10px 32px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.2); backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45); }
-      .mobile-tab-bar::before { position: absolute; top: 5px; bottom: 5px; left: 5px; z-index: -1; width: calc((100% - 10px) / 3); border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--accent) 13%, var(--surface) 55%); box-shadow: 0 3px 12px rgba(0,0,0,.08), inset 0 1px rgba(255,255,255,.18); content: ''; transform: translateX(var(--tab-offset)); transition: transform .42s cubic-bezier(.2,.85,.25,1); }
-      .mobile-tab { display: grid; align-content: center; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; border: 0; border-radius: 17px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; transition: color .22s ease; }
-      .mobile-tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .32s cubic-bezier(.2,.85,.25,1); }
-      .mobile-tab span { transition: transform .32s cubic-bezier(.2,.85,.25,1); }
-      .mobile-tab.active { color: var(--accent); }
+      .mobile-tab-bar { position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; z-index: 10; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; min-height: 64px; padding: 5px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 65%, transparent); border-radius: 23px; background: color-mix(in srgb, var(--surface) 76%, transparent); box-shadow: 0 10px 32px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.2); backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45); }
+      .mobile-tab-bar::before { display: none; }
+      .mobile-tab { display: grid; align-content: center; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; border: 1px solid transparent; border-radius: 17px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; transition: color .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+      .mobile-tab svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .mobile-tab.active { border-color: color-mix(in srgb,var(--accent) 18%,transparent); background: color-mix(in srgb,var(--accent) 14%,var(--surface)); color: var(--accent); box-shadow: inset 0 1px rgba(255,255,255,.12),0 2px 8px rgba(0,0,0,.08); }
       .mobile-tab[data-mobile-tab="favorites"].active { color: #4c80e6; }
       .mobile-tab[data-mobile-tab="favorites"].active svg { fill: currentColor; stroke: currentColor; }
-      .mobile-tab-bar.slide-left .mobile-tab.active svg, .mobile-tab-bar.slide-left .mobile-tab.active span { animation: tab-enter-left .34s cubic-bezier(.2,.8,.25,1) both; }
-      .mobile-tab-bar.slide-right .mobile-tab.active svg, .mobile-tab-bar.slide-right .mobile-tab.active span { animation: tab-enter-right .34s cubic-bezier(.2,.8,.25,1) both; }
-      @keyframes tab-enter-left { from { opacity: .5; transform: translateX(-10px) rotateY(-55deg); } to { opacity: 1; transform: translateX(0) rotateY(0); } }
-      @keyframes tab-enter-right { from { opacity: .5; transform: translateX(10px) rotateY(55deg); } to { opacity: 1; transform: translateX(0) rotateY(0); } }
       #menuToggle { display: none; }
       .drawer-backdrop { inset: 0 0 calc(76px + env(safe-area-inset-bottom)); }
       .drawer-backdrop { background: color-mix(in srgb, var(--page) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
@@ -895,7 +898,7 @@
     <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Основная навигация">
       <button class="mobile-tab" type="button" data-mobile-tab="favorites" aria-label="Избранное"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg><span>Избранное</span></button>
       <button class="mobile-tab active" type="button" data-mobile-tab="chats" aria-label="Чаты"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 0 1 10.5 7h2A7.5 7.5 0 0 1 20 14.5Z"/><path d="M8 12h8M8 15h5"/></svg><span>Чаты</span></button>
-      <button class="mobile-tab" type="button" data-mobile-tab="settings" aria-label="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.7 1l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7-1l-1.3.5-1.1-1.9 1.1-.9a7.4 7.4 0 0 1 0-2l-1.1-.9 1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.7-1l.3-1.4h2.2l.2 1.4a7.8 7.8 0 0 1 1.7 1l1.3-.5 1.1 1.9-1.1.9a7.4 7.4 0 0 1 0 2Z"/></svg><span>Настройки</span></button>
+      <button class="mobile-tab" type="button" data-mobile-tab="settings" aria-label="Настройки"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.88 2h-3.76a.5.5 0 0 0-.49.42L9.27 4.96a7.28 7.28 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.72 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.06.94c0 .32.02.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.76c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.22.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg><span>Настройки</span></button>
     </nav>
   </main>
 
