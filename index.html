@@ -571,6 +571,10 @@
     .user-profile-main { display: flex; align-items: flex-end; gap: 13px; margin-top: -36px; }
     .user-profile-avatar { width: 78px; height: 78px; flex: 0 0 auto; border: 4px solid var(--surface); border-radius: 25px; font-size: 23px; }
     .user-profile-name { min-width: 0; margin: 0 0 6px; overflow-wrap: anywhere; font-size: 19px; font-weight: 750; }
+    .user-profile-name-row { display: flex; align-items: center; gap: 7px; }
+    .official-profile-badge { display: inline-grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border: 2px solid color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 50%; background: linear-gradient(145deg,#66c9ff,#2585ec 68%,#1466ce); color: #fff; font-size: 12px; font-weight: 900; line-height: 1; box-shadow: 0 2px 7px rgba(32,132,235,.35); }
+    .official-profile-badge[hidden], .official-profile-notice[hidden] { display: none; }
+    .official-profile-notice { margin: 13px 0 -3px; padding: 10px 12px; border-left: 3px solid #3997ee; border-radius: 0 9px 9px 0; background: color-mix(in srgb,#398fe3 11%,var(--surface-soft)); color: var(--muted); font-size: 11px; line-height: 1.5; }
     .user-profile-handle { padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
     .user-profile-handle:hover { color: var(--accent); }
     .user-profile-description { min-height: 24px; margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -1397,7 +1401,7 @@
     <article class="user-profile-card" role="dialog" aria-modal="true">
       <button class="icon-button user-profile-close" id="userPopupClose" type="button" aria-label="Закрыть профиль">×</button>
       <div class="user-profile-banner"><img id="userPopupBanner" alt="" hidden></div>
-      <div class="user-profile-content"><div class="user-profile-main"><div class="avatar user-profile-avatar" id="userPopupAvatar">Q</div><div><h2 class="user-profile-name" id="userPopupName">Профиль</h2><button class="user-profile-handle" id="userPopupHandle" type="button" data-copy-username></button></div></div><div class="user-profile-description" id="userPopupDescription">Загрузка профиля…</div><button class="user-profile-write" id="userPopupWrite" type="button">Написать</button></div>
+      <div class="user-profile-content"><div class="user-profile-main"><div class="avatar user-profile-avatar" id="userPopupAvatar">Q</div><div><div class="user-profile-name-row"><h2 class="user-profile-name" id="userPopupName">Профиль</h2><span class="official-profile-badge" id="userPopupOfficialBadge" aria-label="Официальный аккаунт Qwant" title="Официальный аккаунт Qwant" hidden>Q</span></div><button class="user-profile-handle" id="userPopupHandle" type="button" data-copy-username></button></div></div><div class="user-profile-description" id="userPopupDescription">Загрузка профиля…</div><div class="official-profile-notice" id="userPopupOfficialNotice" hidden>This account is verified as official by the representatives of Qwant.</div><button class="user-profile-write" id="userPopupWrite" type="button">Написать</button></div>
     </article>
   </section>
 
