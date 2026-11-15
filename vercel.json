@@ -7,19 +7,28 @@
     { "src": "website/favicon.png", "use": "@vercel/static" },
     { "src": "website/Sounds/**", "use": "@vercel/static" }
   ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://localhost" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PATCH,PUT,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Authorization,Content-Type" },
-        { "key": "Vary", "value": "Origin" }
-      ]
-    }
-  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/server.js" },
+    {
+      "src": "/api/(.*)",
+      "methods": ["OPTIONS"],
+      "status": 204,
+      "headers": {
+        "Access-Control-Allow-Origin": "https://localhost",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization,Content-Type",
+        "Vary": "Origin"
+      }
+    },
+    {
+      "src": "/api/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://localhost",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization,Content-Type",
+        "Vary": "Origin"
+      },
+      "dest": "/server.js"
+    },
     { "src": "/app.js", "dest": "/website/app.js" },
     { "src": "/favicon.png", "dest": "/website/favicon.png" },
     { "src": "/Sounds/(.*)", "dest": "/website/Sounds/$1" },
