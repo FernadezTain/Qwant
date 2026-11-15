@@ -530,6 +530,7 @@ function endRevokedSession() {
   updateAdminPanelVisibility();
   chats = [];
   activeId = null;
+  app.classList.add('no-active-chat');
   updateCallControls();
   clearInterval(deviceCheckTimer);
   hidePageLoader();
@@ -1693,6 +1694,10 @@ function renderMessages(chat, animateRecent = false) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function renderConversationEmptyState() {
+  messages.innerHTML = '<div class="conversation-empty-state"><svg class="conversation-empty-art" viewBox="0 0 560 400" aria-hidden="true"><path fill="#fff" d="M174 35h54v74h38V84h58v25h38V35h54v76h37v45h27v155h-34v37h-48v27H207v-27h-54v-35h-38v-49H56v-48h72v-37h32v-45h14z"/><path fill="#888" d="M209 221h53v15h-53zm127 0h53v15h-53z"/></svg><span class="conversation-empty-label">Выберите, кому хотели бы написать</span></div>';
+}
+
 function conversationPhotos(chat) {
   return chat.messages.filter(message => message.imageUrl).map(message => ({
     id:String(message.id),
@@ -2177,15 +2182,10 @@ async function loadChats() {
     chats = [favoriteChat, ...(pendingChat ? [...nextChats, pendingChat] : nextChats)];
     renderChats();
     if (activeId && !chats.some(chat => chat.id === activeId)) {
-      activeId = null;
-      document.getElementById('chatAppearance').hidden = true;
-      applyChatBackground(null);
-      document.getElementById('messageForm').hidden = false;
-      document.getElementById('deletedChatActions').hidden = true;
-      app.classList.remove('show-conversation');
+      closeActiveChat();
     }
     chatsLoadedOnce = true;
-    if (!chats.length) messages.innerHTML = '<div class="empty-state">Начните новую переписку<br>с помощью кнопки +</div>';
+    if (!activeId) renderConversationEmptyState();
   } catch (error) {
     if (requestId !== chatListRequestId || revision !== chatListRevision) return;
     if (error.status === 401) {
@@ -2214,6 +2214,7 @@ async function selectChat(id) {
   if (activeId !== id) clearReply();
   closeMessageMenu();
   activeId = id;
+  app.classList.remove('no-active-chat');
   document.querySelector('.conversation').classList.toggle('favorites-chat', chat.isFavorites);
   document.getElementById('chatAppearance').hidden = false;
   document.getElementById('chatWallpaperStatus').textContent = '';
@@ -2582,24 +2583,7 @@ async function leaveGroup(groupId = activeId) {
   try {
     await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/members/me`, { method:'DELETE' });
     if (String(activeId) === String(chat.id)) {
-      activeId = null;
-      app.classList.remove('show-conversation');
-      messages.replaceChildren();
-      document.getElementById('headerName').childNodes[0].textContent = 'Выберите чат';
-      document.getElementById('headerVerificationBadge').hidden = true;
-      document.getElementById('headerStatus').textContent = 'Qwant Messenger';
-      setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
-      document.getElementById('detailName').textContent = 'Qwant Messenger';
-      document.getElementById('detailHandle').textContent = 'Выберите чат';
-      document.getElementById('detailStatus').textContent = '● защищённый доступ';
-      document.getElementById('profileMessageButton').hidden = false;
-      document.getElementById('profileOpenButton').hidden = false;
-      document.getElementById('chatAppearance').hidden = true;
-      document.getElementById('groupMembersSection').hidden = true;
-      document.getElementById('groupAddMembers').hidden = true;
-      document.getElementById('groupInviteButton').hidden = true;
-      document.getElementById('groupSettingsButton').hidden = true;
-      updateCallControls();
+      closeActiveChat();
     }
     await loadChats();
     showMessageToast('Вы покинули группу');
@@ -2802,10 +2786,7 @@ async function markChatUnread(chatId) {
     const result = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/unread`, { method:'POST' });
     if (activeId === chat.id) {
       api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method:'DELETE' }).catch(() => {});
-      activeId = null;
-      document.getElementById('chatAppearance').hidden = true;
-      applyChatBackground(null);
-      app.classList.remove('show-conversation');
+      closeActiveChat();
     }
     await loadChats();
     showMessageToast(result.unread ? 'Чат помечен как непрочитанный' : 'В этом чате нет входящих сообщений');
@@ -2827,13 +2808,7 @@ async function hideChatFromList(chatId) {
     pinnedChatIds.delete(String(chat.id));
     if (session?.userId) localStorage.setItem(`ferniex_messenger_pins_${session.userId}`, JSON.stringify([...pinnedChatIds]));
     if (activeId === chat.id) {
-      activeId = null;
-      document.getElementById('chatAppearance').hidden = true;
-      applyChatBackground(null);
-      app.classList.remove('show-conversation');
-      document.getElementById('messageForm').hidden = false;
-      document.getElementById('deletedChatActions').hidden = true;
-      messages.innerHTML = '<div class="empty-state">Чат удален из вашего списка.</div>';
+      closeActiveChat();
     }
     renderChats();
     showMessageToast('Чат удалён из списка');
@@ -2925,6 +2900,8 @@ function closeActiveChat() {
   closeMessageMenu();
   closeChatContextMenu();
   activeId = null;
+  app.classList.add('no-active-chat');
+  app.classList.remove('show-details', 'details-hidden');
   document.getElementById('chatAppearance').hidden = true;
   applyChatBackground(null);
   document.getElementById('messageForm').hidden = false;
@@ -2950,7 +2927,7 @@ function closeActiveChat() {
   document.getElementById('linkCount').textContent = '0';
   document.getElementById('mediaEmpty').hidden = false;
   document.getElementById('linksEmpty').hidden = false;
-  messages.innerHTML = '<div class="empty-state">Выберите чат, чтобы начать переписку.</div>';
+  renderConversationEmptyState();
   app.classList.remove('show-conversation');
   updateCallControls();
   renderChats();
@@ -3863,24 +3840,8 @@ async function deleteDeletedAccountChat() {
   try {
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}`, { method:'DELETE' });
     chats = chats.filter(item => item.id !== chat.id);
-    activeId = null;
-    document.getElementById('chatAppearance').hidden = true;
-    applyChatBackground(null);
-    document.getElementById('messageForm').hidden = false;
-    document.getElementById('deletedChatActions').hidden = true;
-    document.getElementById('headerName').childNodes[0].textContent = 'Выберите чат';
-    document.getElementById('headerVerificationBadge').hidden = true;
-    document.getElementById('headerStatus').textContent = 'Qwant Messenger';
-    document.getElementById('detailName').textContent = 'Qwant Messenger';
-    document.getElementById('detailHandle').textContent = 'Выберите чат';
-    document.getElementById('detailStatus').textContent = '● защищённый доступ';
-    setAvatar(document.getElementById('headerAvatar'), { username:'Qwant' });
-    setAvatar(document.getElementById('detailAvatar'), { username:'Qwant' });
-    messages.innerHTML = chats.length
-      ? '<div class="empty-state">Чат удален.<br>Выберите другую переписку.</div>'
-      : '<div class="empty-state">Чат удален.<br>Здесь появятся ваши чаты.</div>';
+    closeActiveChat();
     renderChats();
-    app.classList.remove('show-conversation');
   } catch (error) {
     status.textContent = error.message || 'Не удалось удалить чат';
   } finally {
@@ -4742,6 +4703,7 @@ async function logout() {
     chats = [];
     chatsLoadedOnce = false;
     activeId = null;
+    app.classList.add('no-active-chat');
     updateCallControls();
     clearInterval(deviceCheckTimer);
     closeDrawer();
