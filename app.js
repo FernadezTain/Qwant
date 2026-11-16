@@ -660,7 +660,6 @@ async function saveSetting(key, value, button) {
     await api('/api/qwant/settings', { method: 'PATCH', body: JSON.stringify({ [key]: value }) });
     accountSettings.settings[key] = value;
     if (key === 'theme' || key === 'accent_color' || key === 'font_scale') applyPersonalization(accountSettings.settings);
-    if (key === 'show_online_status') loadChats();
   } catch (error) {
     button.setAttribute('aria-checked', String(oldValue !== false));
     document.getElementById('telegramSettingsStatus').textContent = error.message;
@@ -1367,7 +1366,6 @@ function renderUserProfilePopup(person) {
   username.dataset.copyUsername = person.username || '';
   username.hidden = !person.username;
   document.getElementById('userPopupDescription').textContent = person.description || 'Описание не указано';
-  document.getElementById('userPopupPresence').textContent = person.id && String(person.id) !== String(session?.userId) ? presenceLabel(person) : '';
   const banner = document.getElementById('userPopupBanner');
   const bannerUrl = safeImageUrl(person.banner_url || person.bannerUrl);
   banner.hidden = !bannerUrl;
@@ -1498,24 +1496,6 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-function presenceLabel(person) {
-  if (person.presence_state === 'online') return 'в сети';
-  if (person.presence_state === 'recently' || !person.last_seen_at) return 'был(-а) недавно';
-  const date = new Date(person.last_seen_at);
-  if (Number.isNaN(date.getTime())) return 'был(-а) недавно';
-  const time = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(date);
-  if (date.toDateString() === new Date().toDateString()) return `был(-а) сегодня в ${time}`;
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return `был(-а) вчера в ${time}`;
-  return `был(-а) ${formatDateTime(date)}`;
-}
-
-function updateHeaderPresence(chat, typing = false) {
-  if (!chat || chat.isGroup || chat.isFavorites) return;
-  document.getElementById('headerStatus').textContent = typing ? 'печатает…' : presenceLabel(chat.partner);
-}
-
 function dateLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Сообщения';
@@ -1545,7 +1525,7 @@ function mapChat(row) {
     preview: row.lastMessage || 'Начните переписку',
     unread: Number(row.unreadCount) || 0,
     pinned: pinnedChatIds.has(String(row.id)),
-    online: partner.presence_state === 'online',
+    online: false,
     personal: !isGroup,
     messages: [],
     messagesLoaded: false
@@ -2176,7 +2156,7 @@ async function loadChatMessages(chat, showLoader = false) {
     }
     const presence = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`).catch(() => null);
     if (presence && activeId === chat.id) {
-      updateHeaderPresence(chat, presence.typing);
+      document.getElementById('headerStatus').textContent = presence.typing ? 'печатает…' : presence.inChat ? 'в сети' : chat.handle;
     }
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method: 'POST', body: JSON.stringify({ typing: false }) }).catch(() => {});
     try {
@@ -2269,12 +2249,6 @@ async function loadChats() {
     const favoriteChat = createFavoritesChat(previousChats.get(favoritesChatId()));
     chats = [favoriteChat, ...(pendingChat ? [...nextChats, pendingChat] : nextChats)];
     renderChats();
-    const activeChat = chats.find(chat => chat.id === activeId);
-    if (activeChat && !activeChat.isGroup && !activeChat.isFavorites) updateHeaderPresence(activeChat);
-    if (activeUserPopup?.id) {
-      const popupChat = nextChats.find(chat => String(chat.partner.id) === String(activeUserPopup.id));
-      if (popupChat) renderUserProfilePopup({ ...activeUserPopup, ...popupChat.partner });
-    }
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       closeActiveChat();
     }
@@ -2317,7 +2291,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').childNodes[0].textContent = chat.name;
   document.getElementById('headerVerificationBadge').hidden = !verificationBadgeMarkup(chat.partner);
-  document.getElementById('headerStatus').textContent = chat.isGroup || chat.isFavorites ? chat.handle : presenceLabel(chat.partner);
+  document.getElementById('headerStatus').textContent = chat.handle;
   document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
@@ -4984,7 +4958,6 @@ document.addEventListener('visibilitychange', () => {
     refreshChats(wasAway);
     loadSettings();
     pollCallSignals();
-    sendPresenceHeartbeat();
   }
 });
 
@@ -5153,14 +5126,6 @@ bootstrap();
 setInterval(() => {
   if (session?.sessionToken && !document.hidden) refreshChats();
 }, 12000);
-
-function sendPresenceHeartbeat() {
-  if (!session?.sessionToken || document.hidden || !navigator.onLine) return;
-  api('/api/social/presence', { method: 'POST' }).catch(() => {});
-}
-
-setInterval(sendPresenceHeartbeat, 20000);
-sendPresenceHeartbeat();
 
 callSignalTimer = setInterval(pollCallSignals, 1200);
 window.addEventListener('offline', markConnectionLost);
