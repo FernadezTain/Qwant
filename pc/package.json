@@ -1,0 +1,50 @@
+{
+  "name": "qwant-messenger-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows desktop client for Qwant Messenger",
+  "main": "main.cjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.ferniex.qwant.messenger",
+    "productName": "Qwant Messenger",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "splash.html",
+      "package.json"
+    ],
+    "win": {
+      "icon": "../favicon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Qwant-Messenger-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
