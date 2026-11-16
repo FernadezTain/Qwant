@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qwant Messenger</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { display: grid; min-height: 100vh; margin: 0; place-items: center; background: #f3f2ee; color: #24231f; font: 15px "Segoe UI", sans-serif; }
+    main { width: min(390px, calc(100% - 40px)); padding: 34px; border: 1px solid #e8e4dc; border-radius: 24px; background: #fffefa; text-align: center; box-shadow: 0 18px 55px #24231f12; }
+    .mark { display: grid; width: 58px; height: 58px; margin: 0 auto 20px; place-items: center; border-radius: 19px; background: #b64f3f; color: white; font-size: 30px; font-weight: 700; }
+    h1 { margin: 0 0 9px; font-size: 21px; }
+    p { margin: 0; color: #77736b; line-height: 1.55; }
+    .spinner { width: 24px; height: 24px; margin: 22px auto 0; border: 3px solid #e9e3da; border-top-color: #b64f3f; border-radius: 50%; animation: spin .8s linear infinite; }
+    a { display: none; margin-top: 22px; padding: 11px 18px; border-radius: 12px; background: #24231f; color: white; font-weight: 600; text-decoration: none; }
+    body.failed .spinner { display: none; }
+    body.failed a { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">Q</div>
+    <h1 id="title">Открываем Qwant Messenger</h1>
+    <p id="message">Подключаемся к сервису. Это обычно занимает несколько секунд.</p>
+    <div class="spinner"></div>
+    <a href="qwant-messenger://retry">Повторить подключение</a>
+  </main>
+  <script>
+    const state = new URLSearchParams(location.search).get('state');
+    if (state) {
+      document.body.classList.add('failed');
+      document.getElementById('title').textContent = state === 'slow' ? 'Сервис долго не отвечает' : 'Не удалось подключиться';
+      document.getElementById('message').textContent = 'Проверьте интернет-соединение и попробуйте ещё раз.';
+    }
+  </script>
+</body>
+</html>
