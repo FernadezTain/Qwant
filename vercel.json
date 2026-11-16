@@ -2,10 +2,10 @@
   "version": 2,
   "builds": [
     { "src": "server.js", "use": "@vercel/node" },
-    { "src": "website/index.html", "use": "@vercel/static" },
-    { "src": "website/app.js", "use": "@vercel/static" },
-    { "src": "website/favicon.png", "use": "@vercel/static" },
-    { "src": "website/Sounds/**", "use": "@vercel/static" }
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "app.js", "use": "@vercel/static" },
+    { "src": "favicon.png", "use": "@vercel/static" },
+    { "src": "Sounds/**", "use": "@vercel/static" }
   ],
   "routes": [
     {
@@ -29,10 +29,10 @@
       },
       "dest": "/server.js"
     },
-    { "src": "/app.js", "dest": "/website/app.js" },
-    { "src": "/favicon.png", "dest": "/website/favicon.png" },
-    { "src": "/Sounds/(.*)", "dest": "/website/Sounds/$1" },
-    { "src": "/", "dest": "/website/index.html" },
-    { "src": "/(.*)", "dest": "/website/$1" }
+    { "src": "/app.js", "dest": "/app.js" },
+    { "src": "/favicon.png", "dest": "/favicon.png" },
+    { "src": "/Sounds/(.*)", "dest": "/Sounds/$1" },
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
