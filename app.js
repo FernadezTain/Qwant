@@ -1,4 +1,6 @@
 const app = document.getElementById('app');
+const apiOrigin = document.querySelector('meta[name="qwant-api-origin"]')?.content || location.origin;
+const webOrigin = document.querySelector('meta[name="qwant-web-origin"]')?.content || location.origin;
 const conversationWindow = document.querySelector('.conversation');
 const authScreen = document.getElementById('authScreen');
 const nicknameForm = document.getElementById('nicknameForm');
@@ -46,6 +48,9 @@ const callOverlay = document.getElementById('callOverlay');
 const callRemoteAudio = document.getElementById('callRemoteAudio');
 const callRingtone = document.getElementById('callRingtone');
 const callStatus = document.getElementById('callStatus');
+const audioInputSelect = document.getElementById('audioInputSelect');
+const audioOutputSelect = document.getElementById('audioOutputSelect');
+const audioOutputTest = document.getElementById('audioOutputTest');
 const startAudioCallButton = document.getElementById('startAudioCall');
 const headerStartAudioCallButton = document.getElementById('headerStartAudioCall');
 const showGroupMembersButton = document.getElementById('showGroupMembers');
@@ -127,6 +132,11 @@ let fontScaleRulesApplied = false;
 let chatBackgroundDbPromise = null;
 const chatBackgroundUrls = new Map();
 let activeCall = null;
+let microphoneTestStream = null;
+let microphoneTestContext = null;
+let microphoneTestFrame = null;
+let outputTestContext = null;
+let outputTestTimer = null;
 let callSignalTimer;
 let callTimeoutTimer;
 let callDurationTimer;
@@ -184,7 +194,7 @@ async function api(path, options = {}) {
   if (session?.sessionToken) headers.Authorization = `Bearer ${session.sessionToken}`;
   let response;
   try {
-    response = await fetch(path, { ...options, headers });
+    response = await fetch(new URL(path, apiOrigin), { ...options, headers });
   } catch (error) {
     markConnectionLost();
     throw error;
@@ -650,6 +660,7 @@ async function saveSetting(key, value, button) {
     await api('/api/qwant/settings', { method: 'PATCH', body: JSON.stringify({ [key]: value }) });
     accountSettings.settings[key] = value;
     if (key === 'theme' || key === 'accent_color' || key === 'font_scale') applyPersonalization(accountSettings.settings);
+    if (key === 'show_online_status') loadChats();
   } catch (error) {
     button.setAttribute('aria-checked', String(oldValue !== false));
     document.getElementById('telegramSettingsStatus').textContent = error.message;
@@ -929,6 +940,7 @@ async function openSettings(page = 'notifications') {
   document.getElementById('settingsContent').scrollTop = 0;
   await loadSettings();
   if (page === 'devices') loadDevices();
+  if (page === 'audio') loadAudioDevices();
   if (page === 'admin') loadVerificationUsers();
 }
 
@@ -942,6 +954,7 @@ function showSettingsPage(page) {
 function closeSettings() {
   settingsOverlay.classList.remove('open');
   settingsOverlay.setAttribute('aria-hidden', 'true');
+  stopMicrophoneTest();
 }
 
 function setBotStatus(message = '') {
@@ -1354,6 +1367,7 @@ function renderUserProfilePopup(person) {
   username.dataset.copyUsername = person.username || '';
   username.hidden = !person.username;
   document.getElementById('userPopupDescription').textContent = person.description || 'Описание не указано';
+  document.getElementById('userPopupPresence').textContent = person.id && String(person.id) !== String(session?.userId) ? presenceLabel(person) : '';
   const banner = document.getElementById('userPopupBanner');
   const bannerUrl = safeImageUrl(person.banner_url || person.bannerUrl);
   banner.hidden = !bannerUrl;
@@ -1408,7 +1422,7 @@ function linkifyMessageText(value) {
     if (!['http:', 'https:'].includes(url.protocol)) continue;
     const start = match.index;
     output += escapeHtml(text.slice(cursor, start));
-    const inviteCode = url.origin === location.origin ? url.searchParams.get('groupInvite') : null;
+    const inviteCode = url.origin === webOrigin ? url.searchParams.get('groupInvite') : null;
     output += `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer"${inviteCode ? ` data-group-invite="${escapeHtml(inviteCode)}"` : ''}>${escapeHtml(urlText)}</a>`;
     output += escapeHtml(raw.slice(urlText.length));
     cursor = start + raw.length;
@@ -1484,6 +1498,24 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
+function presenceLabel(person) {
+  if (person.presence_state === 'online') return 'в сети';
+  if (person.presence_state === 'recently' || !person.last_seen_at) return 'был(-а) недавно';
+  const date = new Date(person.last_seen_at);
+  if (Number.isNaN(date.getTime())) return 'был(-а) недавно';
+  const time = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(date);
+  if (date.toDateString() === new Date().toDateString()) return `был(-а) сегодня в ${time}`;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `был(-а) вчера в ${time}`;
+  return `был(-а) ${formatDateTime(date)}`;
+}
+
+function updateHeaderPresence(chat, typing = false) {
+  if (!chat || chat.isGroup || chat.isFavorites) return;
+  document.getElementById('headerStatus').textContent = typing ? 'печатает…' : presenceLabel(chat.partner);
+}
+
 function dateLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Сообщения';
@@ -1513,7 +1545,7 @@ function mapChat(row) {
     preview: row.lastMessage || 'Начните переписку',
     unread: Number(row.unreadCount) || 0,
     pinned: pinnedChatIds.has(String(row.id)),
-    online: false,
+    online: partner.presence_state === 'online',
     personal: !isGroup,
     messages: [],
     messagesLoaded: false
@@ -2144,7 +2176,7 @@ async function loadChatMessages(chat, showLoader = false) {
     }
     const presence = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`).catch(() => null);
     if (presence && activeId === chat.id) {
-      document.getElementById('headerStatus').textContent = presence.typing ? 'печатает…' : presence.inChat ? 'в сети' : chat.handle;
+      updateHeaderPresence(chat, presence.typing);
     }
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method: 'POST', body: JSON.stringify({ typing: false }) }).catch(() => {});
     try {
@@ -2200,7 +2232,7 @@ function renderSharedDetails(chat) {
   document.getElementById('linkCount').textContent = links.length;
   document.getElementById('sharedLinks').innerHTML = links.slice(0, 12).map(link => {
     const url = new URL(link.href);
-    const inviteCode = url.origin === location.origin ? url.searchParams.get('groupInvite') : null;
+    const inviteCode = url.origin === webOrigin ? url.searchParams.get('groupInvite') : null;
     return `<a class="shared-link" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer"${inviteCode ? ` data-group-invite="${escapeHtml(inviteCode)}"` : ''}><span class="link-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><span>${escapeHtml(url.hostname)}<br><small style="color:var(--muted)">${escapeHtml(formatTime(link.createdAt))}</small></span></a>`;
   }).join('');
   document.getElementById('linksEmpty').hidden = links.length > 0;
@@ -2237,6 +2269,12 @@ async function loadChats() {
     const favoriteChat = createFavoritesChat(previousChats.get(favoritesChatId()));
     chats = [favoriteChat, ...(pendingChat ? [...nextChats, pendingChat] : nextChats)];
     renderChats();
+    const activeChat = chats.find(chat => chat.id === activeId);
+    if (activeChat && !activeChat.isGroup && !activeChat.isFavorites) updateHeaderPresence(activeChat);
+    if (activeUserPopup?.id) {
+      const popupChat = nextChats.find(chat => String(chat.partner.id) === String(activeUserPopup.id));
+      if (popupChat) renderUserProfilePopup({ ...activeUserPopup, ...popupChat.partner });
+    }
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       closeActiveChat();
     }
@@ -2279,7 +2317,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').childNodes[0].textContent = chat.name;
   document.getElementById('headerVerificationBadge').hidden = !verificationBadgeMarkup(chat.partner);
-  document.getElementById('headerStatus').textContent = chat.handle;
+  document.getElementById('headerStatus').textContent = chat.isGroup || chat.isFavorites ? chat.handle : presenceLabel(chat.partner);
   document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
@@ -2493,7 +2531,7 @@ function renderGroupAvatar(elementId, photoUrl, fallback) {
 }
 
 function groupInviteUrl(inviteCode) {
-  const url = new URL('/', location.origin);
+  const url = new URL('/', webOrigin);
   url.searchParams.set('groupInvite', inviteCode);
   return url.href;
 }
@@ -3246,7 +3284,7 @@ function createCallPeer(call, stream) {
   monitorCallVoice(call);
   peer.ontrack = event => {
     callRemoteAudio.srcObject = event.streams[0];
-    callRemoteAudio.play().catch(() => {});
+    applyAudioOutput(audioOutputSelect.value).finally(() => callRemoteAudio.play().catch(() => {}));
   };
   peer.onicecandidate = event => {
     if (!event.candidate || activeCall !== call) return;
@@ -3319,6 +3357,162 @@ async function flushCallCandidates(call) {
   }
 }
 
+async function getCallMicrophone() {
+  const selectedDeviceId = audioInputSelect.value || localStorage.getItem('ferniex_messenger_audio_input') || '';
+  if (selectedDeviceId) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio:{ deviceId:{ exact:selectedDeviceId } }, video:false });
+    } catch (error) {
+      if (!['NotFoundError', 'OverconstrainedError'].includes(error.name)) throw error;
+    }
+  }
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+  } catch (error) {
+    if (!['NotFoundError', 'OverconstrainedError'].includes(error.name)) throw error;
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    for (const device of devices) {
+      if (device.kind !== 'audioinput' || !device.deviceId || device.deviceId === selectedDeviceId) continue;
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio:{ deviceId:{ exact:device.deviceId } }, video:false });
+      } catch {}
+    }
+    throw error;
+  }
+}
+
+async function loadAudioDevices() {
+  const status = document.getElementById('audioDevicesStatus');
+  status.textContent = 'Ищем устройства…';
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const inputs = devices.filter(device => device.kind === 'audioinput' && device.deviceId && device.deviceId !== 'default');
+    const outputs = devices.filter(device => device.kind === 'audiooutput' && device.deviceId && device.deviceId !== 'default');
+    const inputId = localStorage.getItem('ferniex_messenger_audio_input') || '';
+    const outputId = localStorage.getItem('ferniex_messenger_audio_output') || '';
+    audioInputSelect.replaceChildren(new Option('Системное устройство по умолчанию', ''));
+    audioOutputSelect.replaceChildren(new Option('Системное устройство по умолчанию', ''));
+    inputs.forEach((device, index) => audioInputSelect.add(new Option(device.label || `Микрофон ${index + 1}`, device.deviceId)));
+    outputs.forEach((device, index) => audioOutputSelect.add(new Option(device.label || `Динамик ${index + 1}`, device.deviceId)));
+    audioInputSelect.value = inputs.some(device => device.deviceId === inputId) ? inputId : '';
+    audioOutputSelect.value = outputs.some(device => device.deviceId === outputId) ? outputId : '';
+    if (inputId && !audioInputSelect.value) localStorage.removeItem('ferniex_messenger_audio_input');
+    if (outputId && !audioOutputSelect.value) localStorage.removeItem('ferniex_messenger_audio_output');
+    await applyAudioOutput(audioOutputSelect.value);
+    status.textContent = `${inputs.length} микрофон(а), ${outputs.length} устройство(а) вывода`;
+  } catch (error) {
+    status.textContent = error.message || 'Не удалось получить список устройств';
+  }
+}
+
+async function applyAudioOutput(deviceId = '') {
+  if (!callRemoteAudio.setSinkId || !callRingtone.setSinkId || !audioOutputTest.setSinkId) return false;
+  try {
+    await Promise.all([
+      callRemoteAudio.setSinkId(deviceId),
+      callRingtone.setSinkId(deviceId),
+      audioOutputTest.setSinkId(deviceId)
+    ]);
+    return true;
+  } catch (error) {
+    document.getElementById('audioOutputTestStatus').textContent = error.message || 'Не удалось выбрать устройство вывода';
+    return false;
+  }
+}
+
+function stopMicrophoneTest() {
+  cancelAnimationFrame(microphoneTestFrame);
+  microphoneTestStream?.getTracks().forEach(track => track.stop());
+  microphoneTestStream = null;
+  microphoneTestContext?.close().catch(() => {});
+  microphoneTestContext = null;
+  document.getElementById('microphoneLevelFill').style.width = '0%';
+  document.getElementById('microphoneLevel').setAttribute('aria-valuenow', '0');
+  document.getElementById('microphoneTestButton').textContent = 'Проверить микрофон';
+}
+
+async function testMicrophone() {
+  if (microphoneTestStream) {
+    stopMicrophoneTest();
+    document.getElementById('microphoneTestStatus').textContent = 'Тест остановлен.';
+    return;
+  }
+  if (activeCall) return showMessageToast('Завершите звонок перед тестированием микрофона.');
+  const status = document.getElementById('microphoneTestStatus');
+  status.textContent = 'Запрашиваем доступ к микрофону…';
+  try {
+    microphoneTestStream = await getCallMicrophone();
+    microphoneTestContext = new AudioContext();
+    const analyser = microphoneTestContext.createAnalyser();
+    analyser.fftSize = 512;
+    microphoneTestContext.createMediaStreamSource(microphoneTestStream).connect(analyser);
+    await microphoneTestContext.resume();
+    document.getElementById('microphoneTestButton').textContent = 'Остановить тест';
+    status.textContent = 'Говорите — индикатор покажет уровень звука.';
+    const samples = new Uint8Array(analyser.fftSize);
+    const updateLevel = () => {
+      if (!microphoneTestStream) return;
+      analyser.getByteTimeDomainData(samples);
+      const level = Math.min(100, Math.round(Math.sqrt(samples.reduce((sum, value) => sum + (value - 128) ** 2, 0) / samples.length) * 4));
+      document.getElementById('microphoneLevelFill').style.width = `${level}%`;
+      document.getElementById('microphoneLevel').setAttribute('aria-valuenow', String(level));
+      microphoneTestFrame = requestAnimationFrame(updateLevel);
+    };
+    updateLevel();
+    await loadAudioDevices();
+  } catch (error) {
+    stopMicrophoneTest();
+    status.textContent = error.message || 'Не удалось открыть микрофон';
+  }
+}
+
+async function testAudioOutput() {
+  const status = document.getElementById('audioOutputTestStatus');
+  if (outputTestContext) {
+    clearTimeout(outputTestTimer);
+    audioOutputTest.pause();
+    audioOutputTest.srcObject = null;
+    await outputTestContext.close().catch(() => {});
+    outputTestContext = null;
+  }
+  if (typeof audioOutputTest.setSinkId !== 'function') {
+    status.textContent = 'Выбор устройства вывода не поддерживается.';
+    return;
+  }
+  try {
+    const context = new AudioContext();
+    outputTestContext = context;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const destination = context.createMediaStreamDestination();
+    oscillator.frequency.value = 660;
+    gain.gain.value = .12;
+    oscillator.connect(gain).connect(destination);
+    audioOutputTest.srcObject = destination.stream;
+    await audioOutputTest.setSinkId(audioOutputSelect.value);
+    await context.resume();
+    await audioOutputTest.play();
+    oscillator.start();
+    status.textContent = 'Воспроизводится тестовый сигнал…';
+    outputTestTimer = setTimeout(async () => {
+      oscillator.stop();
+      audioOutputTest.pause();
+      audioOutputTest.srcObject = null;
+      destination.stream.getTracks().forEach(track => track.stop());
+      await context.close().catch(() => {});
+      if (outputTestContext === context) outputTestContext = null;
+      status.textContent = 'Тест завершён.';
+    }, 900);
+  } catch (error) {
+    clearTimeout(outputTestTimer);
+    audioOutputTest.pause();
+    audioOutputTest.srcObject = null;
+    await outputTestContext?.close().catch(() => {});
+    outputTestContext = null;
+    status.textContent = error.message || 'Не удалось воспроизвести тестовый сигнал';
+  }
+}
+
 async function startAudioCall() {
   const chat = chats.find(item => String(item.id) === String(activeId));
   if (!chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot || activeCall) return;
@@ -3334,7 +3528,7 @@ async function startAudioCall() {
   setCallDialog({ name:call.name, status:'Запрашиваем доступ к микрофону…' });
   try {
     const [stream, config] = await Promise.all([
-      navigator.mediaDevices.getUserMedia({ audio:true, video:false }),
+      getCallMicrophone(),
       api('/api/social/calls/config')
     ]);
     if (activeCall !== call) {
@@ -3363,7 +3557,7 @@ async function acceptAudioCall() {
   document.getElementById('callAccept').disabled = true;
   try {
     const [stream, config] = await Promise.all([
-      navigator.mediaDevices.getUserMedia({ audio:true, video:false }),
+      getCallMicrophone(),
       api('/api/social/calls/config')
     ]);
     if (activeCall !== call) {
@@ -4790,6 +4984,7 @@ document.addEventListener('visibilitychange', () => {
     refreshChats(wasAway);
     loadSettings();
     pollCallSignals();
+    sendPresenceHeartbeat();
   }
 });
 
@@ -4805,6 +5000,7 @@ document.querySelectorAll('[data-settings-page]').forEach(button => button.addEv
   const page = button.dataset.settingsPage;
   showSettingsPage(page);
   if (page === 'devices') loadDevices();
+  if (page === 'audio') loadAudioDevices();
   if (page === 'admin') loadVerificationUsers();
 }));
 document.getElementById('verificationOpenSearch').addEventListener('click', openVerificationModal);
@@ -4860,6 +5056,22 @@ document.querySelectorAll('[data-setting]').forEach(button => button.addEventLis
   button.setAttribute('aria-checked', String(enabled));
   saveSetting(key, enabled, button);
 }));
+audioInputSelect.addEventListener('change', () => {
+  if (microphoneTestStream) stopMicrophoneTest();
+  localStorage.setItem('ferniex_messenger_audio_input', audioInputSelect.value);
+  document.getElementById('microphoneTestStatus').textContent = 'Микрофон сохранён для звонков.';
+});
+audioOutputSelect.addEventListener('change', async () => {
+  localStorage.setItem('ferniex_messenger_audio_output', audioOutputSelect.value);
+  const applied = await applyAudioOutput(audioOutputSelect.value);
+  document.getElementById('audioOutputTestStatus').textContent = applied ? 'Устройство вывода сохранено.' : 'Не удалось применить устройство вывода.';
+});
+document.getElementById('refreshAudioDevices').addEventListener('click', loadAudioDevices);
+document.getElementById('microphoneTestButton').addEventListener('click', testMicrophone);
+document.getElementById('audioOutputTestButton').addEventListener('click', testAudioOutput);
+navigator.mediaDevices?.addEventListener('devicechange', () => {
+  if (document.querySelector('[data-settings-content="audio"].active')) loadAudioDevices();
+});
 document.getElementById('linkTelegramButton').addEventListener('click', () => window.open('https://ferniex-id.vercel.app/#security', '_blank', 'noopener,noreferrer'));
 document.getElementById('themeSelect').addEventListener('change', event => saveSetting('theme', event.target.value, event.target));
 document.getElementById('accentOptions').addEventListener('click', event => {
@@ -4941,6 +5153,14 @@ bootstrap();
 setInterval(() => {
   if (session?.sessionToken && !document.hidden) refreshChats();
 }, 12000);
+
+function sendPresenceHeartbeat() {
+  if (!session?.sessionToken || document.hidden || !navigator.onLine) return;
+  api('/api/social/presence', { method: 'POST' }).catch(() => {});
+}
+
+setInterval(sendPresenceHeartbeat, 20000);
+sendPresenceHeartbeat();
 
 callSignalTimer = setInterval(pollCallSignals, 1200);
 window.addEventListener('offline', markConnectionLost);
