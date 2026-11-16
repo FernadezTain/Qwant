@@ -1,38 +1,22 @@
 {
   "version": 2,
   "builds": [
-    { "src": "server.js", "use": "@vercel/node" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "app.js", "use": "@vercel/static" },
-    { "src": "favicon.png", "use": "@vercel/static" },
-    { "src": "Sounds/**", "use": "@vercel/static" }
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    },
+    { "src": "*.html", "use": "@vercel/static" },
+    { "src": "fernieid-sdk.js", "use": "@vercel/static" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "methods": ["OPTIONS"],
-      "status": 204,
-      "headers": {
-        "Access-Control-Allow-Origin": "https://localhost",
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization,Content-Type",
-        "Vary": "Origin"
-      }
-    },
-    {
-      "src": "/api/(.*)",
-      "headers": {
-        "Access-Control-Allow-Origin": "https://localhost",
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization,Content-Type",
-        "Vary": "Origin"
-      },
-      "dest": "/server.js"
-    },
-    { "src": "/app.js", "dest": "/app.js" },
-    { "src": "/favicon.png", "dest": "/favicon.png" },
-    { "src": "/Sounds/(.*)", "dest": "/Sounds/$1" },
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/$1" }
+    { "src": "/api/(.*)", "dest": "server.js" },
+    { "src": "/udggift/(.*)", "dest": "server.js" },
+    { "src": "/yandex_b10fd0bef87d19e4\\.html", "dest": "/yandex_b10fd0bef87d19e4.html" },
+    { "src": "/privacy.html", "dest": "/privacy.html" },
+    { "src": "/terms.html", "dest": "/terms.html" },
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/index.html", "dest": "/public/index.html" },
+    { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }
