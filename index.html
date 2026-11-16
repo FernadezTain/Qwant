@@ -74,9 +74,9 @@
     .search input::placeholder { color: #a4a198; }
     .filter-row { overflow-x: auto; padding: 0 18px 12px; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; touch-action: pan-x; }
     .filter-row::-webkit-scrollbar { display: none; }
-    .filter-track { position: relative; display: flex; width: max-content; min-width: 100%; align-items: center; justify-content: center; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
+    .filter-track { position: relative; display: flex; width: 100%; min-width: 0; align-items: center; justify-content: space-between; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
     .filter-indicator { position: absolute; top: 4px; bottom: 4px; left: 0; z-index: 0; width: var(--filter-width, 0px); border-radius: 999px; background: var(--ink); transform: translateX(var(--filter-offset, 4px)); transition: width .36s cubic-bezier(.2,.85,.25,1), transform .42s cubic-bezier(.2,.85,.25,1); pointer-events: none; }
-    .filter { position: relative; z-index: 1; flex: 0 0 auto; padding: 7px 16px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .22s ease; }
+    .filter { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; padding: 7px 8px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .22s ease; }
     .filter.active { background: transparent; color: white; }
     .chat-list { flex: 1; overflow-y: auto; padding: 2px 9px 10px; }
     .chat-list.filter-slide-forward > *, .chat-list.filter-slide-backward > * { animation: chat-filter-slide .3s cubic-bezier(.2,.75,.25,1) both; }
@@ -976,6 +976,8 @@
     .auth-code-slot.invalid { border-color: #c84f4f; background: #fbefed; box-shadow: 0 0 0 2px rgba(200,79,79,.1); }
     .auth-code.shake { animation: auth-code-shake .42s ease-in-out; }
     .auth-submit { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: 9px; margin-top: 17px; border: 0; border-radius: 13px; background: #b64f3f; color: #fffefa; font-size: 13px; font-weight: 750; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; box-shadow: 0 9px 22px rgba(145,66,54,.16); }
+    .auth-legal-note { margin: 11px 0 0; color: #89877f; font-size: 11px; line-height: 1.55; text-align: center; }
+    .auth-legal-note a { color: #765548; text-underline-offset: 2px; }
     .auth-submit:hover { transform: translateY(-2px); background: #a84638; box-shadow: 0 12px 26px rgba(145,66,54,.2); }
     .auth-submit:disabled { transform: none; cursor: wait; opacity: .68; }
     .auth-submit span { transition: transform .18s; }
@@ -1585,6 +1587,7 @@
       </form>
       <form id="displayNameForm" class="auth-step auth-hidden" autocomplete="off">
         <div class="auth-field"><label for="displayName">Ваше имя</label><input id="displayName" name="display-name" type="text" placeholder="Как к вам обращаться" autocomplete="nickname" required maxlength="40"></div>
+        <p class="auth-legal-note">Создавая аккаунт, вы принимаете <a href="/terms.html" target="_blank" rel="noopener noreferrer">Условия использования</a> и подтверждаете, что ознакомились с <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Политикой конфиденциальности</a>.</p>
         <button class="auth-submit" type="submit">Создать аккаунт</button>
         <button class="auth-back" id="backFromDisplayName" type="button">Назад к паролю</button>
       </form>
