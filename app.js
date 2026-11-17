@@ -3513,8 +3513,10 @@ async function stopCallScreenShare(call = activeCall) {
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
   const isGroupCall = activeCall?.groupCall === true;
   const callMain = document.getElementById('callMain');
+  const callCard = document.querySelector('.call-card');
   const callAvatar = document.getElementById('callAvatar');
   const groupParticipants = document.getElementById('groupCallParticipants');
+  callCard.classList.toggle('is-group-call', isGroupCall);
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
   setCallStatus(status);
   callMain.classList.toggle('is-group-call', isGroupCall);
@@ -3574,6 +3576,7 @@ function closeCallDialog() {
   callOverlay.classList.remove('is-expanded');
   if (document.fullscreenElement === callOverlay) document.exitFullscreen().catch(() => {});
   document.getElementById('callMain').classList.remove('is-group-call');
+  document.querySelector('.call-card')?.classList.remove('is-group-call');
   document.getElementById('callAvatar').hidden = false;
   document.getElementById('groupCallParticipants').hidden = true;
   document.getElementById('groupCallParticipants').replaceChildren();
