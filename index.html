@@ -121,12 +121,23 @@
     .head-actions .group-members-toggle[hidden], .head-actions .call-start[hidden] { display: none !important; }
     .call-overlay { position: fixed; inset: 0; z-index: 105; display: grid; place-items: center; padding: 18px; background: rgba(8,10,14,.62); backdrop-filter: blur(8px); }
     .call-overlay[hidden] { display: none; }
+    .call-overlay.is-expanded { padding: 0; background: #101317; backdrop-filter: none; }
     .call-card { position: relative; display: flex; width: min(720px,calc(100vw - 40px)); height: min(540px,calc(100dvh - 40px)); min-height: 390px; flex-direction: column; padding: 14px 22px 22px; border: 1px solid #34383e; border-radius: 13px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 28px 90px rgba(0,0,0,.52); text-align: center; }
-    .call-card-head { display: flex; min-height: 28px; align-items: center; justify-content: space-between; margin: -5px -9px 0; }
+    .call-overlay.is-expanded .call-card, .call-overlay:fullscreen .call-card { width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+    .call-card-head { display: flex; min-height: 32px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; margin: -5px -9px 0; }
+    .call-card-head-actions { display: flex; align-items: center; gap: 5px; }
     .call-window-label { color: #8d9298; font-size: 10px; font-weight: 600; letter-spacing: .2px; }
-    .call-minimize { display: grid; width: 31px; height: 28px; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #a7abb0; font-size: 20px; cursor: pointer; }
+    .call-window-button { display: grid; width: 34px; height: 30px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #a7abb0; font-size: 18px; cursor: pointer; transition: background .16s,color .16s; }
+    .call-window-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .call-window-button:hover { background: #30343a; color: white; }
+    .call-minimize { display: grid; }
     .call-minimize span { display: none; }
-    .call-minimize:hover { background: #30343a; color: white; }
+    .call-screen-stage { position: relative; display: grid; width: min(100%,1040px); min-height: 0; flex: 1; place-items: center; overflow: hidden; margin: 4px auto 10px; border: 1px solid rgba(255,255,255,.09); border-radius: 18px; background: radial-gradient(ellipse at 50% 35%,#28303a,#13161a 72%); }
+    .call-screen-stage[hidden] { display: none; }
+    .call-screen-stage video { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+    .call-screen-stage video[hidden] { display: none; }
+    .call-screen-label { position: absolute; right: 12px; bottom: 12px; left: 12px; width: fit-content; max-width: calc(100% - 24px); padding: 7px 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; background: rgba(9,12,16,.72); color: #f5f6f7; font-size: 11px; text-align: left; backdrop-filter: blur(8px); }
+    .call-screen-label[hidden] { display: none; }
     .call-main { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0 24px; }
     .call-main.is-group-call { align-items: stretch; }
     .call-avatar { position: relative; display: grid; width: 104px; height: 104px; place-items: center; margin: 0 auto 25px; border: 0; border-radius: 50%; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 32px; font-weight: 700; box-shadow: 0 0 0 10px rgba(133,110,225,.09),0 0 0 22px rgba(133,110,225,.045); }
@@ -143,6 +154,10 @@
     .group-call-participants[hidden] { display: none; }
     .group-call-participant { display: grid; min-width: 0; justify-items: center; gap: 7px; padding: 12px 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: rgba(255,255,255,.055); }
     .group-call-participant.is-self { border-color: rgba(81,190,255,.55); background: rgba(40,158,222,.17); }
+    .group-call-participant.is-sharing { grid-column: span 2; grid-row: span 2; align-content: center; }
+    .group-call-participant-screen { width: 100%; max-height: 170px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #111; object-fit: contain; }
+    .group-call-participant-screen[hidden] { display: none; }
+    .group-call-participant.is-sharing .group-call-participant-screen { max-height: 250px; }
     .group-call-participant-avatar { display: grid; width: 52px; height: 52px; place-items: center; overflow: hidden; border-radius: 50%; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 15px; font-weight: 700; }
     .group-call-participant-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .group-call-participant-name { width: 100%; overflow: hidden; color: #eef0f2; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -172,12 +187,18 @@
     .call-action svg { display: block; width: 46px; height: 46px; padding: 13px; border-radius: 50%; background: #383c41; color: white; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .16s,background .16s; }
     .call-action:hover svg { transform: translateY(-2px); background: #4a4f55; }
     .call-action.accept svg { background: #30a46c; }
+    .call-action.share svg { background: #2879a5; }
+    .call-action.share[aria-pressed="true"] svg { background: #209a72; }
     .call-action.decline svg, .call-action.end svg { background: #d84a4a; }
     .call-action.accept, .call-action.decline, .call-action.end { color: #f3f4f5; }
     .call-action.decline svg { transform: rotate(135deg); }
     .call-action[aria-pressed="true"] svg { background: #d84a4a; }
     .call-action[disabled] { opacity: .6; cursor: wait; }
     .call-action[hidden] { display: none; }
+    .call-card.is-sharing .call-main { flex: 0 0 auto; padding: 4px 0 12px; }
+    .call-card.is-sharing .call-avatar { width: 62px; height: 62px; margin-bottom: 12px; font-size: 22px; }
+    .call-card.is-sharing .call-avatar::before, .call-card.is-sharing .call-avatar::after { display: none; }
+    .call-card.is-sharing .call-screen-stage { flex: 1 1 0; }
     .call-remote-audio { display: none; }
     .call-dock { position: fixed; right: max(18px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom)); z-index: 106; display: flex; max-width: min(390px,calc(100vw - 28px)); align-items: center; gap: 9px; padding: 9px 10px 9px 14px; border: 1px solid #34383e; border-radius: 18px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 12px 40px rgba(20,25,30,.24); }
     .call-dock[hidden] { display: none; }
@@ -194,16 +215,26 @@
     @media (max-width: 760px) {
       .call-overlay { padding: 0; background: #6959d0; backdrop-filter: none; }
       .call-card { width: 100%; height: 100%; min-height: 0; padding: max(12px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom)); border: 0; border-radius: 0; background: radial-gradient(ellipse at 50% 34%,rgba(190,166,255,.55),transparent 36%),linear-gradient(165deg,#8965d7 0%,#7468d8 48%,#5775d5 100%); box-shadow: none; }
+      .call-overlay.is-expanded .call-card, .call-overlay:fullscreen .call-card { padding: max(12px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom)); }
       .call-card-head { min-height: 50px; justify-content: flex-start; margin: 0 0 8px; }
       .call-window-label { display: none; }
+      .call-card-head-actions { margin-left: auto; }
+      .call-window-button { width: 42px; height: 42px; color: white; }
       .call-minimize { display: flex; width: auto; height: 44px; align-items: center; gap: 8px; padding: 0 4px; border-radius: 10px; color: white; font-size: 0; }
       .call-minimize span { display: inline; font-size: 16px; }
       .call-minimize::before { content: '‹'; font-size: 32px; font-weight: 300; line-height: 1; }
       .call-minimize:hover { background: rgba(255,255,255,.12); }
       .call-main { padding: 0 0 14vh; }
       .call-main.is-group-call { padding: 0 0 8vh; }
+      .call-screen-stage { min-height: 120px; margin: 0 auto 10px; border-color: rgba(255,255,255,.18); border-radius: 14px; background: rgba(18,22,32,.52); }
+      .call-card.is-sharing .call-main { padding: 0 0 8px; }
+      .call-card.is-sharing .call-screen-stage { min-height: 0; }
+      .call-card.is-sharing .call-actions { min-height: 86px; }
       .group-call-participants { max-height: 48dvh; grid-template-columns: repeat(auto-fit,minmax(90px,1fr)); gap: 8px; }
       .group-call-participant { padding: 9px 5px; }
+      .group-call-participant.is-sharing { grid-column: span 2; }
+      .group-call-participant-screen { max-height: 130px; }
+      .group-call-participant.is-sharing .group-call-participant-screen { max-height: 190px; }
       .group-call-leave-card { padding: 20px 16px; }
       .group-call-leave-actions { justify-content: stretch; }
       .group-call-leave-actions button { flex: 1 1 auto; }
@@ -212,7 +243,7 @@
       .call-status { margin-top: 10px; color: rgba(255,255,255,.88); font-size: 16px; }
       .call-duration { margin-top: 5px; color: rgba(255,255,255,.9); font-size: 15px; }
       .call-voice-indicator.is-speaking { color: #c4ffd9; }
-      .call-actions { min-height: 105px; align-items: flex-start; gap: clamp(18px,7vw,34px); }
+      .call-actions { min-height: 105px; align-items: flex-start; gap: clamp(10px,4vw,25px); }
       .call-action { min-width: 66px; gap: 9px; color: rgba(255,255,255,.95); font-size: 12px; }
       .call-action svg { width: 62px; height: 62px; padding: 18px; background: rgba(255,255,255,.2); }
       .call-action:hover svg { background: rgba(255,255,255,.29); }
@@ -1340,15 +1371,17 @@
 
   <div class="call-overlay" id="callOverlay" aria-hidden="true" hidden>
     <section class="call-card" role="dialog" aria-modal="true" aria-labelledby="callTitle">
-      <div class="call-card-head"><span class="call-window-label">Qwant · аудиозвонок</span><button class="call-minimize" id="callMinimize" type="button" aria-label="Свернуть звонок" title="Свернуть">−<span>Свернуть</span></button></div>
+      <div class="call-card-head"><span class="call-window-label">Qwant · аудиозвонок</span><button class="call-minimize call-window-button" id="callMinimize" type="button" aria-label="Свернуть звонок" title="Свернуть">−<span>Свернуть</span></button><div class="call-card-head-actions"><button class="call-window-button" id="callExpand" type="button" aria-label="Открыть звонок на весь экран" title="На весь экран"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
       <div class="call-main" id="callMain"><div class="call-avatar" id="callAvatar">FX</div><div class="group-call-participants" id="groupCallParticipants" aria-label="Участники звонка" hidden></div>
       <h2 class="call-title" id="callTitle">Аудиозвонок</h2>
       <div class="call-status" id="callStatus" role="status" aria-live="polite"></div></div>
+      <div class="call-screen-stage" id="callScreenStage" hidden><video id="callScreenVideo" autoplay playsinline></video><span class="call-screen-label" id="callScreenLabel" hidden></span></div>
       <div class="call-duration" id="callDuration" hidden></div>
       <div class="call-voice-indicator" id="callVoiceIndicator" aria-live="polite" hidden><i></i><i></i><i></i><i></i><i></i><span>Вы говорите</span></div>
       <div class="call-actions">
         <button class="call-action accept" id="callAccept" type="button" hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span>Ответить</span></button>
         <button class="call-action" id="callMute" type="button" hidden><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/></svg><span>Выключить микрофон</span></button>
+        <button class="call-action share" id="callShareScreen" type="button" aria-label="Поделиться экраном" title="Поделиться экраном" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M8 10l3-3 3 3M11 7v6"/></svg><span>Поделиться экраном</span></button>
         <button class="call-action end" id="callEnd" type="button"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span>Завершить</span></button>
         <button class="call-action decline" id="callDecline" type="button" hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span>Отклонить</span></button>
       </div>
