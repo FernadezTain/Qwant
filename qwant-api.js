@@ -533,12 +533,12 @@ export function registerQwantApi(app, { authRateLimit }) {
       await supabase('rpc/qwant_group_call_sweep', { method:'POST', body:{ p_group_id:req.params.groupId, p_user_id:user.id, p_heartbeat:req.query.heartbeat === '1' } });
       const calls = await supabase(`qwant_group_calls?group_id=eq.${encodeURIComponent(req.params.groupId)}&status=eq.active&select=id,created_by,created_at&limit=1`);
       if (!calls[0]) return res.json({ success:true, call:null });
-      const participants = await supabase(`qwant_group_call_participants?call_id=eq.${encodeURIComponent(calls[0].id)}&left_at=is.null&select=user_id,joined_at&order=joined_at.asc`);
+      const participants = await supabase(`qwant_group_call_participants?call_id=eq.${encodeURIComponent(calls[0].id)}&left_at=is.null&select=user_id,joined_at,session_id&order=joined_at.asc`);
       if (req.query.preview === '1') return res.json({ success:true, call:{ id:calls[0].id, createdAt:calls[0].created_at, participantCount:participants.length } });
       const members = await supabase(`social_group_members?group_id=eq.${encodeURIComponent(req.params.groupId)}&select=user_id,role`);
       const profiles = await userMap(participants.map(participant => participant.user_id));
       const roles = new Map(members.map(member => [String(member.user_id), member.role]));
-      res.json({ success:true, call:{ id:calls[0].id, createdBy:String(calls[0].created_by), createdAt:calls[0].created_at, participants:participants.map(participant => ({ ...(profiles.get(String(participant.user_id)) || {}), id:String(participant.user_id), role:roles.get(String(participant.user_id)) || 'member', joinedAt:participant.joined_at })) } });
+      res.json({ success:true, call:{ id:calls[0].id, createdBy:String(calls[0].created_by), createdAt:calls[0].created_at, participants:participants.map(participant => ({ ...(profiles.get(String(participant.user_id)) || {}), id:String(participant.user_id), role:roles.get(String(participant.user_id)) || 'member', joinedAt:participant.joined_at, peerSessionId:String(participant.session_id || participant.joined_at) })) } });
     } catch (error) { respondGroupCallError(res, error); }
   });
 
