@@ -1474,6 +1474,12 @@
     <button class="call-dock-end" id="callDockEnd" type="button" aria-label="Завершить звонок" title="Завершить"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg></button>
   </div>
   <audio id="callRingtone" src="/Sounds/Qwant-NewCALL.mp3" preload="auto" loop playsinline></audio>
+  <audio id="callOutgoingRingtone" src="/Sounds/Qwant_call_outgoing_ringback.wav" preload="auto" loop playsinline></audio>
+  <audio id="callEndedSound" src="/Sounds/Qwant_call_ended.wav" preload="auto" playsinline></audio>
+  <audio id="groupUserJoinedSound" src="/Sounds/Qwant_group_user_joined.wav" preload="auto" playsinline></audio>
+  <audio id="groupUserLeftSound" src="/Sounds/Qwant_group_user_left.wav" preload="auto" playsinline></audio>
+  <audio id="screenShareOnSound" src="/Sounds/Qwant_screenshare_on.wav" preload="auto" playsinline></audio>
+  <audio id="screenShareOffSound" src="/Sounds/Qwant_screenshare_off.wav" preload="auto" playsinline></audio>
 
   <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true">
     <aside class="drawer" aria-label="Главное меню">
