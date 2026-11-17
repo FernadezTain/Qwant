@@ -29,11 +29,12 @@ function respondError(res, error, status = 500) {
 }
 
 function respondGroupCallError(res, error) {
-  if (['PGRST202', 'PGRST205', '42P01', '42883'].includes(error.code)) {
-    console.error('Qwant group call migration is missing or unavailable:', error.code);
+  console.error('Qwant group call database error:', error.code || 'unknown', error.message);
+  if (['PGRST202', 'PGRST203', 'PGRST205', '42P01', '42703', '42883', '42501'].includes(error.code)) {
+    console.error('Qwant group call migration is missing, stale, or lacks service-role permissions:', error.code);
     return res.status(503).json({ success:false, error:'Групповые звонки пока не настроены. Выполните qwant_group_calls.sql в Supabase, затем повторите попытку.' });
   }
-  respondError(res, error, 400);
+  respondError(res, error, error.code === 'P0001' ? 400 : error.status >= 500 ? error.status : 500);
 }
 
 async function supabase(path, { method = 'GET', body, prefer = 'return=representation', headers = {} } = {}) {
