@@ -122,7 +122,7 @@
     .call-overlay { position: fixed; inset: 0; z-index: 105; display: grid; place-items: center; padding: 18px; background: rgba(8,10,14,.62); backdrop-filter: blur(8px); }
     .call-overlay[hidden] { display: none; }
     .call-overlay.is-expanded { padding: 0; background: #101317; backdrop-filter: none; }
-    .call-card { position: relative; display: flex; width: min(720px,calc(100vw - 40px)); height: min(540px,calc(100dvh - 40px)); min-width: 0; min-height: 390px; flex-direction: column; overflow: hidden; padding: 14px 22px 22px; border: 1px solid #34383e; border-radius: 13px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 28px 90px rgba(0,0,0,.52); text-align: center; scrollbar-width: none; -ms-overflow-style: none; }
+    .call-card { position: relative; display: flex; width: min(1100px,calc(100vw - 48px)); height: min(760px,calc(100dvh - 48px)); min-width: 0; min-height: 390px; flex-direction: column; overflow: hidden; padding: 14px 22px 22px; border: 1px solid #34383e; border-radius: 13px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 28px 90px rgba(0,0,0,.52); text-align: center; scrollbar-width: none; -ms-overflow-style: none; }
     .call-card * { scrollbar-width: none; -ms-overflow-style: none; }
     .call-card *::-webkit-scrollbar { display: none; width: 0; height: 0; }
     .call-overlay.is-expanded .call-card, .call-overlay:fullscreen .call-card { width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
@@ -222,7 +222,7 @@
     .call-status { min-height: 20px; margin: 7px 0 0; color: #a5a9ae; font-size: 12px; }
     .call-duration { min-height: 17px; margin-top: 3px; color: #d7d9dc; font-size: 12px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
     .call-duration[hidden] { display: none; }
-    .call-voice-indicator { display: inline-flex; height: 14px; align-items: center; gap: 2px; margin-top: 8px; color: #a5a9ae; font-size: 10px; opacity: .58; transition: opacity .2s,color .2s; }
+    .call-voice-indicator { display: none !important; }
     .call-voice-indicator[hidden] { display: none; }
     .call-voice-indicator i { width: 2px; height: 4px; border-radius: 2px; background: currentColor; }
     .call-voice-indicator.is-speaking { color: #76e3ae; opacity: 1; }
@@ -245,11 +245,14 @@
     .call-action[aria-pressed="true"] svg { background: #d84a4a; }
     .call-action[disabled] { opacity: .6; cursor: wait; }
     .call-action[hidden] { display: none; }
-    .call-card:not(.is-group-call).is-sharing .call-main { flex: 0 0 auto; padding: 4px 0 12px; }
-    .call-card:not(.is-group-call).is-sharing { display: grid; grid-template-rows: auto auto minmax(0,1fr) auto auto; align-content: stretch; }
+    .call-card:not(.is-group-call).is-sharing { display: flex; flex-direction: column; }
+    .call-card:not(.is-group-call).is-sharing .call-main { min-height: 0; flex: 0 0 auto; padding: 8px 0 12px; }
     .call-card:not(.is-group-call).is-sharing .call-avatar { width: 62px; height: 62px; margin-bottom: 12px; font-size: 22px; }
     .call-card:not(.is-group-call).is-sharing .call-avatar::before, .call-card:not(.is-group-call).is-sharing .call-avatar::after { display: none; }
-    .call-card:not(.is-group-call).is-sharing .call-screen-stage { flex: 1 1 0; }
+    .call-card:not(.is-group-call).is-sharing .call-screen-stage { width: 100%; min-height: 0; flex: 1 1 0; margin: 0 0 12px; }
+    .call-card:not(.is-group-call).is-sharing .call-actions { min-height: 88px; flex: 0 0 auto; gap: 24px; }
+    .call-card:not(.is-group-call).is-sharing .call-action { min-width: 74px; gap: 8px; font-size: 12px; }
+    .call-card:not(.is-group-call).is-sharing .call-action svg { width: 54px; height: 54px; padding: 15px; }
     .call-overlay.is-expanded .group-call-featured:not([hidden]) { flex-basis: min(60%,720px); }
     .call-remote-audio { display: none; }
     .call-dock { position: fixed; right: max(18px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom)); z-index: 106; display: flex; max-width: min(390px,calc(100vw - 28px)); align-items: center; gap: 9px; padding: 9px 10px 9px 14px; border: 1px solid #34383e; border-radius: 18px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 12px 40px rgba(20,25,30,.24); }
@@ -281,7 +284,9 @@
       .call-screen-stage { min-height: 120px; margin: 0 auto 10px; border-color: rgba(255,255,255,.18); border-radius: 14px; background: rgba(18,22,32,.52); }
       .call-card:not(.is-group-call).is-sharing .call-main { padding: 0 0 8px; }
       .call-card:not(.is-group-call).is-sharing .call-screen-stage { min-height: 0; }
-      .call-card:not(.is-group-call).is-sharing .call-actions { min-height: 86px; }
+      .call-card:not(.is-group-call).is-sharing .call-actions { min-height: 86px; gap: clamp(10px,4vw,25px); }
+      .call-card:not(.is-group-call).is-sharing .call-action { min-width: 66px; gap: 9px; font-size: 12px; }
+      .call-card:not(.is-group-call).is-sharing .call-action svg { width: 62px; height: 62px; padding: 18px; }
       .group-call-participants { gap: 10px; padding: 2px 0 6px; }
       .group-call-featured { min-height: 0; border-radius: 12px; }
       .group-call-featured:not([hidden]) { min-height: 150px; flex-basis: 42%; }
@@ -1735,6 +1740,6 @@
     </div>
   </section>
 
-  <script src="/app.js?v=group-call-gestures-1" defer></script>
+  <script src="/app.js?v=group-call-layout-fix-2" defer></script>
 </body>
 </html>
