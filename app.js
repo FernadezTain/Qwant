@@ -3903,7 +3903,7 @@ async function createGroupCallPeer(call, participant) {
   const participantId = String(participant.id);
   if (activeCall !== call || participantId === String(session.userId) || call.groupPeers.has(participantId)) return;
   const peer = new RTCPeerConnection({ iceServers:callIceServers });
-  const record = { peer, pendingCandidates:[], videoSender:null };
+  const record = { peer, peerSessionId:String(participant.peerSessionId || participant.joinedAt || ''), pendingCandidates:[], videoSender:null };
   call.groupPeers.set(participantId, record);
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
   record.videoSender = peer.addTransceiver('video', { direction:'sendrecv' }).sender;
@@ -4031,12 +4031,18 @@ async function pollGroupCall(call) {
     const groupChat = chats.find(chat => String(chat.id) === call.groupId);
     if (groupChat) groupChat.groupCallParticipants = participants.size;
     for (const [participantId, record] of call.groupPeers) {
-      if (participants.has(participantId)) continue;
+      const participant = participants.get(participantId);
+      const peerSessionId = String(participant?.peerSessionId || participant?.joinedAt || '');
+      if (participant && record.peerSessionId === peerSessionId) continue;
       record.peer.close();
       call.groupPeers.delete(participantId);
       call.remoteScreenSharers?.delete(participantId);
       call.remoteVideoStreams?.delete(participantId);
       call.mutedParticipants?.delete(participantId);
+      const speaker = call.speakerAnalysers?.get(participantId);
+      speaker?.source.disconnect();
+      call.speakerAnalysers?.delete(participantId);
+      call.speakingParticipants?.delete(participantId);
       document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`)?.remove();
     }
     renderGroupCallParticipants(call);
