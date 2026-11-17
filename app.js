@@ -3472,6 +3472,7 @@ async function startCallScreenShare() {
     if (!track) throw new Error('Не удалось получить видеопоток экрана.');
     call.screenStream = stream;
     call.screenCaptureCleanup = cleanup;
+    if (call.groupCall) call.selectedStreamUserId = String(session.userId);
     track.addEventListener('ended', () => stopCallScreenShare(call), { once:true });
     if (call.groupCall) {
       await Promise.all([...call.groupPeers.entries()].map(async ([participantId, record]) => {
@@ -3753,13 +3754,14 @@ function renderGroupCallParticipants(call) {
       const isSelf = String(participant.id) === String(session.userId);
       const participantId = String(participant.id);
       const isSharing = isSelf ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(participantId);
+      const canWatchStream = isSharing && !isSelf;
       const isSpeaking = call.speakingParticipants?.has(participantId) === true;
       const isMuted = call.mutedParticipants?.has(participantId) === true;
       return `
         <div class="group-call-participant ${isSelf ? 'is-self' : ''} ${isSharing ? 'has-screen-share' : ''} ${isSpeaking ? 'is-speaking' : ''}" data-group-participant="${escapeHtml(participantId)}">
           ${avatarMarkup(participant, 'group-call-participant-avatar')}
-          <video class="group-call-participant-screen" data-screen-user="${escapeHtml(participantId)}" autoplay muted playsinline ${isSharing ? '' : 'hidden'}></video>
-          <button class="group-call-stream-open" type="button" data-open-group-stream="${escapeHtml(participantId)}" aria-label="Смотреть стрим участника ${escapeHtml(participant.display_name || participant.username || 'Участник')}" ${isSharing ? '' : 'hidden'}><svg viewBox="0 0 24 24"><path d="m9 6 9 6-9 6z"/></svg><span>Смотреть стрим</span></button>
+          <video class="group-call-participant-screen" data-screen-user="${escapeHtml(participantId)}" autoplay muted playsinline ${canWatchStream ? '' : 'hidden'}></video>
+          ${canWatchStream ? `<button class="group-call-stream-open" type="button" data-open-group-stream="${escapeHtml(participantId)}" aria-label="Смотреть стрим участника ${escapeHtml(participant.display_name || participant.username || 'Участник')}"><svg viewBox="0 0 24 24"><path d="m9 6 9 6-9 6z"/></svg><span>Смотреть стрим</span></button>` : ''}
           <span class="group-call-muted-mark" aria-label="Вы заглушили участника" title="Вы заглушили участника" ${isMuted ? '' : 'hidden'}><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-11.2 5.6M12 18v4M8 22h8M3 3l18 18"/></svg></span>
           <span class="group-call-participant-name">${escapeHtml(participant.display_name || participant.username || 'Участник')}${isSelf ? ' · вы' : ''}</span>
         </div>`;
