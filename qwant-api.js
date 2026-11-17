@@ -151,7 +151,7 @@ async function groupMembership(groupId, userId) {
 async function userMap(ids) {
   const uniqueIds = [...new Set(ids.filter(Boolean).map(String))];
   if (!uniqueIds.length) return new Map();
-  const rows = await supabase(`users?id=in.(${uniqueIds.map(encodeURIComponent).join(',')})&select=id,username,display_name,avatar_url,description,messenger_verification`);
+  const rows = await supabase(`users?id=in.(${uniqueIds.map(encodeURIComponent).join(',')})&select=id,username,display_name,avatar_url,banner_url,description,messenger_verification`);
   return new Map(rows.map(row => [String(row.id), publicUser(row)]));
 }
 
@@ -534,7 +534,7 @@ export function registerQwantApi(app, { authRateLimit }) {
       const calls = await supabase(`qwant_group_calls?group_id=eq.${encodeURIComponent(req.params.groupId)}&status=eq.active&select=id,created_by,created_at&limit=1`);
       if (!calls[0]) return res.json({ success:true, call:null });
       const participants = await supabase(`qwant_group_call_participants?call_id=eq.${encodeURIComponent(calls[0].id)}&left_at=is.null&select=user_id,joined_at&order=joined_at.asc`);
-      if (req.query.preview === '1') return res.json({ success:true, call:{ id:calls[0].id, participantCount:participants.length } });
+      if (req.query.preview === '1') return res.json({ success:true, call:{ id:calls[0].id, createdAt:calls[0].created_at, participantCount:participants.length } });
       const members = await supabase(`social_group_members?group_id=eq.${encodeURIComponent(req.params.groupId)}&select=user_id,role`);
       const profiles = await userMap(participants.map(participant => participant.user_id));
       const roles = new Map(members.map(member => [String(member.user_id), member.role]));
@@ -568,7 +568,7 @@ export function registerQwantApi(app, { authRateLimit }) {
     const recipientId = String(req.body?.recipientId || '');
     const type = String(req.body?.type || '');
     const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {};
-    if (!/^[a-f\d-]{36}$/i.test(req.params.callId) || !/^\d+$/.test(recipientId) || !['offer', 'answer', 'ice'].includes(type)) return res.status(400).json({ success:false, error:'Некорректное событие звонка' });
+    if (!/^[a-f\d-]{36}$/i.test(req.params.callId) || !/^\d+$/.test(recipientId) || !['offer', 'answer', 'ice', 'screen_start', 'screen_stop'].includes(type)) return res.status(400).json({ success:false, error:'Некорректное событие звонка' });
     if (JSON.stringify(payload).length > 16000) return res.status(413).json({ success:false, error:'Событие звонка слишком большое' });
     try {
       await supabase('rpc/qwant_group_call_send_signal', { method:'POST', body:{ p_call_id:req.params.callId, p_sender_id:user.id, p_recipient_id:recipientId, p_signal_type:type, p_payload:payload } });
@@ -583,6 +583,17 @@ export function registerQwantApi(app, { authRateLimit }) {
     try {
       const result = await supabase('rpc/qwant_group_call_leave', { method:'POST', body:{ p_group_id:req.params.groupId, p_call_id:req.params.callId, p_user_id:user.id, p_end_for_all:req.body?.endForAll === true } });
       res.json({ success:true, ended:result?.[0]?.ended === true, remaining:Number(result?.[0]?.remaining) || 0 });
+    } catch (error) { respondGroupCallError(res, error); }
+  });
+
+  app.post('/api/social/group-chats/:groupId/call/:callId/kick', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    const participantId = String(req.body?.participantId || '');
+    if (!/^[a-f\d-]{36}$/i.test(req.params.callId) || !/^\d+$/.test(participantId)) return res.status(400).json({ success:false, error:'Некорректный участник звонка' });
+    try {
+      const result = await supabase('rpc/qwant_group_call_kick', { method:'POST', body:{ p_group_id:req.params.groupId, p_call_id:req.params.callId, p_actor_id:user.id, p_target_id:participantId } });
+      res.json({ success:true, remaining:Number(result?.[0]?.remaining) || 0, ended:result?.[0]?.ended === true });
     } catch (error) { respondGroupCallError(res, error); }
   });
 
@@ -700,6 +711,17 @@ export function registerQwantApi(app, { authRateLimit }) {
       const rows = await supabase(`social_group_messages?group_id=eq.${encodeURIComponent(req.params.groupId)}&select=id,group_id,sender_id,body,image_url,reply_to_message_id,event_type,event_actor_id,event_target_id,created_at,deleted_at&order=created_at.desc,id.desc&limit=100`);
       res.json({ success: true, messages: rows.reverse().map(row => ({ ...row, conversation_id: row.group_id, recipient_id: null, message_type: 'text', gift_payload: null, read_at: null, sender: profiles.get(String(row.sender_id)) || { id: row.sender_id, display_name: 'Участник' }, event_actor: profiles.get(String(row.event_actor_id)) || null, event_target: profiles.get(String(row.event_target_id)) || null, read_count: members.filter(member => String(member.user_id) !== String(row.sender_id) && Date.parse(member.joined_at) <= Date.parse(row.created_at) && Date.parse(member.last_read_at) >= Date.parse(row.created_at)).length })) });
     } catch (error) { respondError(res, error); }
+  });
+
+  app.get('/api/social/group-chats/:groupId/call-events', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    try {
+      if (!await groupMembership(req.params.groupId, user.id)) return res.status(404).json({ success:false, error:'Группа не найдена' });
+      const events = await supabase(`qwant_group_call_events?group_id=eq.${encodeURIComponent(req.params.groupId)}&select=id,call_id,event_type,actor_id,created_at&order=created_at.desc,id.desc&limit=100`);
+      const profiles = await userMap(events.map(event => event.actor_id));
+      res.json({ success:true, events:events.reverse().map(event => ({ id:String(event.id), callId:event.call_id, type:event.event_type, actor:profiles.get(String(event.actor_id)) || { id:String(event.actor_id), display_name:'Участник' }, createdAt:event.created_at })) });
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.post('/api/social/group-chats/:groupId/messages', async (req, res) => {
