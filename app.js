@@ -148,6 +148,9 @@ let callSignalsPolling = false;
 let callHistoryRequestId = 0;
 let callIceServers = [{ urls:'stun:stun.l.google.com:19302' }];
 const pendingCallCandidates = new Map();
+let groupParticipantLongPressTimer;
+let suppressGroupParticipantClick = false;
+let groupParticipantLongPressStart = null;
 let callVoiceContext = null;
 let pendingGroupInviteCode = new URLSearchParams(location.search).get('groupInvite') || '';
 let activeGroupSettingsChat = null;
@@ -1729,6 +1732,11 @@ function messageMarkup(chat, message, previousDate = '', animate = false) {
           : `${actor} выгнал ${target} из чата`;
     return `${datePill}<div class="group-event-row ${animate ? 'message-new' : ''}"><span class="group-event-pill">${escapeHtml(eventText)}</span></div>`;
   }
+  if (message.type === 'group_call_event') {
+    const actor = message.event?.actor?.display_name || (message.event?.actor?.username ? `@${message.event.actor.username}` : 'Участник');
+    const verb = message.event?.type === 'started' ? 'начал(а) голосовой звонок' : 'завершил(а) голосовой звонок';
+    return `${datePill}<div class="group-event-row ${animate ? 'message-new' : ''}" data-message-id="${escapeHtml(message.id)}"><span class="group-event-pill">${escapeHtml(actor)} ${verb}</span></div>`;
+  }
   const senderLabel = chat.isGroup && !message.own && message.sender
     ? `<button class="group-sender-name" type="button" data-copy-username="${escapeHtml(message.sender.username || '')}">${escapeHtml(message.sender.display_name || message.sender.username || 'Участник')}${verificationBadgeMarkup(message.sender)}</button>`
     : '';
@@ -2085,6 +2093,17 @@ function mapCallEvents(calls) {
   }).sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
 }
 
+function mapGroupCallEvents(events) {
+  return events.map(event => ({
+    id:`group-call-${event.id}`,
+    type:'group_call_event',
+    own:String(event.actor?.id) === String(session.userId),
+    createdAt:event.createdAt,
+    time:formatTime(event.createdAt),
+    event:{ type:event.type, actor:event.actor }
+  }));
+}
+
 function mergeLocalMessages(chat, latest) {
   const localMessages = chat.messages.filter(message => message.localMessage && ['sending', 'failed'].includes(message.sendStatus));
   const matched = new Set();
@@ -2164,10 +2183,10 @@ async function loadChatMessages(chat, showLoader = false) {
       api(chat.isGroup
         ? `/api/social/group-chats/${encodeURIComponent(chat.id)}/messages`
         : `/api/social/chats/${encodeURIComponent(chat.id)}/messages`),
-      chat.isGroup ? Promise.resolve({ calls:[] }) : api(`/api/social/calls/history?conversationId=${encodeURIComponent(chat.id)}`).catch(() => ({ calls:[] }))
+      chat.isGroup ? api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/call-events`).catch(() => ({ events:[] })) : api(`/api/social/calls/history?conversationId=${encodeURIComponent(chat.id)}`).catch(() => ({ calls:[] }))
     ]);
     if (activeId !== chat.id || historyVersion !== (chatHistoryVersions.get(String(chat.id)) || 0)) return;
-    const callEvents = mapCallEvents(callResult.calls || []);
+    const callEvents = chat.isGroup ? mapGroupCallEvents(callResult.events || []) : mapCallEvents(callResult.calls || []);
     const callsChanged = JSON.stringify(chat.callEvents || []) !== JSON.stringify(callEvents);
     chat.callEvents = callEvents;
     const changed = updateMessages(chat, mapMessages(result.messages));
@@ -2323,6 +2342,7 @@ async function selectChat(id) {
   document.getElementById('headerStatus').textContent = chat.isGroup || chat.isFavorites ? chat.handle : presenceLabel(chat.partner);
   document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
+  renderGroupCallBanner(chat);
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
   document.getElementById('deletedChatActions').hidden = !chat.partner.is_deleted;
   document.getElementById('attachButton').hidden = false;
@@ -2987,19 +3007,62 @@ function updateCallControls() {
   showGroupMembersButton.hidden = !chat?.isGroup;
 }
 
+function participantCountLabel(count) {
+  const remainder = count % 10;
+  const remainderHundred = count % 100;
+  const noun = remainder === 1 && remainderHundred !== 11 ? 'участник'
+    : remainder >= 2 && remainder <= 4 && (remainderHundred < 12 || remainderHundred > 14) ? 'участника'
+      : 'участников';
+  return `${count} ${noun}`;
+}
+
+function renderGroupCallBanner(chat) {
+  const banner = document.getElementById('groupCallBanner');
+  const count = Number(chat?.groupCallParticipants) || 0;
+  const isActive = Boolean(chat?.isGroup && chat.groupCallActive && count);
+  banner.hidden = !isActive;
+  if (!isActive) return;
+  document.getElementById('groupCallBannerTitle').textContent = 'Групповой звонок';
+  document.getElementById('groupCallBannerCount').textContent = participantCountLabel(count);
+  const button = document.getElementById('groupCallBannerJoin');
+  const sameCall = activeCall?.groupCall && activeCall.groupId === String(chat.id);
+  const busy = Boolean(activeCall && !sameCall);
+  button.textContent = sameCall ? 'Открыть' : busy ? 'Вы в звонке' : 'Вступить';
+  button.disabled = busy;
+}
+
 async function refreshActiveGroupCallPreview() {
   const chat = chats.find(item => String(item.id) === String(activeId));
-  if (!session?.sessionToken || document.hidden || !chat?.isGroup || activeCall?.groupCall) return;
+  if (!session?.sessionToken || document.hidden || !chat?.isGroup || (activeCall?.groupCall && activeCall.groupId === String(chat.id))) return;
   const chatId = String(chat.id);
   try {
     const result = await api(`/api/social/group-chats/${encodeURIComponent(chatId)}/call?preview=1`);
     if (String(activeId) !== chatId) return;
     chat.groupCallParticipants = Number(result.call?.participantCount) || 0;
+    chat.groupCallActive = Boolean(result.call);
   } catch {
-    if (String(activeId) === chatId) chat.groupCallParticipants = 0;
+    if (String(activeId) === chatId) {
+      chat.groupCallParticipants = 0;
+      chat.groupCallActive = false;
+    }
   }
-  if (String(activeId) === chatId) updateCallControls();
+  if (String(activeId) === chatId) {
+    renderGroupCallBanner(chat);
+    updateCallControls();
+  }
 }
+
+document.getElementById('groupCallBannerJoin').addEventListener('click', () => {
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (!chat?.isGroup) return;
+  if (activeCall?.groupCall && activeCall.groupId === String(chat.id)) {
+    activeCall.minimized = false;
+    setCallDialog({ name:activeCall.name, status:callStatus.textContent || 'На связи', connecting:true });
+    return;
+  }
+  if (activeCall) return showMessageToast('Сначала завершите текущий звонок.');
+  startAudioCall();
+});
 
 function closeActiveChat() {
   if (!activeId) return;
@@ -3327,31 +3390,100 @@ function updateCallScreenPresentation(call = activeCall) {
   if (isGroup) renderGroupCallParticipants(call);
 }
 
+function nativeScreenCapturePlugin() {
+  return window.Capacitor?.Plugins?.ScreenCapture || null;
+}
+
+function canShareCallScreen() {
+  return Boolean(navigator.mediaDevices?.getDisplayMedia || nativeScreenCapturePlugin());
+}
+
+async function captureCallScreen(call) {
+  const plugin = nativeScreenCapturePlugin();
+  const useNative = plugin && window.Capacitor?.getPlatform?.() === 'android';
+  if (!useNative) {
+    if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('Браузер или WebView не поддерживает демонстрацию экрана.');
+    return { stream:await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:{ ideal:15, max:30 } }, audio:false }), cleanup:null };
+  }
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context?.drawImage || !canvas.captureStream) throw new Error('Не удалось подготовить видеопоток для Android.');
+  let latestFrame = 0;
+  let listener;
+  let stopListener;
+  try {
+    listener = await plugin.addListener('frame', event => {
+      const frameId = ++latestFrame;
+      const image = new Image();
+      image.onload = () => {
+        if (activeCall !== call || frameId !== latestFrame) return;
+        if (canvas.width !== image.width || canvas.height !== image.height) {
+          canvas.width = image.width;
+          canvas.height = image.height;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      };
+      image.src = `data:image/jpeg;base64,${event.data}`;
+    });
+    stopListener = await plugin.addListener('ended', () => {
+      if (activeCall === call && call.screenStream) stopCallScreenShare(call);
+    });
+    const result = await plugin.start();
+    canvas.width = Number(result.width) || 720;
+    canvas.height = Number(result.height) || 1280;
+    const stream = canvas.captureStream(5);
+    return {
+      stream,
+      cleanup:async () => {
+        await listener?.remove();
+        await stopListener?.remove();
+        await plugin.stop();
+      }
+    };
+  } catch (error) {
+    await listener?.remove().catch(() => {});
+    await stopListener?.remove().catch(() => {});
+    await plugin.stop().catch(() => {});
+    throw new Error(error.message || 'Не удалось начать демонстрацию экрана Android.');
+  }
+}
+
 async function startCallScreenShare() {
   const call = activeCall;
   const shareButton = document.getElementById('callShareScreen');
   if (!call || shareButton.disabled) return;
-  if (!navigator.mediaDevices?.getDisplayMedia) return showMessageToast('Браузер не поддерживает демонстрацию экрана.');
+  if (!canShareCallScreen()) return showMessageToast('Демонстрация экрана недоступна в этой версии приложения.');
   shareButton.disabled = true;
   let stream = null;
+  let cleanup = null;
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:{ ideal:15, max:30 } }, audio:false });
+    ({ stream, cleanup } = await captureCallScreen(call));
     if (activeCall !== call) {
       stream.getTracks().forEach(track => track.stop());
+      await cleanup?.();
       return;
     }
     const track = stream.getVideoTracks()[0];
     if (!track) throw new Error('Не удалось получить видеопоток экрана.');
     call.screenStream = stream;
+    call.screenCaptureCleanup = cleanup;
     track.addEventListener('ended', () => stopCallScreenShare(call), { once:true });
-    const senders = call.groupCall
-      ? [...call.groupPeers.values()].map(record => record.videoSender)
-      : [call.videoSender];
-    await Promise.all(senders.filter(Boolean).map(sender => sender.replaceTrack(track)));
+    if (call.groupCall) {
+      await Promise.all([...call.groupPeers.entries()].map(async ([participantId, record]) => {
+        if (record.videoSender) await record.videoSender.replaceTrack(track);
+        await sendGroupCallSignal(call, participantId, 'screen_start', {});
+      }));
+    } else if (call.videoSender) {
+      await call.videoSender.replaceTrack(track);
+    }
     updateCallScreenPresentation(call);
   } catch (error) {
     if (call.screenStream === stream) await stopCallScreenShare(call);
-    else stream?.getTracks().forEach(track => track.stop());
+    else {
+      stream?.getTracks().forEach(track => track.stop());
+      await cleanup?.();
+    }
     if (activeCall === call) showMessageToast(error.message || 'Не удалось начать демонстрацию экрана.');
   } finally {
     shareButton.disabled = false;
@@ -3362,11 +3494,15 @@ async function stopCallScreenShare(call = activeCall) {
   if (!call?.screenStream) return;
   const stream = call.screenStream;
   call.screenStream = null;
-  const senders = call.groupCall
-    ? [...call.groupPeers.values()].map(record => record.videoSender)
-    : [call.videoSender];
+  if (call.groupCall && activeCall === call) {
+    await Promise.all([...call.groupPeers.keys()].map(participantId => sendGroupCallSignal(call, participantId, 'screen_stop', {}).catch(() => {})));
+  }
+  const senders = call.groupCall ? [...call.groupPeers.values()].map(record => record.videoSender) : [call.videoSender];
   await Promise.all(senders.filter(sender => sender?.track?.kind === 'video').map(sender => sender.replaceTrack(null).catch(() => {})));
   stream.getTracks().forEach(track => track.stop());
+  const cleanup = call.screenCaptureCleanup;
+  call.screenCaptureCleanup = null;
+  await cleanup?.().catch(() => {});
   if (activeCall === call) updateCallScreenPresentation(call);
 }
 
@@ -3394,7 +3530,7 @@ function setCallDialog({ name, status, incoming = false, connecting = false }) {
   if (declineButton) declineButton.hidden = !incoming;
   if (muteButton) muteButton.hidden = !connecting;
   const shareButton = document.getElementById('callShareScreen');
-  shareButton.hidden = !activeCall?.stream || !navigator.mediaDevices?.getDisplayMedia;
+  shareButton.hidden = !activeCall?.stream || !canShareCallScreen();
   if (endButton) endButton.hidden = incoming;
   const minimized = activeCall?.minimized === true;
   callOverlay.hidden = minimized;
@@ -3437,6 +3573,7 @@ function closeCallDialog() {
   document.getElementById('callAvatar').hidden = false;
   document.getElementById('groupCallParticipants').hidden = true;
   document.getElementById('groupCallParticipants').replaceChildren();
+  closeGroupParticipantModal();
   document.getElementById('groupCallAudio').replaceChildren();
   const screenVideo = document.getElementById('callScreenVideo');
   screenVideo.srcObject = null;
@@ -3601,7 +3738,7 @@ function renderGroupCallParticipants(call) {
   const count = participants.length;
   const markupKey = JSON.stringify(participants.map(participant => {
     const userId = String(participant.id);
-    return [userId, participant.display_name, participant.username, participant.role, userId === String(session.userId) ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(userId), call.speakingParticipants?.has(userId)];
+    return [userId, participant.display_name, participant.username, participant.avatar_url, participant.banner_url, participant.role, userId === String(session.userId) ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(userId), call.speakingParticipants?.has(userId), call.mutedParticipants?.has(userId)];
   }));
   if (call.participantsMarkupKey !== markupKey) {
     call.participantsMarkupKey = markupKey;
@@ -3610,14 +3747,18 @@ function renderGroupCallParticipants(call) {
       const participantId = String(participant.id);
       const isSharing = isSelf ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(participantId);
       const isSpeaking = call.speakingParticipants?.has(participantId) === true;
+      const isMuted = call.mutedParticipants?.has(participantId) === true;
       return `
         <div class="group-call-participant ${isSelf ? 'is-self' : ''} ${isSharing ? 'has-screen-share' : ''} ${isSpeaking ? 'is-speaking' : ''}" data-group-participant="${escapeHtml(participantId)}">
           ${avatarMarkup(participant, 'group-call-participant-avatar')}
           <video class="group-call-participant-screen" data-screen-user="${escapeHtml(participantId)}" autoplay muted playsinline ${isSharing ? '' : 'hidden'}></video>
           <button class="group-call-stream-open" type="button" data-open-group-stream="${escapeHtml(participantId)}" aria-label="Смотреть стрим участника ${escapeHtml(participant.display_name || participant.username || 'Участник')}" ${isSharing ? '' : 'hidden'}><svg viewBox="0 0 24 24"><path d="m9 6 9 6-9 6z"/></svg><span>Смотреть стрим</span></button>
+          <span class="group-call-muted-mark" aria-label="Вы заглушили участника" title="Вы заглушили участника" ${isMuted ? '' : 'hidden'}><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-11.2 5.6M12 18v4M8 22h8M3 3l18 18"/></svg></span>
           <span class="group-call-participant-name">${escapeHtml(participant.display_name || participant.username || 'Участник')}${isSelf ? ' · вы' : ''}</span>
         </div>`;
     }).join('');
+    const grid = document.getElementById('groupCallGrid');
+    grid.dataset.count = String(count);
   }
   for (const video of document.querySelectorAll('#groupCallGrid [data-screen-user]')) {
     const userId = String(video.dataset.screenUser);
@@ -3627,10 +3768,24 @@ function renderGroupCallParticipants(call) {
       if (stream) video.play().catch(() => {});
     }
   }
+  document.querySelectorAll('#groupCallGrid [data-open-group-stream]').forEach(button => {
+    const viewing = String(call.selectedStreamUserId || '') === button.dataset.openGroupStream;
+    const participant = call.participants.get(button.dataset.openGroupStream);
+    button.querySelector('span').textContent = viewing ? 'Прекратить просмотр' : 'Смотреть стрим';
+    button.setAttribute('aria-label', viewing ? 'Прекратить просмотр трансляции' : `Смотреть стрим участника ${participant?.display_name || participant?.username || 'Участник'}`);
+  });
   if (call.selectedStreamUserId && !getGroupCallScreenStream(call, call.selectedStreamUserId)) call.selectedStreamUserId = null;
   updateGroupCallFeatured(call);
   document.getElementById('callDockStatus').textContent = `${count} из 20`;
   setCallStatus(count < 2 ? 'Ожидаем участников…' : `В звонке: ${count} из 20`);
+  const groupChat = chats.find(chat => String(chat.id) === call.groupId);
+  if (groupChat) {
+    groupChat.groupCallParticipants = count;
+    groupChat.groupCallActive = count > 0;
+    if (String(activeId) === call.groupId) renderGroupCallBanner(groupChat);
+  }
+  const selectedParticipant = document.getElementById('groupParticipantModal').dataset.participantId;
+  if (selectedParticipant && !call.participants.has(selectedParticipant)) closeGroupParticipantModal();
 }
 
 function getGroupCallScreenStream(call, participantId) {
@@ -3656,6 +3811,82 @@ function updateGroupCallFeatured(call) {
   featured.setAttribute('aria-label', `Трансляция: ${participant?.display_name || participant?.username || 'Участник'}`);
 }
 
+function closeGroupParticipantModal() {
+  const modal = document.getElementById('groupParticipantModal');
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  delete modal.dataset.participantId;
+}
+
+function openGroupParticipantModal(participantId) {
+  const call = activeCall;
+  const participant = call?.groupCall ? call.participants.get(String(participantId)) : null;
+  if (!participant || String(participant.id) === String(session.userId)) return;
+  const modal = document.getElementById('groupParticipantModal');
+  modal.dataset.participantId = String(participant.id);
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  document.getElementById('groupParticipantName').textContent = participant.display_name || participant.username || 'Участник';
+  document.getElementById('groupParticipantHandle').textContent = participant.username ? `@${participant.username}` : '';
+  setAvatar(document.getElementById('groupParticipantAvatar'), participant);
+  const banner = document.getElementById('groupParticipantBanner');
+  banner.replaceChildren();
+  const bannerUrl = safeImageUrl(participant.banner_url);
+  if (bannerUrl) {
+    const image = document.createElement('img');
+    image.src = bannerUrl;
+    image.alt = '';
+    banner.append(image);
+  }
+  document.getElementById('groupParticipantMute').textContent = call.mutedParticipants?.has(String(participant.id)) ? 'Вернуть голос' : 'Заглушить для себя';
+  document.getElementById('groupParticipantKick').hidden = !call.isAdmin;
+  document.getElementById('groupParticipantStatus').textContent = '';
+}
+
+document.getElementById('groupParticipantModal').addEventListener('click', event => {
+  if (event.target.id === 'groupParticipantModal') closeGroupParticipantModal();
+});
+document.getElementById('groupParticipantMessage').addEventListener('click', () => {
+  const participantId = document.getElementById('groupParticipantModal').dataset.participantId;
+  if (!participantId) return;
+  closeGroupParticipantModal();
+  openChat(participantId);
+});
+document.getElementById('groupParticipantMute').addEventListener('click', () => {
+  const call = activeCall;
+  const participantId = document.getElementById('groupParticipantModal').dataset.participantId;
+  if (!call?.groupCall || !participantId) return;
+  call.mutedParticipants ||= new Set();
+  if (call.mutedParticipants.has(participantId)) call.mutedParticipants.delete(participantId);
+  else call.mutedParticipants.add(participantId);
+  const audio = document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`);
+  if (audio) audio.muted = call.mutedParticipants.has(participantId);
+  renderGroupCallParticipants(call);
+  document.getElementById('groupParticipantMute').textContent = call.mutedParticipants.has(participantId) ? 'Вернуть голос' : 'Заглушить для себя';
+});
+document.getElementById('groupParticipantKick').addEventListener('click', async event => {
+  const call = activeCall;
+  const participantId = document.getElementById('groupParticipantModal').dataset.participantId;
+  if (!call?.groupCall || !call.isAdmin || !participantId) return;
+  const button = event.currentTarget;
+  const status = document.getElementById('groupParticipantStatus');
+  button.disabled = true;
+  status.textContent = 'Отключаем участника…';
+  try {
+    await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/kick`, { method:'POST', body:JSON.stringify({ participantId }) });
+    closeGroupParticipantModal();
+    showMessageToast('Участник отключён от звонка');
+    pollGroupCall(call);
+  } catch (error) {
+    status.textContent = error.message || 'Не удалось отключить участника';
+  } finally {
+    button.disabled = false;
+  }
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.getElementById('groupParticipantModal').hidden) closeGroupParticipantModal();
+});
+
 async function sendGroupCallSignal(call, recipientId, type, payload) {
   if (activeCall !== call || call.leaving) return;
   await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/signals`, {
@@ -3672,16 +3903,21 @@ async function createGroupCallPeer(call, participant) {
   call.groupPeers.set(participantId, record);
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
   record.videoSender = peer.addTransceiver('video', { direction:'sendrecv' }).sender;
-  if (call.screenStream?.getVideoTracks()[0]) await record.videoSender.replaceTrack(call.screenStream.getVideoTracks()[0]);
+  if (call.screenStream?.getVideoTracks()[0]) {
+    await record.videoSender.replaceTrack(call.screenStream.getVideoTracks()[0]);
+    await sendGroupCallSignal(call, participantId, 'screen_start', {});
+  }
   peer.ontrack = event => {
     if (event.track.kind === 'video') {
       call.remoteVideoStreams ||= new Map();
+      record.remoteVideoTrack = event.track;
       const clearRemoteVideo = () => {
         call.remoteVideoStreams?.delete(participantId);
+        if (call.selectedStreamUserId === participantId) call.selectedStreamUserId = null;
         if (activeCall === call) renderGroupCallParticipants(call);
       };
       const restoreRemoteVideo = () => {
-        if (event.track.muted || event.track.readyState === 'ended') return clearRemoteVideo();
+        if (event.track.muted || event.track.readyState === 'ended' || !call.remoteScreenSharers?.has(participantId)) return clearRemoteVideo();
         call.remoteVideoStreams.set(participantId, new MediaStream([event.track]));
         if (activeCall === call) renderGroupCallParticipants(call);
       };
@@ -3702,6 +3938,7 @@ async function createGroupCallPeer(call, participant) {
       document.getElementById('groupCallAudio').append(audio);
     }
     audio.srcObject = event.streams[0] || new MediaStream([event.track]);
+    audio.muted = call.mutedParticipants?.has(participantId) === true;
     if (audio.setSinkId) audio.setSinkId(audioOutputSelect.value).catch(() => {});
     audio.play().catch(() => {});
   };
@@ -3742,7 +3979,21 @@ async function processGroupCallSignal(call, signal) {
     record = call.groupPeers.get(senderId);
   }
   if (!record) return;
-  if (signal.type === 'offer') {
+  if (signal.type === 'screen_start') {
+    call.remoteScreenSharers ||= new Set();
+    call.remoteScreenSharers.add(senderId);
+    const track = record.remoteVideoTrack;
+    if (track && !track.muted && track.readyState !== 'ended') {
+      call.remoteVideoStreams ||= new Map();
+      call.remoteVideoStreams.set(senderId, new MediaStream([track]));
+    }
+    renderGroupCallParticipants(call);
+  } else if (signal.type === 'screen_stop') {
+    call.remoteScreenSharers?.delete(senderId);
+    call.remoteVideoStreams?.delete(senderId);
+    if (call.selectedStreamUserId === senderId) call.selectedStreamUserId = null;
+    renderGroupCallParticipants(call);
+  } else if (signal.type === 'offer') {
     await record.peer.setRemoteDescription(signal.payload);
     while (record.pendingCandidates.length) await record.peer.addIceCandidate(record.pendingCandidates.shift());
     const answer = await record.peer.createAnswer();
@@ -3779,7 +4030,9 @@ async function pollGroupCall(call) {
       if (participants.has(participantId)) continue;
       record.peer.close();
       call.groupPeers.delete(participantId);
+      call.remoteScreenSharers?.delete(participantId);
       call.remoteVideoStreams?.delete(participantId);
+      call.mutedParticipants?.delete(participantId);
       document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`)?.remove();
     }
     renderGroupCallParticipants(call);
@@ -3839,7 +4092,11 @@ async function finishGroupAudioCall({ notify = true, status = '' } = {}) {
   closeCallDialog();
   const error = await leaveRequest;
   const groupChat = chats.find(chat => String(chat.id) === call.groupId);
-  if (groupChat && !(error instanceof Error)) groupChat.groupCallParticipants = Number(error?.remaining) || 0;
+  if (groupChat && !(error instanceof Error)) {
+    groupChat.groupCallParticipants = Number(error?.remaining) || 0;
+    groupChat.groupCallActive = groupChat.groupCallParticipants > 0;
+    if (String(activeId) === call.groupId) renderGroupCallBanner(groupChat);
+  }
   updateCallControls();
   if (String(activeId) === call.groupId && !(error instanceof Error)) refreshActiveGroupCallPreview();
   if (error instanceof Error) showMessageToast(error.message || 'Не удалось выйти из звонка на сервере.');
@@ -4882,10 +5139,46 @@ document.getElementById('callShareScreen').addEventListener('click', () => {
   else startCallScreenShare();
 });
 document.getElementById('groupCallGrid').addEventListener('click', event => {
+  if (suppressGroupParticipantClick) {
+    suppressGroupParticipantClick = false;
+    return;
+  }
   const button = event.target.closest('[data-open-group-stream]');
   if (!button || !activeCall?.groupCall) return;
-  activeCall.selectedStreamUserId = button.dataset.openGroupStream;
-  updateGroupCallFeatured(activeCall);
+  activeCall.selectedStreamUserId = String(activeCall.selectedStreamUserId || '') === button.dataset.openGroupStream ? null : button.dataset.openGroupStream;
+  renderGroupCallParticipants(activeCall);
+});
+document.getElementById('groupCallGrid').addEventListener('pointerdown', event => {
+  if (!['touch', 'pen'].includes(event.pointerType)) return;
+  const tile = event.target.closest('[data-group-participant]');
+  if (!tile) return;
+  clearTimeout(groupParticipantLongPressTimer);
+  const participantId = tile.dataset.groupParticipant;
+  groupParticipantLongPressStart = { x:event.clientX, y:event.clientY };
+  groupParticipantLongPressTimer = setTimeout(() => {
+    suppressGroupParticipantClick = true;
+    openGroupParticipantModal(participantId);
+  }, 520);
+});
+document.getElementById('groupCallGrid').addEventListener('pointermove', event => {
+  if (!groupParticipantLongPressStart) return;
+  if (Math.hypot(event.clientX - groupParticipantLongPressStart.x, event.clientY - groupParticipantLongPressStart.y) > 12) {
+    clearTimeout(groupParticipantLongPressTimer);
+    groupParticipantLongPressStart = null;
+  }
+}, { passive:true });
+for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
+  document.getElementById('groupCallGrid').addEventListener(eventName, () => {
+    clearTimeout(groupParticipantLongPressTimer);
+    groupParticipantLongPressStart = null;
+    if (suppressGroupParticipantClick) setTimeout(() => { suppressGroupParticipantClick = false; }, 0);
+  }, { passive:true });
+}
+document.getElementById('groupCallGrid').addEventListener('contextmenu', event => {
+  const tile = event.target.closest('[data-group-participant]');
+  if (!tile || !activeCall?.groupCall) return;
+  event.preventDefault();
+  openGroupParticipantModal(tile.dataset.groupParticipant);
 });
 document.getElementById('groupCallFeaturedClose').addEventListener('click', () => {
   if (!activeCall?.groupCall) return;
