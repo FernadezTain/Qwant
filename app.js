@@ -54,6 +54,30 @@ const audioOutputTest = document.getElementById('audioOutputTest');
 const startAudioCallButton = document.getElementById('startAudioCall');
 const headerStartAudioCallButton = document.getElementById('headerStartAudioCall');
 const showGroupMembersButton = document.getElementById('showGroupMembers');
+
+const callOutgoingRingtone = document.getElementById('callOutgoingRingtone');
+const callEndedSound = document.getElementById('callEndedSound');
+const groupUserJoinedSound = document.getElementById('groupUserJoinedSound');
+const groupUserLeftSound = document.getElementById('groupUserLeftSound');
+const screenShareOnSound = document.getElementById('screenShareOnSound');
+const screenShareOffSound = document.getElementById('screenShareOffScreen');
+
+function stopCallRingback() {
+  callOutgoingRingtone.pause();
+  callOutgoingRingtone.currentTime = 0;
+}
+
+function startCallRingback() {
+  callOutgoingRingtone.currentTime = 0;
+  callOutgoingRingtone.play().catch(() => {});
+}
+
+function playCallEffect(audio) {
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
 const colors = ['#e8d5c8', '#b8c5a5', '#c4cce1', '#e7c9a0', '#d8b7c2', '#dfd9c8', '#d8c6b6'];
 const emojiCategories = [
   { id:'smileys', label:'Смайлы', icon:'😀', items:[['😀','улыбка'],['😃','улыбка радость'],['😄','смех'],['😁','зубы'],['😆','смеюсь'],['😅','неловко пот'],['😂','слезы смех'],['🤣','катаюсь смех'],['🙂','улыбка'],['🙃','перевернутый'],['😉','подмигивание'],['😊','доволен'],['😇','ангел'],['🥰','любовь'],['😍','сердечки'],['😘','поцелуй'],['😋','вкусно'],['😛','язык'],['😜','подмигнул язык'],['🤪','сумасшедший'],['😎','круто очки'],['🤓','умный'],['🤔','думаю'],['🫡','салют'],['🤨','сомнение'],['😐','нейтрально'],['😶','без слов'],['🙄','закатил глаза'],['😏','ухмылка'],['😴','сон'],['🥱','зевота'],['😭','плачу'],['😤','злюсь'],['😡','злость'],['🤯','взрыв мозга'],['🥳','праздник'],['🤗','обнимаю'],['🫶','сердце руками']] },
@@ -3603,8 +3627,12 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   clearTimeout(call.disconnectTimer);
   clearTimeout(call.recoveryTimer);
   clearInterval(callDurationTimer);
+    stopIncomingRingtone();
+    stopCallRingback();
   cancelAnimationFrame(callVoiceFrame);
   stopIncomingRingtone();
+  stopCallRingback();
+  playCallEffect(callEndedSound);
   call.wakeLock?.release().catch(() => {});
   setCallSpeaking(false);
   call.voiceAnalyser = null;
@@ -4385,6 +4413,7 @@ async function startAudioCall() {
     await sendCallSignal('invite');
     call.signalingReady = true;
     flushLocalCallCandidates(call);
+    startCallRingback();
     setCallDialog({ name:call.name, status:'Вызов…' });
     callTimeoutTimer = setTimeout(() => finishAudioCall({ status:'Нет ответа.' }), 45000);
   } catch (error) {
