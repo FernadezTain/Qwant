@@ -246,6 +246,7 @@
     .call-action[disabled] { opacity: .6; cursor: wait; }
     .call-action[hidden] { display: none; }
     .call-card:not(.is-group-call).is-sharing .call-main { flex: 0 0 auto; padding: 4px 0 12px; }
+    .call-card:not(.is-group-call).is-sharing { display: grid; grid-template-rows: auto auto minmax(0,1fr) auto auto; align-content: stretch; }
     .call-card:not(.is-group-call).is-sharing .call-avatar { width: 62px; height: 62px; margin-bottom: 12px; font-size: 22px; }
     .call-card:not(.is-group-call).is-sharing .call-avatar::before, .call-card:not(.is-group-call).is-sharing .call-avatar::after { display: none; }
     .call-card:not(.is-group-call).is-sharing .call-screen-stage { flex: 1 1 0; }
