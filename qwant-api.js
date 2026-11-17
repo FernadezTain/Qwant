@@ -146,6 +146,28 @@ async function userMap(ids) {
   return new Map(rows.map(row => [String(row.id), publicUser(row)]));
 }
 
+async function presenceMap(ids) {
+  const uniqueIds = [...new Set(ids.filter(id => /^\d+$/.test(String(id))).map(String))];
+  if (!uniqueIds.length) return new Map();
+  const query = uniqueIds.map(encodeURIComponent).join(',');
+  const [presence, settings] = await Promise.all([
+    supabase(`qwant_messenger_presence?user_id=in.(${query})&select=user_id,last_seen_at`),
+    supabase(`qwant_messenger_settings?user_id=in.(${query})&select=user_id,show_online_status`)
+  ]);
+  const seenByUser = new Map(presence.map(row => [String(row.user_id), row.last_seen_at]));
+  const settingsByUser = new Map(settings.map(row => [String(row.user_id), row.show_online_status]));
+  const onlineAfter = Date.now() - 60000;
+  return new Map(uniqueIds.map(id => {
+    const lastSeenAt = seenByUser.get(id) || null;
+    const hidden = settingsByUser.get(id) === false;
+    const online = lastSeenAt && Date.parse(lastSeenAt) >= onlineAfter;
+    return [id, {
+      presence_state: hidden ? 'recently' : online ? 'online' : 'offline',
+      last_seen_at: hidden ? null : lastSeenAt
+    }];
+  }));
+}
+
 async function loadGroupMembers(groupId) {
   const rows = await supabase(`social_group_members?group_id=eq.${encodeURIComponent(groupId)}&select=user_id,role,joined_at,last_read_at&order=joined_at.asc`);
   const profiles = await userMap(rows.map(row => row.user_id));
@@ -252,7 +274,20 @@ export function registerQwantApi(app, { authRateLimit }) {
     try {
       const rows = await supabase(`users?id=eq.${encodeURIComponent(req.params.targetId)}&select=id,username,display_name,avatar_url,banner_url,description,messenger_verification&limit=1`);
       if (!rows[0]) return res.status(404).json({ success: false, error: 'Пользователь не найден' });
-      res.json({ success: true, user: publicUser(rows[0]) });
+      const presence = await presenceMap([rows[0].id]);
+      res.json({ success: true, user: { ...publicUser(rows[0]), ...presence.get(String(rows[0].id)) } });
+    } catch (error) { respondError(res, error); }
+  });
+
+  app.post('/api/social/presence', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success: false, error: 'Требуется войти в QwantID' });
+    try {
+      await supabase('qwant_messenger_presence?on_conflict=user_id', {
+        method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+        body: { user_id: user.id, last_seen_at: new Date().toISOString() }
+      });
+      res.json({ success: true });
     } catch (error) { respondError(res, error); }
   });
 
@@ -267,12 +302,14 @@ export function registerQwantApi(app, { authRateLimit }) {
       const hiddenIds = new Set(hidden.map(row => String(row.conversation_id)));
       const visible = conversations.filter(row => !hiddenIds.has(String(row.id)));
       const partners = await userMap(visible.map(row => String(row.participant_one) === String(user.id) ? row.participant_two : row.participant_one));
+      const partnerIds = visible.map(row => String(row.participant_one) === String(user.id) ? row.participant_two : row.participant_one);
+      const presence = await presenceMap(partnerIds);
       const unread = visible.length ? await supabase(`social_messages?conversation_id=in.(${visible.map(row => encodeURIComponent(row.id)).join(',')})&recipient_id=eq.${user.id}&read_at=is.null&select=conversation_id`) : [];
       const unreadCounts = new Map();
       unread.forEach(row => unreadCounts.set(String(row.conversation_id), (unreadCounts.get(String(row.conversation_id)) || 0) + 1));
       res.json({ success: true, chats: visible.map(row => {
         const partnerId = String(row.participant_one) === String(user.id) ? row.participant_two : row.participant_one;
-        return { id: row.id, partner: partners.get(String(partnerId)) || { id: partnerId, username: 'Пользователь' }, lastMessage: row.last_message_text, lastMessageSenderId: row.last_message_sender_id, lastMessageAt: row.last_message_at, unreadCount: unreadCounts.get(String(row.id)) || 0 };
+        return { id: row.id, partner: { ...(partners.get(String(partnerId)) || { id: partnerId, username: 'Пользователь' }), ...presence.get(String(partnerId)) }, lastMessage: row.last_message_text, lastMessageSenderId: row.last_message_sender_id, lastMessageAt: row.last_message_at, unreadCount: unreadCounts.get(String(row.id)) || 0 };
       }) });
     } catch (error) { respondError(res, error); }
   });
@@ -478,6 +515,66 @@ export function registerQwantApi(app, { authRateLimit }) {
       members.forEach(row => counts.set(row.group_id, (counts.get(row.group_id) || 0) + 1));
       res.json({ success: true, chats: groups.map(group => ({ id: group.id, title: group.title, description: group.description, avatar_url: group.avatar_url, inviteCode: group.invite_code, is_group: true, isAdmin: memberships.find(row => row.group_id === group.id)?.role === 'admin', memberCount: counts.get(group.id) || 0, lastMessage: group.last_message_text, lastMessageAt: group.last_message_at, lastMessageSenderId: group.last_message_sender_id, unreadCount: 0 })) });
     } catch (error) { respondError(res, error); }
+  });
+
+  app.get('/api/social/group-chats/:groupId/call', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success: false, error: 'Требуется войти в QwantID' });
+    try {
+      await supabase('rpc/qwant_group_call_sweep', { method:'POST', body:{ p_group_id:req.params.groupId, p_user_id:user.id, p_heartbeat:req.query.heartbeat === '1' } });
+      const calls = await supabase(`qwant_group_calls?group_id=eq.${encodeURIComponent(req.params.groupId)}&status=eq.active&select=id,created_by,created_at&limit=1`);
+      if (!calls[0]) return res.json({ success:true, call:null });
+      const participants = await supabase(`qwant_group_call_participants?call_id=eq.${encodeURIComponent(calls[0].id)}&left_at=is.null&select=user_id,joined_at&order=joined_at.asc`);
+      if (req.query.preview === '1') return res.json({ success:true, call:{ id:calls[0].id, participantCount:participants.length } });
+      const members = await supabase(`social_group_members?group_id=eq.${encodeURIComponent(req.params.groupId)}&select=user_id,role`);
+      const profiles = await userMap(participants.map(participant => participant.user_id));
+      const roles = new Map(members.map(member => [String(member.user_id), member.role]));
+      res.json({ success:true, call:{ id:calls[0].id, createdBy:String(calls[0].created_by), createdAt:calls[0].created_at, participants:participants.map(participant => ({ ...(profiles.get(String(participant.user_id)) || {}), id:String(participant.user_id), role:roles.get(String(participant.user_id)) || 'member', joinedAt:participant.joined_at })) } });
+    } catch (error) { respondError(res, error, 400); }
+  });
+
+  app.post('/api/social/group-chats/:groupId/call', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    try {
+      const result = await supabase('rpc/qwant_group_call_join', { method:'POST', body:{ p_group_id:req.params.groupId, p_user_id:user.id } });
+      if (!result?.[0]) throw new Error('Не удалось создать или открыть групповой звонок');
+      res.json({ success:true, callId:result[0].call_id, created:result[0].created });
+    } catch (error) { respondError(res, error, 400); }
+  });
+
+  app.get('/api/social/group-chats/:groupId/call/:callId/signals', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    if (!/^[a-f\d-]{36}$/i.test(req.params.callId)) return res.status(400).json({ success:false, error:'Некорректный звонок' });
+    try {
+      const signals = await supabase('rpc/qwant_group_call_consume_signals', { method:'POST', body:{ p_call_id:req.params.callId, p_user_id:user.id } });
+      res.json({ success:true, signals:(signals || []).map(signal => ({ ...signal, senderId:String(signal.sender_id), type:signal.signal_type })) });
+    } catch (error) { respondError(res, error, 400); }
+  });
+
+  app.post('/api/social/group-chats/:groupId/call/:callId/signals', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    const recipientId = String(req.body?.recipientId || '');
+    const type = String(req.body?.type || '');
+    const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {};
+    if (!/^[a-f\d-]{36}$/i.test(req.params.callId) || !/^\d+$/.test(recipientId) || !['offer', 'answer', 'ice'].includes(type)) return res.status(400).json({ success:false, error:'Некорректное событие звонка' });
+    if (JSON.stringify(payload).length > 16000) return res.status(413).json({ success:false, error:'Событие звонка слишком большое' });
+    try {
+      await supabase('rpc/qwant_group_call_send_signal', { method:'POST', body:{ p_call_id:req.params.callId, p_sender_id:user.id, p_recipient_id:recipientId, p_signal_type:type, p_payload:payload } });
+      res.json({ success:true });
+    } catch (error) { respondError(res, error, 400); }
+  });
+
+  app.post('/api/social/group-chats/:groupId/call/:callId/leave', async (req, res) => {
+    const user = req.qwantUser;
+    if (!user) return res.status(401).json({ success:false, error:'Требуется войти в QwantID' });
+    if (!/^[a-f\d-]{36}$/i.test(req.params.callId)) return res.status(400).json({ success:false, error:'Некорректный звонок' });
+    try {
+      const result = await supabase('rpc/qwant_group_call_leave', { method:'POST', body:{ p_group_id:req.params.groupId, p_call_id:req.params.callId, p_user_id:user.id, p_end_for_all:req.body?.endForAll === true } });
+      res.json({ success:true, ended:result?.[0]?.ended === true, remaining:Number(result?.[0]?.remaining) || 0 });
+    } catch (error) { respondError(res, error, 400); }
   });
 
   app.get('/api/social/group-invites/:inviteCode', async (req, res) => {
