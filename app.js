@@ -3381,9 +3381,13 @@ function updateCallScreenPresentation(call = activeCall) {
   stage.hidden = !stream;
   card.classList.toggle('is-sharing', Boolean(ownStream || remoteStream));
   if (!isGroup && video.srcObject !== stream) video.srcObject = stream;
+  video.muted = true;
   video.hidden = !stream;
   label.hidden = !stream;
-  if (stream) label.textContent = ownStream ? 'Вы показываете экран' : `${call.partner?.display_name || call.name} показывает экран`;
+  if (stream) {
+    label.textContent = ownStream ? 'Вы показываете экран' : `${call.partner?.display_name || call.name} показывает экран`;
+    video.play().catch(() => {});
+  }
   document.getElementById('callShareScreen').setAttribute('aria-pressed', String(Boolean(ownStream)));
   document.getElementById('callShareScreen').querySelector('span').textContent = ownStream ? 'Остановить показ' : 'Поделиться экраном';
   document.getElementById('callShareScreen').setAttribute('aria-label', ownStream ? 'Остановить демонстрацию экрана' : 'Поделиться экраном');
