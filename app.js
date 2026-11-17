@@ -3213,6 +3213,102 @@ async function keepCallScreenAwake(call = activeCall) {
   } catch {}
 }
 
+function updateCallWindowControls() {
+  const expanded = Boolean(activeCall?.expanded || callOverlay.classList.contains('is-expanded') || document.fullscreenElement === callOverlay);
+  const button = document.getElementById('callExpand');
+  button.setAttribute('aria-label', expanded ? 'Вернуть обычный размер звонка' : 'Открыть звонок на весь экран');
+  button.title = expanded ? 'Свернуть окно' : 'На весь экран';
+  button.innerHTML = expanded
+    ? '<svg viewBox="0 0 24 24"><path d="M8 3v5H3M16 3v5h5M21 16h-5v5M3 16h5v5"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+}
+
+async function toggleCallFullscreen() {
+  if (!activeCall || callOverlay.hidden) return;
+  const expanded = Boolean(activeCall.expanded || callOverlay.classList.contains('is-expanded') || document.fullscreenElement === callOverlay);
+  if (expanded) {
+    activeCall.expanded = false;
+    activeCall.fullscreenActive = false;
+    callOverlay.classList.remove('is-expanded');
+    if (document.fullscreenElement === callOverlay) await document.exitFullscreen().catch(() => {});
+  } else {
+    activeCall.expanded = true;
+    callOverlay.classList.add('is-expanded');
+    updateCallWindowControls();
+    try {
+      await callOverlay.requestFullscreen();
+      activeCall.fullscreenActive = document.fullscreenElement === callOverlay;
+    } catch {
+      activeCall.fullscreenActive = false;
+    }
+  }
+  updateCallWindowControls();
+}
+
+function updateCallScreenPresentation(call = activeCall) {
+  const card = document.querySelector('.call-card');
+  const stage = document.getElementById('callScreenStage');
+  const video = document.getElementById('callScreenVideo');
+  const label = document.getElementById('callScreenLabel');
+  const isGroup = call?.groupCall === true;
+  const ownStream = call?.screenStream || null;
+  const remoteStream = call?.remoteVideoStream || null;
+  const stream = !isGroup ? ownStream || remoteStream : null;
+  stage.hidden = !stream;
+  card.classList.toggle('is-sharing', Boolean(ownStream || remoteStream));
+  if (!isGroup && video.srcObject !== stream) video.srcObject = stream;
+  video.hidden = !stream;
+  label.hidden = !stream;
+  if (stream) label.textContent = ownStream ? 'Вы показываете экран' : `${call.partner?.display_name || call.name} показывает экран`;
+  document.getElementById('callShareScreen').setAttribute('aria-pressed', String(Boolean(ownStream)));
+  document.getElementById('callShareScreen').querySelector('span').textContent = ownStream ? 'Остановить показ' : 'Поделиться экраном';
+  document.getElementById('callShareScreen').setAttribute('aria-label', ownStream ? 'Остановить демонстрацию экрана' : 'Поделиться экраном');
+  if (isGroup) renderGroupCallParticipants(call);
+}
+
+async function startCallScreenShare() {
+  const call = activeCall;
+  const shareButton = document.getElementById('callShareScreen');
+  if (!call || shareButton.disabled) return;
+  if (!navigator.mediaDevices?.getDisplayMedia) return showMessageToast('Браузер не поддерживает демонстрацию экрана.');
+  shareButton.disabled = true;
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:{ ideal:15, max:30 } }, audio:false });
+    if (activeCall !== call) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    const track = stream.getVideoTracks()[0];
+    if (!track) throw new Error('Не удалось получить видеопоток экрана.');
+    call.screenStream = stream;
+    track.addEventListener('ended', () => stopCallScreenShare(call), { once:true });
+    const senders = call.groupCall
+      ? [...call.groupPeers.values()].map(record => record.videoSender)
+      : [call.videoSender];
+    await Promise.all(senders.filter(Boolean).map(sender => sender.replaceTrack(track)));
+    updateCallScreenPresentation(call);
+  } catch (error) {
+    if (call.screenStream === stream) await stopCallScreenShare(call);
+    else stream?.getTracks().forEach(track => track.stop());
+    if (activeCall === call) showMessageToast(error.message || 'Не удалось начать демонстрацию экрана.');
+  } finally {
+    shareButton.disabled = false;
+  }
+}
+
+async function stopCallScreenShare(call = activeCall) {
+  if (!call?.screenStream) return;
+  const stream = call.screenStream;
+  call.screenStream = null;
+  const senders = call.groupCall
+    ? [...call.groupPeers.values()].map(record => record.videoSender)
+    : [call.videoSender];
+  await Promise.all(senders.filter(sender => sender?.track?.kind === 'video').map(sender => sender.replaceTrack(null).catch(() => {})));
+  stream.getTracks().forEach(track => track.stop());
+  if (activeCall === call) updateCallScreenPresentation(call);
+}
+
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
   const isGroupCall = activeCall?.groupCall === true;
   const callMain = document.getElementById('callMain');
@@ -3236,11 +3332,14 @@ function setCallDialog({ name, status, incoming = false, connecting = false }) {
   if (acceptButton) acceptButton.hidden = !incoming;
   if (declineButton) declineButton.hidden = !incoming;
   if (muteButton) muteButton.hidden = !connecting;
+  const shareButton = document.getElementById('callShareScreen');
+  shareButton.hidden = !activeCall?.stream || !navigator.mediaDevices?.getDisplayMedia;
   if (endButton) endButton.hidden = incoming;
   const minimized = activeCall?.minimized === true;
   callOverlay.hidden = minimized;
   callOverlay.setAttribute('aria-hidden', String(minimized));
   document.getElementById('callDock').hidden = !minimized;
+  updateCallWindowControls();
 }
 
 async function sendCallSignal(type, payload = {}, call = activeCall) {
@@ -3270,12 +3369,23 @@ function closeCallDialog() {
   document.getElementById('callDecline').hidden = true;
   document.getElementById('callMute').hidden = true;
   document.getElementById('callEnd').hidden = false;
+  document.getElementById('callShareScreen').hidden = true;
+  callOverlay.classList.remove('is-expanded');
+  if (document.fullscreenElement === callOverlay) document.exitFullscreen().catch(() => {});
   document.getElementById('callMain').classList.remove('is-group-call');
   document.getElementById('callAvatar').hidden = false;
   document.getElementById('groupCallParticipants').hidden = true;
   document.getElementById('groupCallParticipants').replaceChildren();
   document.getElementById('groupCallAudio').replaceChildren();
+  const screenVideo = document.getElementById('callScreenVideo');
+  screenVideo.srcObject = null;
+  screenVideo.hidden = false;
+  document.getElementById('callScreenStage').hidden = true;
+  document.getElementById('callScreenLabel').hidden = true;
+  document.querySelector('.call-card')?.classList.remove('is-sharing');
+  document.getElementById('callShareScreen').setAttribute('aria-pressed', 'false');
   callRemoteAudio.srcObject = null;
+  updateCallWindowControls();
 }
 
 async function finishAudioCall({ notify = true, status = '' } = {}) {
@@ -3298,10 +3408,12 @@ async function finishAudioCall({ notify = true, status = '' } = {}) {
   const voiceIndicator = document.getElementById('callVoiceIndicator');
   if (durationElement) durationElement.hidden = true;
   if (voiceIndicator) voiceIndicator.hidden = true;
+  await stopCallScreenShare(call);
   if (notify) sendCallSignal('hangup', {}, call).then(() => {
     if (app.classList.contains('show-call-history') || document.getElementById('callHistory').classList.contains('is-dialog')) loadCallHistory();
   }).catch(() => {});
   call.peer?.close();
+  call.videoSender = null;
   call.stream?.getTracks().forEach(track => track.stop());
   callRemoteAudio.srcObject = null;
   closeCallDialog();
@@ -3319,6 +3431,8 @@ function createCallPeer(call, stream) {
     throw new Error('Звонок завершён');
   }
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  call.videoSender = peer.addTransceiver('video', { direction:'sendrecv' }).sender;
+  if (call.screenStream?.getVideoTracks()[0]) call.videoSender.replaceTrack(call.screenStream.getVideoTracks()[0]).catch(() => {});
   call.stream.getAudioTracks().forEach(track => {
     track.addEventListener('mute', () => {
       if (activeCall === call) setCallStatus('Микрофон приостановлен системой');
@@ -3329,7 +3443,24 @@ function createCallPeer(call, stream) {
   });
   monitorCallVoice(call);
   peer.ontrack = event => {
-    callRemoteAudio.srcObject = event.streams[0];
+    if (event.track.kind === 'video') {
+      call.remoteVideoStream = new MediaStream([event.track]);
+      const clearRemoteVideo = () => {
+        call.remoteVideoStream = null;
+        if (activeCall === call) updateCallScreenPresentation(call);
+      };
+      const restoreRemoteVideo = () => {
+        call.remoteVideoStream = new MediaStream([event.track]);
+        if (activeCall === call) updateCallScreenPresentation(call);
+      };
+      event.track.addEventListener('ended', clearRemoteVideo, { once:true });
+      event.track.addEventListener('mute', clearRemoteVideo);
+      event.track.addEventListener('unmute', restoreRemoteVideo);
+      if (activeCall === call) updateCallScreenPresentation(call);
+      return;
+    }
+    if (event.track.kind !== 'audio') return;
+    callRemoteAudio.srcObject = event.streams[0] || new MediaStream([event.track]);
     applyAudioOutput(audioOutputSelect.value).finally(() => callRemoteAudio.play().catch(() => {}));
   };
   peer.onicecandidate = event => {
@@ -3406,11 +3537,25 @@ async function flushCallCandidates(call) {
 function renderGroupCallParticipants(call) {
   const participants = [...call.participants.values()];
   const count = participants.length;
-  document.getElementById('groupCallParticipants').innerHTML = participants.map(participant => `
-    <div class="group-call-participant ${String(participant.id) === String(session.userId) ? 'is-self' : ''}">
-      ${avatarMarkup(participant, 'group-call-participant-avatar')}
-      <span class="group-call-participant-name">${escapeHtml(participant.display_name || participant.username || 'Участник')}${String(participant.id) === String(session.userId) ? ' · вы' : ''}</span>
-    </div>`).join('');
+  const markupKey = JSON.stringify(participants.map(participant => [String(participant.id), participant.display_name, participant.username, participant.role, String(participant.id) === String(session.userId) ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(String(participant.id))]));
+  if (call.participantsMarkupKey !== markupKey) {
+    call.participantsMarkupKey = markupKey;
+    document.getElementById('groupCallParticipants').innerHTML = participants.map(participant => {
+      const isSelf = String(participant.id) === String(session.userId);
+      const isSharing = isSelf ? Boolean(call.screenStream) : call.remoteVideoStreams?.has(String(participant.id));
+      return `
+        <div class="group-call-participant ${isSelf ? 'is-self' : ''} ${isSharing ? 'is-sharing' : ''}">
+          ${avatarMarkup(participant, 'group-call-participant-avatar')}
+          <video class="group-call-participant-screen" data-screen-user="${escapeHtml(participant.id)}" autoplay playsinline ${isSharing ? '' : 'hidden'}></video>
+          <span class="group-call-participant-name">${escapeHtml(participant.display_name || participant.username || 'Участник')}${isSelf ? ' · вы' : ''}</span>
+        </div>`;
+    }).join('');
+  }
+  for (const video of document.querySelectorAll('#groupCallParticipants [data-screen-user]')) {
+    const userId = String(video.dataset.screenUser);
+    const stream = userId === String(session.userId) ? call.screenStream : call.remoteVideoStreams?.get(userId);
+    if (video.srcObject !== stream) video.srcObject = stream || null;
+  }
   document.getElementById('callDockStatus').textContent = `${count} из 20`;
   setCallStatus(count < 2 ? 'Ожидаем участников…' : `В звонке: ${count} из 20`);
 }
@@ -3427,10 +3572,29 @@ async function createGroupCallPeer(call, participant) {
   const participantId = String(participant.id);
   if (activeCall !== call || participantId === String(session.userId) || call.groupPeers.has(participantId)) return;
   const peer = new RTCPeerConnection({ iceServers:callIceServers });
-  const record = { peer, pendingCandidates:[] };
+  const record = { peer, pendingCandidates:[], videoSender:null };
   call.groupPeers.set(participantId, record);
   call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  record.videoSender = peer.addTransceiver('video', { direction:'sendrecv' }).sender;
+  if (call.screenStream?.getVideoTracks()[0]) await record.videoSender.replaceTrack(call.screenStream.getVideoTracks()[0]);
   peer.ontrack = event => {
+    if (event.track.kind === 'video') {
+      call.remoteVideoStreams ||= new Map();
+      const clearRemoteVideo = () => {
+        call.remoteVideoStreams?.delete(participantId);
+        if (activeCall === call) renderGroupCallParticipants(call);
+      };
+      const restoreRemoteVideo = () => {
+        call.remoteVideoStreams.set(participantId, new MediaStream([event.track]));
+        if (activeCall === call) renderGroupCallParticipants(call);
+      };
+      restoreRemoteVideo();
+      event.track.addEventListener('ended', clearRemoteVideo, { once:true });
+      event.track.addEventListener('mute', clearRemoteVideo);
+      event.track.addEventListener('unmute', restoreRemoteVideo);
+      return;
+    }
+    if (event.track.kind !== 'audio') return;
     let audio = document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`);
     if (!audio) {
       audio = document.createElement('audio');
@@ -3517,6 +3681,7 @@ async function pollGroupCall(call) {
       if (participants.has(participantId)) continue;
       record.peer.close();
       call.groupPeers.delete(participantId);
+      call.remoteVideoStreams?.delete(participantId);
       document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`)?.remove();
     }
     renderGroupCallParticipants(call);
@@ -3565,8 +3730,11 @@ async function finishGroupAudioCall({ notify = true, status = '' } = {}) {
   call.wakeLock?.release().catch(() => {});
   setCallSpeaking(false);
   call.voiceContext?.close().catch(() => {});
+  const screenStop = stopCallScreenShare(call);
   call.groupPeers.forEach(record => record.peer.close());
+  call.remoteVideoStreams?.clear();
   call.stream?.getTracks().forEach(track => track.stop());
+  await screenStop;
   document.getElementById('groupCallAudio').replaceChildren();
   closeCallDialog();
   const error = await leaveRequest;
@@ -4608,11 +4776,36 @@ document.getElementById('groupInviteAddSelected').addEventListener('click', addS
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
 document.getElementById('callEnd').addEventListener('click', leaveActiveCall);
+document.getElementById('callExpand').addEventListener('click', toggleCallFullscreen);
+document.getElementById('callShareScreen').addEventListener('click', () => {
+  if (activeCall?.screenStream) stopCallScreenShare();
+  else startCallScreenShare();
+});
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement === callOverlay) {
+    if (activeCall) activeCall.fullscreenActive = true;
+    callOverlay.classList.add('is-expanded');
+  } else if (activeCall?.fullscreenActive) {
+    activeCall.fullscreenActive = false;
+    activeCall.expanded = false;
+    callOverlay.classList.remove('is-expanded');
+  }
+  updateCallWindowControls();
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || document.fullscreenElement === callOverlay || !callOverlay.classList.contains('is-expanded')) return;
+  callOverlay.classList.remove('is-expanded');
+  updateCallWindowControls();
+});
 document.addEventListener('pointerdown', () => {
   if (activeCall && !activeCall.groupCall && !activeCall.initiator && !activeCall.peer && callRingtone.paused) startIncomingRingtone();
 }, { passive:true });
-document.getElementById('callMinimize').addEventListener('click', () => {
+document.getElementById('callMinimize').addEventListener('click', async () => {
   if (!activeCall) return;
+  activeCall.expanded = false;
+  activeCall.fullscreenActive = false;
+  if (document.fullscreenElement === callOverlay) await document.exitFullscreen().catch(() => {});
+  callOverlay.classList.remove('is-expanded');
   activeCall.minimized = true;
   callOverlay.hidden = true;
   callOverlay.setAttribute('aria-hidden', 'true');
