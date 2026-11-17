@@ -83,6 +83,8 @@ let chats = [];
 let activeId = null;
 let callDockDrag = null;
 let activeFilter = 'all';
+let filterDrag = null;
+let suppressFilterClick = false;
 let searchUsers = false;
 let searchTimer;
 let pendingChallenge = null;
@@ -140,6 +142,7 @@ let outputTestTimer = null;
 let callSignalTimer;
 let callTimeoutTimer;
 let callDurationTimer;
+let groupCallPreviewTimer;
 let callVoiceFrame;
 let callSignalsPolling = false;
 let callHistoryRequestId = 0;
@@ -194,7 +197,7 @@ async function api(path, options = {}) {
   if (session?.sessionToken) headers.Authorization = `Bearer ${session.sessionToken}`;
   let response;
   try {
-    response = await fetch(new URL(path, apiOrigin), { ...options, headers });
+    response = await fetch(new URL(path, apiOrigin), { ...options, headers, signal: options.signal || AbortSignal.timeout(12000) });
   } catch (error) {
     markConnectionLost();
     throw error;
@@ -660,6 +663,7 @@ async function saveSetting(key, value, button) {
     await api('/api/qwant/settings', { method: 'PATCH', body: JSON.stringify({ [key]: value }) });
     accountSettings.settings[key] = value;
     if (key === 'theme' || key === 'accent_color' || key === 'font_scale') applyPersonalization(accountSettings.settings);
+    if (key === 'show_online_status') loadChats();
   } catch (error) {
     button.setAttribute('aria-checked', String(oldValue !== false));
     document.getElementById('telegramSettingsStatus').textContent = error.message;
@@ -1366,6 +1370,7 @@ function renderUserProfilePopup(person) {
   username.dataset.copyUsername = person.username || '';
   username.hidden = !person.username;
   document.getElementById('userPopupDescription').textContent = person.description || 'Описание не указано';
+  document.getElementById('userPopupPresence').textContent = person.id && String(person.id) !== String(session?.userId) ? presenceLabel(person) : '';
   const banner = document.getElementById('userPopupBanner');
   const bannerUrl = safeImageUrl(person.banner_url || person.bannerUrl);
   banner.hidden = !bannerUrl;
@@ -1496,6 +1501,24 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
+function presenceLabel(person) {
+  if (person.presence_state === 'online') return 'в сети';
+  if (person.presence_state === 'recently' || !person.last_seen_at) return 'был(-а) недавно';
+  const date = new Date(person.last_seen_at);
+  if (Number.isNaN(date.getTime())) return 'был(-а) недавно';
+  const time = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(date);
+  if (date.toDateString() === new Date().toDateString()) return `был(-а) сегодня в ${time}`;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `был(-а) вчера в ${time}`;
+  return `был(-а) ${formatDateTime(date)}`;
+}
+
+function updateHeaderPresence(chat, typing = false) {
+  if (!chat || chat.isGroup || chat.isFavorites) return;
+  document.getElementById('headerStatus').textContent = typing ? 'печатает…' : presenceLabel(chat.partner);
+}
+
 function dateLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Сообщения';
@@ -1525,7 +1548,7 @@ function mapChat(row) {
     preview: row.lastMessage || 'Начните переписку',
     unread: Number(row.unreadCount) || 0,
     pinned: pinnedChatIds.has(String(row.id)),
-    online: false,
+    online: partner.presence_state === 'online',
     personal: !isGroup,
     messages: [],
     messagesLoaded: false
@@ -2156,7 +2179,7 @@ async function loadChatMessages(chat, showLoader = false) {
     }
     const presence = await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`).catch(() => null);
     if (presence && activeId === chat.id) {
-      document.getElementById('headerStatus').textContent = presence.typing ? 'печатает…' : presence.inChat ? 'в сети' : chat.handle;
+      updateHeaderPresence(chat, presence.typing);
     }
     await api(`/api/social/chats/${encodeURIComponent(chat.id)}/presence`, { method: 'POST', body: JSON.stringify({ typing: false }) }).catch(() => {});
     try {
@@ -2249,6 +2272,12 @@ async function loadChats() {
     const favoriteChat = createFavoritesChat(previousChats.get(favoritesChatId()));
     chats = [favoriteChat, ...(pendingChat ? [...nextChats, pendingChat] : nextChats)];
     renderChats();
+    const activeChat = chats.find(chat => chat.id === activeId);
+    if (activeChat && !activeChat.isGroup && !activeChat.isFavorites) updateHeaderPresence(activeChat);
+    if (activeUserPopup?.id) {
+      const popupChat = nextChats.find(chat => String(chat.partner.id) === String(activeUserPopup.id));
+      if (popupChat) renderUserProfilePopup({ ...activeUserPopup, ...popupChat.partner });
+    }
     if (activeId && !chats.some(chat => chat.id === activeId)) {
       closeActiveChat();
     }
@@ -2291,7 +2320,7 @@ async function selectChat(id) {
   setAvatar(document.getElementById('headerAvatar'), chat.partner);
   document.getElementById('headerName').childNodes[0].textContent = chat.name;
   document.getElementById('headerVerificationBadge').hidden = !verificationBadgeMarkup(chat.partner);
-  document.getElementById('headerStatus').textContent = chat.handle;
+  document.getElementById('headerStatus').textContent = chat.isGroup || chat.isFavorites ? chat.handle : presenceLabel(chat.partner);
   document.getElementById('headerStatus').dataset.copyUsername = !chat.isGroup ? chat.partner.username || '' : '';
   updateCallControls();
   document.getElementById('messageForm').hidden = !!chat.partner.is_deleted;
@@ -2313,7 +2342,10 @@ async function selectChat(id) {
   document.getElementById('groupInviteButton').hidden = !chat.isGroup;
   document.getElementById('groupSettingsButton').hidden = !chat.isGroup || !chat.isAdmin;
   document.getElementById('groupMembersSection').hidden = !chat.isGroup;
-  if(chat.isGroup) loadGroupMembers(chat);
+  if(chat.isGroup) {
+    loadGroupMembers(chat);
+    refreshActiveGroupCallPreview();
+  }
   document.getElementById('mediaGrid').replaceChildren();
   document.getElementById('sharedLinks').replaceChildren();
   document.getElementById('mediaCount').textContent = '0';
@@ -2934,12 +2966,39 @@ async function copyUsername(username) {
 
 function updateCallControls() {
   const chat = chats.find(item => String(item.id) === String(activeId));
-  const canStartCall = Boolean(chat && !chat.isFavorites && !chat.isGroup && !chat.partner.is_deleted && !chat.partner.is_bot);
+  const canStartCall = Boolean(chat && !chat.isFavorites && !chat.partner.is_deleted && !chat.partner.is_bot);
+  const groupCallCount = Number(chat?.groupCallParticipants) || 0;
+  const drawerCallLabel = chat?.isGroup ? groupCallCount ? 'Присоединиться к звонку' : 'Групповой звонок' : 'Аудиозвонок';
   startAudioCallButton.disabled = !session?.sessionToken || !canStartCall || Boolean(activeCall);
   startAudioCallButton.hidden = false;
+  startAudioCallButton.lastChild.textContent = drawerCallLabel;
+  startAudioCallButton.setAttribute('aria-label', drawerCallLabel);
   headerStartAudioCallButton.hidden = !canStartCall;
   headerStartAudioCallButton.disabled = startAudioCallButton.disabled;
+  headerStartAudioCallButton.classList.toggle('group-call-active', Boolean(chat?.isGroup && groupCallCount));
+  if (chat?.isGroup && groupCallCount) headerStartAudioCallButton.dataset.callCount = String(groupCallCount);
+  else delete headerStartAudioCallButton.dataset.callCount;
+  headerStartAudioCallButton.title = chat?.isGroup
+    ? groupCallCount ? `Присоединиться к групповому звонку · ${groupCallCount} из 20` : 'Начать групповой аудиозвонок'
+    : 'Аудиозвонок';
+  headerStartAudioCallButton.setAttribute('aria-label', chat?.isGroup
+    ? groupCallCount ? `Присоединиться к групповому звонку, участников: ${groupCallCount} из 20` : 'Начать групповой аудиозвонок'
+    : 'Начать аудиозвонок');
   showGroupMembersButton.hidden = !chat?.isGroup;
+}
+
+async function refreshActiveGroupCallPreview() {
+  const chat = chats.find(item => String(item.id) === String(activeId));
+  if (!session?.sessionToken || document.hidden || !chat?.isGroup || activeCall?.groupCall) return;
+  const chatId = String(chat.id);
+  try {
+    const result = await api(`/api/social/group-chats/${encodeURIComponent(chatId)}/call?preview=1`);
+    if (String(activeId) !== chatId) return;
+    chat.groupCallParticipants = Number(result.call?.participantCount) || 0;
+  } catch {
+    if (String(activeId) === chatId) chat.groupCallParticipants = 0;
+  }
+  if (String(activeId) === chatId) updateCallControls();
 }
 
 function closeActiveChat() {
@@ -3155,9 +3214,16 @@ async function keepCallScreenAwake(call = activeCall) {
 }
 
 function setCallDialog({ name, status, incoming = false, connecting = false }) {
+  const isGroupCall = activeCall?.groupCall === true;
+  const callMain = document.getElementById('callMain');
+  const callAvatar = document.getElementById('callAvatar');
+  const groupParticipants = document.getElementById('groupCallParticipants');
   document.getElementById('callTitle').textContent = name || 'Аудиозвонок';
   setCallStatus(status);
-  setAvatar(document.getElementById('callAvatar'), activeCall?.partner || { display_name:name || 'FX' });
+  callMain.classList.toggle('is-group-call', isGroupCall);
+  callAvatar.hidden = isGroupCall;
+  groupParticipants.hidden = !isGroupCall;
+  if (!isGroupCall) setAvatar(callAvatar, activeCall?.partner || { display_name:name || 'FX' });
   document.getElementById('callDockTitle').textContent = name || 'Аудиозвонок';
   const voiceIndicator = document.getElementById('callVoiceIndicator');
   if (voiceIndicator) voiceIndicator.hidden = !connecting;
@@ -3204,12 +3270,18 @@ function closeCallDialog() {
   document.getElementById('callDecline').hidden = true;
   document.getElementById('callMute').hidden = true;
   document.getElementById('callEnd').hidden = false;
+  document.getElementById('callMain').classList.remove('is-group-call');
+  document.getElementById('callAvatar').hidden = false;
+  document.getElementById('groupCallParticipants').hidden = true;
+  document.getElementById('groupCallParticipants').replaceChildren();
+  document.getElementById('groupCallAudio').replaceChildren();
   callRemoteAudio.srcObject = null;
 }
 
 async function finishAudioCall({ notify = true, status = '' } = {}) {
   const call = activeCall;
   if (!call) return;
+  if (call.groupCall) return finishGroupAudioCall({ notify, status });
   activeCall = null;
   clearTimeout(callTimeoutTimer);
   clearTimeout(call.disconnectTimer);
@@ -3328,6 +3400,237 @@ function createCallPeer(call, stream) {
 async function flushCallCandidates(call) {
   while (activeCall === call && call.peer?.remoteDescription && call.pendingCandidates.length) {
     await call.peer.addIceCandidate(call.pendingCandidates.shift());
+  }
+}
+
+function renderGroupCallParticipants(call) {
+  const participants = [...call.participants.values()];
+  const count = participants.length;
+  document.getElementById('groupCallParticipants').innerHTML = participants.map(participant => `
+    <div class="group-call-participant ${String(participant.id) === String(session.userId) ? 'is-self' : ''}">
+      ${avatarMarkup(participant, 'group-call-participant-avatar')}
+      <span class="group-call-participant-name">${escapeHtml(participant.display_name || participant.username || 'Участник')}${String(participant.id) === String(session.userId) ? ' · вы' : ''}</span>
+    </div>`).join('');
+  document.getElementById('callDockStatus').textContent = `${count} из 20`;
+  setCallStatus(count < 2 ? 'Ожидаем участников…' : `В звонке: ${count} из 20`);
+}
+
+async function sendGroupCallSignal(call, recipientId, type, payload) {
+  if (activeCall !== call || call.leaving) return;
+  await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/signals`, {
+    method:'POST',
+    body:JSON.stringify({ recipientId, type, payload })
+  });
+}
+
+async function createGroupCallPeer(call, participant) {
+  const participantId = String(participant.id);
+  if (activeCall !== call || participantId === String(session.userId) || call.groupPeers.has(participantId)) return;
+  const peer = new RTCPeerConnection({ iceServers:callIceServers });
+  const record = { peer, pendingCandidates:[] };
+  call.groupPeers.set(participantId, record);
+  call.stream.getTracks().forEach(track => peer.addTrack(track, call.stream));
+  peer.ontrack = event => {
+    let audio = document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`);
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.className = 'call-remote-audio';
+      audio.dataset.participant = participantId;
+      audio.autoplay = true;
+      document.getElementById('groupCallAudio').append(audio);
+    }
+    audio.srcObject = event.streams[0] || new MediaStream([event.track]);
+    if (audio.setSinkId) audio.setSinkId(audioOutputSelect.value).catch(() => {});
+    audio.play().catch(() => {});
+  };
+  peer.onicecandidate = event => {
+    if (event.candidate && activeCall === call) {
+      sendGroupCallSignal(call, participantId, 'ice', event.candidate.toJSON()).catch(() => {});
+    }
+  };
+  peer.onconnectionstatechange = () => {
+    if (activeCall !== call) return;
+    if (peer.connectionState === 'connected') startCallDuration(call);
+    if (peer.connectionState === 'failed') setCallStatus(`Не удалось соединиться с ${participant.display_name || 'участником'}`);
+  };
+  if (String(session.userId) < participantId) {
+    try {
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await sendGroupCallSignal(call, participantId, 'offer', peer.localDescription.toJSON());
+    } catch (error) {
+      peer.close();
+      call.groupPeers.delete(participantId);
+      if (activeCall === call) setCallStatus(error.message || 'Не удалось подключить участника');
+    }
+  }
+}
+
+async function processGroupCallSignal(call, signal) {
+  const senderId = String(signal.senderId);
+  if (activeCall !== call || senderId === String(session.userId)) return;
+  const participant = call.participants.get(senderId);
+  if (!participant) {
+    if (call.pendingSignals.length < 100) call.pendingSignals.push(signal);
+    return;
+  }
+  let record = call.groupPeers.get(senderId);
+  if (!record) {
+    await createGroupCallPeer(call, participant);
+    record = call.groupPeers.get(senderId);
+  }
+  if (!record) return;
+  if (signal.type === 'offer') {
+    await record.peer.setRemoteDescription(signal.payload);
+    while (record.pendingCandidates.length) await record.peer.addIceCandidate(record.pendingCandidates.shift());
+    const answer = await record.peer.createAnswer();
+    await record.peer.setLocalDescription(answer);
+    await sendGroupCallSignal(call, senderId, 'answer', record.peer.localDescription.toJSON());
+  } else if (signal.type === 'answer') {
+    await record.peer.setRemoteDescription(signal.payload);
+    while (record.pendingCandidates.length) await record.peer.addIceCandidate(record.pendingCandidates.shift());
+  } else if (signal.type === 'ice') {
+    if (record.peer.remoteDescription) await record.peer.addIceCandidate(signal.payload);
+    else record.pendingCandidates.push(signal.payload);
+  }
+}
+
+async function pollGroupCall(call) {
+  if (activeCall !== call || call.statePolling || call.leaving) return;
+  call.statePolling = true;
+  try {
+    const state = await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call?heartbeat=1`);
+    if (!state.call || String(state.call.id) !== String(call.id)) {
+      await finishAudioCall({ notify:false, status:'Групповой звонок завершён.' });
+      return;
+    }
+    const participants = new Map(state.call.participants.map(participant => [String(participant.id), participant]));
+    if (!participants.has(String(session.userId))) {
+      await finishAudioCall({ notify:false, status:'Вы больше не участвуете в звонке.' });
+      return;
+    }
+    call.participants = participants;
+    call.isAdmin = participants.get(String(session.userId))?.role === 'admin';
+    const groupChat = chats.find(chat => String(chat.id) === call.groupId);
+    if (groupChat) groupChat.groupCallParticipants = participants.size;
+    for (const [participantId, record] of call.groupPeers) {
+      if (participants.has(participantId)) continue;
+      record.peer.close();
+      call.groupPeers.delete(participantId);
+      document.querySelector(`#groupCallAudio audio[data-participant="${CSS.escape(participantId)}"]`)?.remove();
+    }
+    renderGroupCallParticipants(call);
+    await Promise.all([...participants.values()].map(participant => createGroupCallPeer(call, participant)));
+    const pending = call.pendingSignals.splice(0);
+    for (const signal of pending) {
+      if (!participants.has(String(signal.senderId))) continue;
+      try { await processGroupCallSignal(call, signal); }
+      catch { if (activeCall === call) setCallStatus('Не удалось установить соединение с участником'); }
+    }
+  } catch {
+    if (activeCall === call) setCallStatus('Проблема со связью…');
+  } finally {
+    call.statePolling = false;
+  }
+}
+
+async function pollGroupCallSignals(call) {
+  if (activeCall !== call || call.signalPolling || call.leaving) return;
+  call.signalPolling = true;
+  try {
+    const result = await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/signals`);
+    for (const signal of result.signals || []) {
+      try { await processGroupCallSignal(call, signal); }
+      catch { if (activeCall === call) setCallStatus('Не удалось установить соединение с участником'); }
+    }
+  } catch {
+    if (activeCall === call) setCallStatus('Проблема со связью…');
+  } finally {
+    call.signalPolling = false;
+  }
+}
+
+async function finishGroupAudioCall({ notify = true, status = '' } = {}) {
+  const call = activeCall;
+  if (!call?.groupCall || call.leaving) return;
+  call.leaving = true;
+  const leaveRequest = notify
+    ? api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/leave`, { method:'POST', body:JSON.stringify({ endForAll:false }) }).catch(error => error)
+    : Promise.resolve(null);
+  activeCall = null;
+  clearTimeout(callTimeoutTimer);
+  clearInterval(call.groupStateTimer);
+  clearInterval(callDurationTimer);
+  cancelAnimationFrame(callVoiceFrame);
+  call.wakeLock?.release().catch(() => {});
+  setCallSpeaking(false);
+  call.voiceContext?.close().catch(() => {});
+  call.groupPeers.forEach(record => record.peer.close());
+  call.stream?.getTracks().forEach(track => track.stop());
+  document.getElementById('groupCallAudio').replaceChildren();
+  closeCallDialog();
+  const error = await leaveRequest;
+  const groupChat = chats.find(chat => String(chat.id) === call.groupId);
+  if (groupChat && !(error instanceof Error)) groupChat.groupCallParticipants = Number(error?.remaining) || 0;
+  updateCallControls();
+  if (String(activeId) === call.groupId && !(error instanceof Error)) refreshActiveGroupCallPreview();
+  if (error instanceof Error) showMessageToast(error.message || 'Не удалось выйти из звонка на сервере.');
+  if (status) showMessageToast(status);
+}
+
+function chooseGroupCallExit() {
+  const modal = document.getElementById('groupCallLeaveModal');
+  modal.hidden = false;
+  return new Promise(resolve => {
+    const handleKeydown = event => {
+      if (event.key === 'Escape') finish('');
+    };
+    const finish = choice => {
+      modal.hidden = true;
+      document.getElementById('groupCallLeaveCancel').removeEventListener('click', cancel);
+      document.getElementById('groupCallLeaveOnly').removeEventListener('click', leave);
+      document.getElementById('groupCallEndAll').removeEventListener('click', endAll);
+      modal.removeEventListener('click', handleBackdrop);
+      document.removeEventListener('keydown', handleKeydown);
+      resolve(choice);
+    };
+    const cancel = () => finish('');
+    const leave = () => finish('leave');
+    const endAll = () => finish('end');
+    const handleBackdrop = event => { if (event.target === modal) cancel(); };
+    document.getElementById('groupCallLeaveCancel').addEventListener('click', cancel);
+    document.getElementById('groupCallLeaveOnly').addEventListener('click', leave);
+    document.getElementById('groupCallEndAll').addEventListener('click', endAll);
+    modal.addEventListener('click', handleBackdrop);
+    document.addEventListener('keydown', handleKeydown);
+  });
+}
+
+async function leaveActiveCall() {
+  const call = activeCall;
+  if (!call?.groupCall) return finishAudioCall();
+  if (call.isAdmin) {
+    try {
+      const state = await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call?heartbeat=1`);
+      if (activeCall !== call) return;
+      if (state.call?.id !== call.id) return finishGroupAudioCall({ notify:false, status:'Групповой звонок завершён.' });
+      call.participants = new Map(state.call.participants.map(participant => [String(participant.id), participant]));
+      call.isAdmin = call.participants.get(String(session.userId))?.role === 'admin';
+      renderGroupCallParticipants(call);
+    } catch {}
+  }
+  if (!call.isAdmin || call.participants.size <= 1) return finishGroupAudioCall();
+  const choice = await chooseGroupCallExit();
+  if (!choice || activeCall !== call) return;
+  if (choice === 'leave') return finishGroupAudioCall();
+  call.leaving = true;
+  try {
+    await api(`/api/social/group-chats/${encodeURIComponent(call.groupId)}/call/${encodeURIComponent(call.id)}/leave`, { method:'POST', body:JSON.stringify({ endForAll:true }) });
+    call.leaving = false;
+    await finishGroupAudioCall({ notify:false, status:'Групповой звонок завершён.' });
+  } catch (error) {
+    call.leaving = false;
+    showMessageToast(error.message || 'Не удалось завершить звонок.');
   }
 }
 
@@ -3487,8 +3790,36 @@ async function testAudioOutput() {
   }
 }
 
+async function startGroupAudioCall(chat) {
+  if (activeCall) return;
+  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) return showMessageToast('Браузер не поддерживает аудиозвонки.');
+  if (!window.isSecureContext) return showMessageToast('Для звонков откройте Messenger через HTTPS.');
+  let stream;
+  let call;
+  try {
+    stream = await getCallMicrophone();
+    const result = await api(`/api/social/group-chats/${encodeURIComponent(chat.id)}/call`, { method:'POST', body:'{}' });
+    call = { id:result.callId, groupId:String(chat.id), name:chat.name, groupCall:true, isAdmin:chat.isAdmin, participants:new Map(), groupPeers:new Map(), pendingSignals:[], stream, signalingReady:true, minimized:false, statePolling:false, signalPolling:false, leaving:false };
+    activeCall = call;
+    updateCallControls();
+    const config = await api('/api/social/calls/config');
+    callIceServers = config.iceServers || callIceServers;
+    prepareCallVoiceContext(call);
+    keepCallScreenAwake(call);
+    monitorCallVoice(call);
+    setCallDialog({ name:call.name, status:'Подключаемся к групповому звонку…', connecting:true });
+    await pollGroupCall(call);
+    if (activeCall === call) call.groupStateTimer = setInterval(() => pollGroupCall(call), 3000);
+  } catch (error) {
+    if (activeCall === call) await finishGroupAudioCall({ status:'Не удалось подключиться к групповому звонку.' });
+    else stream?.getTracks().forEach(track => track.stop());
+    showMessageToast(error.message || 'Не удалось начать групповой звонок.');
+  }
+}
+
 async function startAudioCall() {
   const chat = chats.find(item => String(item.id) === String(activeId));
+  if (chat?.isGroup) return startGroupAudioCall(chat);
   if (!chat || chat.isFavorites || chat.partner.is_deleted || chat.partner.is_bot || activeCall) return;
   if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
     return showMessageToast('Браузер не поддерживает аудиозвонки.');
@@ -3644,6 +3975,10 @@ async function pollCallSignals() {
   if (!session?.sessionToken || !chatsLoadedOnce || document.hidden || callSignalsPolling) return;
   callSignalsPolling = true;
   try {
+    if (activeCall?.groupCall) {
+      await pollGroupCallSignals(activeCall);
+      return;
+    }
     const result = await api('/api/social/calls/signals');
     for (const signal of result.signals || []) await processCallSignal(signal);
   } catch {
@@ -4272,9 +4607,9 @@ document.getElementById('groupInviteSkip').addEventListener('click', finishGroup
 document.getElementById('groupInviteAddSelected').addEventListener('click', addSelectedGroupInvitees);
 document.getElementById('callAccept').addEventListener('click', acceptAudioCall);
 document.getElementById('callDecline').addEventListener('click', declineAudioCall);
-document.getElementById('callEnd').addEventListener('click', () => finishAudioCall());
+document.getElementById('callEnd').addEventListener('click', leaveActiveCall);
 document.addEventListener('pointerdown', () => {
-  if (activeCall && !activeCall.initiator && !activeCall.peer && callRingtone.paused) startIncomingRingtone();
+  if (activeCall && !activeCall.groupCall && !activeCall.initiator && !activeCall.peer && callRingtone.paused) startIncomingRingtone();
 }, { passive:true });
 document.getElementById('callMinimize').addEventListener('click', () => {
   if (!activeCall) return;
@@ -4290,7 +4625,7 @@ document.getElementById('callRestore').addEventListener('click', () => {
   callOverlay.setAttribute('aria-hidden', 'false');
   document.getElementById('callDock').hidden = true;
 });
-document.getElementById('callDockEnd').addEventListener('click', () => finishAudioCall());
+document.getElementById('callDockEnd').addEventListener('click', leaveActiveCall);
 const callDock = document.getElementById('callDock');
 const callDockDragHandle = document.getElementById('callDockDrag');
 callDockDragHandle.addEventListener('pointerdown', event => {
@@ -4356,7 +4691,36 @@ function updateFilterIndicator(button = document.querySelector('.filter.active')
   track.style.setProperty('--filter-width', `${button.offsetWidth}px`);
 }
 
+const chatFilterRow = document.getElementById('chatFilterRow');
+chatFilterRow.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'mouse' || event.button !== 0) return;
+  filterDrag = { pointerId:event.pointerId, startX:event.clientX, scrollLeft:chatFilterRow.scrollLeft, moved:false };
+});
+document.addEventListener('pointermove', event => {
+  if (!filterDrag || event.pointerId !== filterDrag.pointerId) return;
+  const distance = event.clientX - filterDrag.startX;
+  if (!filterDrag.moved && Math.abs(distance) < 5) return;
+  filterDrag.moved = true;
+  chatFilterRow.classList.add('is-dragging');
+  chatFilterRow.scrollLeft = filterDrag.scrollLeft - distance;
+  event.preventDefault();
+}, { passive:false });
+document.addEventListener('pointerup', event => {
+  if (!filterDrag || event.pointerId !== filterDrag.pointerId) return;
+  const moved = filterDrag.moved;
+  filterDrag = null;
+  chatFilterRow.classList.remove('is-dragging');
+  if (moved) {
+    suppressFilterClick = true;
+    setTimeout(() => { suppressFilterClick = false; }, 0);
+  }
+});
+document.addEventListener('pointercancel', () => {
+  filterDrag = null;
+  chatFilterRow.classList.remove('is-dragging');
+});
 document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
+  if (suppressFilterClick) return;
   document.querySelector('.filter.active')?.classList.remove('active');
   button.classList.add('active');
   activeFilter = button.dataset.filter;
@@ -4958,6 +5322,7 @@ document.addEventListener('visibilitychange', () => {
     refreshChats(wasAway);
     loadSettings();
     pollCallSignals();
+    sendPresenceHeartbeat();
   }
 });
 
@@ -5127,7 +5492,16 @@ setInterval(() => {
   if (session?.sessionToken && !document.hidden) refreshChats();
 }, 12000);
 
+function sendPresenceHeartbeat() {
+  if (!session?.sessionToken || document.hidden || !navigator.onLine) return;
+  api('/api/social/presence', { method: 'POST' }).catch(() => {});
+}
+
+setInterval(sendPresenceHeartbeat, 20000);
+sendPresenceHeartbeat();
+
 callSignalTimer = setInterval(pollCallSignals, 1200);
+groupCallPreviewTimer = setInterval(refreshActiveGroupCallPreview, 6000);
 window.addEventListener('offline', markConnectionLost);
 window.addEventListener('online', () => {
   if (!session?.sessionToken) return;
