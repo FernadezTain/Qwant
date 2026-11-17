@@ -28,6 +28,14 @@ function respondError(res, error, status = 500) {
   });
 }
 
+function respondGroupCallError(res, error) {
+  if (['PGRST202', 'PGRST205', '42P01', '42883'].includes(error.code)) {
+    console.error('Qwant group call migration is missing or unavailable:', error.code);
+    return res.status(503).json({ success:false, error:'Групповые звонки пока не настроены. Выполните qwant_group_calls.sql в Supabase, затем повторите попытку.' });
+  }
+  respondError(res, error, 400);
+}
+
 async function supabase(path, { method = 'GET', body, prefer = 'return=representation', headers = {} } = {}) {
   if (!configurationReady()) throw new Error('QwantID backend is not configured');
   const response = await fetch(`${databaseUrl}/rest/v1/${path}`, {
@@ -530,7 +538,7 @@ export function registerQwantApi(app, { authRateLimit }) {
       const profiles = await userMap(participants.map(participant => participant.user_id));
       const roles = new Map(members.map(member => [String(member.user_id), member.role]));
       res.json({ success:true, call:{ id:calls[0].id, createdBy:String(calls[0].created_by), createdAt:calls[0].created_at, participants:participants.map(participant => ({ ...(profiles.get(String(participant.user_id)) || {}), id:String(participant.user_id), role:roles.get(String(participant.user_id)) || 'member', joinedAt:participant.joined_at })) } });
-    } catch (error) { respondError(res, error, 400); }
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.post('/api/social/group-chats/:groupId/call', async (req, res) => {
@@ -540,7 +548,7 @@ export function registerQwantApi(app, { authRateLimit }) {
       const result = await supabase('rpc/qwant_group_call_join', { method:'POST', body:{ p_group_id:req.params.groupId, p_user_id:user.id } });
       if (!result?.[0]) throw new Error('Не удалось создать или открыть групповой звонок');
       res.json({ success:true, callId:result[0].call_id, created:result[0].created });
-    } catch (error) { respondError(res, error, 400); }
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.get('/api/social/group-chats/:groupId/call/:callId/signals', async (req, res) => {
@@ -550,7 +558,7 @@ export function registerQwantApi(app, { authRateLimit }) {
     try {
       const signals = await supabase('rpc/qwant_group_call_consume_signals', { method:'POST', body:{ p_call_id:req.params.callId, p_user_id:user.id } });
       res.json({ success:true, signals:(signals || []).map(signal => ({ ...signal, senderId:String(signal.sender_id), type:signal.signal_type })) });
-    } catch (error) { respondError(res, error, 400); }
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.post('/api/social/group-chats/:groupId/call/:callId/signals', async (req, res) => {
@@ -564,7 +572,7 @@ export function registerQwantApi(app, { authRateLimit }) {
     try {
       await supabase('rpc/qwant_group_call_send_signal', { method:'POST', body:{ p_call_id:req.params.callId, p_sender_id:user.id, p_recipient_id:recipientId, p_signal_type:type, p_payload:payload } });
       res.json({ success:true });
-    } catch (error) { respondError(res, error, 400); }
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.post('/api/social/group-chats/:groupId/call/:callId/leave', async (req, res) => {
@@ -574,7 +582,7 @@ export function registerQwantApi(app, { authRateLimit }) {
     try {
       const result = await supabase('rpc/qwant_group_call_leave', { method:'POST', body:{ p_group_id:req.params.groupId, p_call_id:req.params.callId, p_user_id:user.id, p_end_for_all:req.body?.endForAll === true } });
       res.json({ success:true, ended:result?.[0]?.ended === true, remaining:Number(result?.[0]?.remaining) || 0 });
-    } catch (error) { respondError(res, error, 400); }
+    } catch (error) { respondGroupCallError(res, error); }
   });
 
   app.get('/api/social/group-invites/:inviteCode', async (req, res) => {
