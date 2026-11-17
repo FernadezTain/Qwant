@@ -72,11 +72,12 @@
     .search svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
     .search input::placeholder { color: #a4a198; }
-    .filter-row { overflow-x: auto; padding: 0 18px 12px; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; touch-action: pan-x; }
+    .filter-row { overflow-x: auto; padding: 0 18px 12px; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; touch-action: pan-x; cursor: grab; }
+    .filter-row.is-dragging { cursor: grabbing; }
     .filter-row::-webkit-scrollbar { display: none; }
-    .filter-track { position: relative; display: flex; width: 100%; min-width: 0; align-items: center; justify-content: space-between; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
+    .filter-track { position: relative; display: flex; width: max-content; min-width: 100%; align-items: center; justify-content: flex-start; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
     .filter-indicator { position: absolute; top: 4px; bottom: 4px; left: 0; z-index: 0; width: var(--filter-width, 0px); border-radius: 999px; background: var(--ink); transform: translateX(var(--filter-offset, 4px)); transition: width .36s cubic-bezier(.2,.85,.25,1), transform .42s cubic-bezier(.2,.85,.25,1); pointer-events: none; }
-    .filter { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; padding: 7px 8px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .22s ease; }
+    .filter { position: relative; z-index: 1; flex: 0 0 auto; padding: 7px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .22s ease; }
     .filter.active { background: transparent; color: white; }
     .chat-list { flex: 1; overflow-y: auto; padding: 2px 9px 10px; }
     .chat-list.filter-slide-forward > *, .chat-list.filter-slide-backward > * { animation: chat-filter-slide .3s cubic-bezier(.2,.75,.25,1) both; }
@@ -115,7 +116,8 @@
     .person-status { margin-top: 4px; color: var(--green); font-size: 11px; }
     .head-actions { display: flex; gap: 7px; }
     .head-actions .icon-button { width: 35px; height: 35px; border: 0; }
-    .head-actions .call-start { color: var(--green); }
+    .head-actions .call-start { position: relative; color: var(--green); }
+    .head-actions .call-start.group-call-active::after { position: absolute; top: -3px; right: -4px; display: grid; min-width: 16px; height: 16px; place-items: center; padding: 0 3px; border: 2px solid var(--surface); border-radius: 9px; background: #16a7e0; color: white; content: attr(data-call-count); font-size: 8px; font-weight: 800; }
     .head-actions .group-members-toggle[hidden], .head-actions .call-start[hidden] { display: none !important; }
     .call-overlay { position: fixed; inset: 0; z-index: 105; display: grid; place-items: center; padding: 18px; background: rgba(8,10,14,.62); backdrop-filter: blur(8px); }
     .call-overlay[hidden] { display: none; }
@@ -126,6 +128,7 @@
     .call-minimize span { display: none; }
     .call-minimize:hover { background: #30343a; color: white; }
     .call-main { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0 24px; }
+    .call-main.is-group-call { align-items: stretch; }
     .call-avatar { position: relative; display: grid; width: 104px; height: 104px; place-items: center; margin: 0 auto 25px; border: 0; border-radius: 50%; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 32px; font-weight: 700; box-shadow: 0 0 0 10px rgba(133,110,225,.09),0 0 0 22px rgba(133,110,225,.045); }
     .call-avatar { animation: call-avatar-breathe 3s ease-in-out infinite; }
     .call-card.is-ringing .call-avatar { animation: call-avatar-ring 1.65s ease-in-out infinite; }
@@ -135,6 +138,21 @@
     .call-card.is-speaking .call-avatar::before { animation: call-voice-wave 1.5s ease-out infinite; }
     .call-card.is-speaking .call-avatar::after { animation: call-voice-wave 1.5s .45s ease-out infinite; }
     .call-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    .call-avatar[hidden] { display: none; }
+    .group-call-participants { display: grid; width: min(100%,560px); max-height: 270px; grid-template-columns: repeat(auto-fit,minmax(110px,1fr)); align-content: center; gap: 10px; overflow-y: auto; margin: 0 auto 18px; padding: 5px; }
+    .group-call-participants[hidden] { display: none; }
+    .group-call-participant { display: grid; min-width: 0; justify-items: center; gap: 7px; padding: 12px 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: rgba(255,255,255,.055); }
+    .group-call-participant.is-self { border-color: rgba(81,190,255,.55); background: rgba(40,158,222,.17); }
+    .group-call-participant-avatar { display: grid; width: 52px; height: 52px; place-items: center; overflow: hidden; border-radius: 50%; background: linear-gradient(145deg,#8d70e7,#566ed7); color: white; font-size: 15px; font-weight: 700; }
+    .group-call-participant-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .group-call-participant-name { width: 100%; overflow: hidden; color: #eef0f2; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .group-call-leave-modal[hidden] { display: none; }
+    .group-call-leave-modal { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 18px; background: rgba(8,10,14,.62); backdrop-filter: blur(7px); }
+    .group-call-leave-card { width: min(100%,380px); padding: 22px; border: 1px solid #34383e; border-radius: 16px; background: #1c1f23; color: #f5f6f7; box-shadow: 0 24px 70px rgba(0,0,0,.4); }
+    .group-call-leave-title { margin: 0; font-size: 16px; font-weight: 650; }
+    .group-call-leave-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .group-call-leave-actions button { min-height: 38px; padding: 0 12px; border: 1px solid #41464d; border-radius: 10px; background: #2a2e34; color: #f5f6f7; font: inherit; font-size: 12px; cursor: pointer; }
+    .group-call-leave-actions .end-call { border-color: #b94a4a; background: #b94a4a; }
     .call-title { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.2px; }
     .call-status { min-height: 20px; margin: 7px 0 0; color: #a5a9ae; font-size: 12px; }
     .call-duration { min-height: 17px; margin-top: 3px; color: #d7d9dc; font-size: 12px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
@@ -183,6 +201,12 @@
       .call-minimize::before { content: '‹'; font-size: 32px; font-weight: 300; line-height: 1; }
       .call-minimize:hover { background: rgba(255,255,255,.12); }
       .call-main { padding: 0 0 14vh; }
+      .call-main.is-group-call { padding: 0 0 8vh; }
+      .group-call-participants { max-height: 48dvh; grid-template-columns: repeat(auto-fit,minmax(90px,1fr)); gap: 8px; }
+      .group-call-participant { padding: 9px 5px; }
+      .group-call-leave-card { padding: 20px 16px; }
+      .group-call-leave-actions { justify-content: stretch; }
+      .group-call-leave-actions button { flex: 1 1 auto; }
       .call-avatar { width: 152px; height: 152px; margin-bottom: 30px; border: 0; box-shadow: 0 0 0 13px rgba(226,216,255,.18),0 0 0 28px rgba(226,216,255,.1); font-size: 44px; }
       .call-title { color: white; font-size: 31px; font-weight: 500; letter-spacing: -.5px; }
       .call-status { margin-top: 10px; color: rgba(255,255,255,.88); font-size: 16px; }
@@ -1317,7 +1341,7 @@
   <div class="call-overlay" id="callOverlay" aria-hidden="true" hidden>
     <section class="call-card" role="dialog" aria-modal="true" aria-labelledby="callTitle">
       <div class="call-card-head"><span class="call-window-label">Qwant · аудиозвонок</span><button class="call-minimize" id="callMinimize" type="button" aria-label="Свернуть звонок" title="Свернуть">−<span>Свернуть</span></button></div>
-      <div class="call-main"><div class="call-avatar" id="callAvatar">FX</div>
+      <div class="call-main" id="callMain"><div class="call-avatar" id="callAvatar">FX</div><div class="group-call-participants" id="groupCallParticipants" aria-label="Участники звонка" hidden></div>
       <h2 class="call-title" id="callTitle">Аудиозвонок</h2>
       <div class="call-status" id="callStatus" role="status" aria-live="polite"></div></div>
       <div class="call-duration" id="callDuration" hidden></div>
@@ -1329,6 +1353,13 @@
         <button class="call-action decline" id="callDecline" type="button" hidden><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2.7Z"/></svg><span>Отклонить</span></button>
       </div>
       <audio class="call-remote-audio" id="callRemoteAudio" autoplay></audio>
+      <div id="groupCallAudio" hidden></div>
+    </section>
+  </div>
+  <div class="group-call-leave-modal" id="groupCallLeaveModal" hidden>
+    <section class="group-call-leave-card" role="dialog" aria-modal="true" aria-labelledby="groupCallLeaveTitle">
+      <h2 class="group-call-leave-title" id="groupCallLeaveTitle">Вы действительно хотите выйти из звонка?</h2>
+      <div class="group-call-leave-actions"><button id="groupCallLeaveCancel" type="button">Отмена</button><button id="groupCallLeaveOnly" type="button">Выйти</button><button class="end-call" id="groupCallEndAll" type="button">Выйти и завершить</button></div>
     </section>
   </div>
   <audio id="audioOutputTest" hidden></audio>
